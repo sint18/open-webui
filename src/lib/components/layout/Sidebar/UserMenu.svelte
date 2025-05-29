@@ -160,7 +160,7 @@
 				</a>
 			{/if}
 
-			{#if help}
+			{#if help && role === 'admin'}
 				<hr class=" border-gray-100 dark:border-gray-800 my-1 p-0" />
 
 				<!-- {$i18n.t('Help')} -->
@@ -235,7 +235,7 @@
 				<div class=" self-center truncate">{$i18n.t('Sign Out')}</div>
 			</button>
 
-			{#if $activeUserIds?.length > 0}
+			{#if $activeUserIds?.length > 0 && role === 'admin'}
 				<hr class=" border-gray-100 dark:border-gray-800 my-1 p-0" />
 
 				<Tooltip

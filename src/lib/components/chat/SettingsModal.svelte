@@ -277,33 +277,33 @@
 				'users'
 			]
 		},
-		{
-			id: 'about',
-			title: 'About',
-			keywords: [
-				'about',
-				'info',
-				'information',
-				'version',
-				'documentation',
-				'help',
-				'support',
-				'details',
-				'aboutus',
-				'softwareinfo',
-				'timothyjaeryangbaek',
-				'openwebui',
-				'release',
-				'updates',
-				'updateinfo',
-				'versioninfo',
-				'aboutapp',
-				'terms',
-				'termsandconditions',
-				'contact',
-				'aboutpage'
-			]
-		}
+		// {
+		// 	id: 'about',
+		// 	title: 'About',
+		// 	keywords: [
+		// 		'about',
+		// 		'info',
+		// 		'information',
+		// 		'version',
+		// 		'documentation',
+		// 		'help',
+		// 		'support',
+		// 		'details',
+		// 		'aboutus',
+		// 		'softwareinfo',
+		// 		'timothyjaeryangbaek',
+		// 		'openwebui',
+		// 		'release',
+		// 		'updates',
+		// 		'updateinfo',
+		// 		'versioninfo',
+		// 		'aboutapp',
+		// 		'terms',
+		// 		'termsandconditions',
+		// 		'contact',
+		// 		'aboutpage'
+		// 	]
+		// }
 	];
 
 	let search = '';
@@ -737,8 +737,8 @@
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
 					/>
-				{:else if selectedTab === 'about'}
-					<About />
+				<!--{:else if selectedTab === 'about'}-->
+				<!--	<About />-->
 				{/if}
 			</div>
 		</div>
