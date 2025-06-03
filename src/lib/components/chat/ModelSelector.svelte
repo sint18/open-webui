@@ -6,6 +6,7 @@
 	import Tooltip from '../common/Tooltip.svelte';
 
 	import { updateUserSettings } from '$lib/apis/users';
+	import { formatModelName, getCompanyName } from '$lib/utils/helper-functions';
 	const i18n = getContext('i18n');
 
 	export let selectedModels = [''];
@@ -40,11 +41,19 @@
 					<Selector
 						id={`${selectedModelIdx}`}
 						placeholder={$i18n.t('Select a model')}
-						items={$models.map((model) => ({
+						items={$models.map((model) => {
+							        // Format the model name to "Company: Model Name" format
+						const companyName = getCompanyName(model);
+						const formattedModelName = formatModelName(model.name);
+
+						const formattedName = `${companyName}: ${formattedModelName}`;
+						return {
 							value: model.id,
-							label: model.name,
+							label: formattedName,
 							model: model
-						}))}
+						}
+
+						})}
 						showTemporaryChatControl={$user?.role === 'user'
 							? ($user?.permissions?.chat?.temporary ?? true) &&
 								!($user?.permissions?.chat?.temporary_enforced ?? false)

@@ -601,7 +601,7 @@
 		<div class={`shrink-0 ltr:mr-3 rtl:ml-3`}>
 			<ProfileImage
 				src={model?.info?.meta?.profile_image_url ??
-					($i18n.language === 'dg-DG' ? `/doge.png` : `${WEBUI_BASE_URL}/static/favicon.png`)}
+					($i18n.language === 'dg-DG' ? `/doge.png` : `/static/favicon.png`)}
 				className={'size-8'}
 			/>
 		</div>
