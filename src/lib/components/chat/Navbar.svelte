@@ -121,8 +121,7 @@
 						</Menu>
 					{/if}
 
-					{#if $user?.role === 'admin'}
-
+					{#if $user?.role === 'admin' || $user?.permissions.chat?.controls}
 						<Tooltip content={$i18n.t('Controls')}>
 							<button
 								class=" flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
@@ -136,7 +135,6 @@
 								</div>
 							</button>
 						</Tooltip>
-
 					{/if}
 
 					<Tooltip content={$i18n.t('New Chat')}>

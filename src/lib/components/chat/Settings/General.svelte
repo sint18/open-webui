@@ -320,10 +320,7 @@
 					placeholder={$i18n.t('Enter system prompt here')}
 				/>
 			</div>
-
-			{#if $user?.role === 'admin'}
-
-				<div class="mt-2 space-y-3 pr-1.5">
+			<div class="mt-2 space-y-3 pr-1.5">
 
 					<div class="flex justify-between items-center text-sm">
 						<div class="  font-medium">{$i18n.t('Advanced Parameters')}</div>
@@ -411,7 +408,6 @@
 						</div>
 					{/if}
 				</div>
-			{/if}
 		{/if}
 	</div>
 

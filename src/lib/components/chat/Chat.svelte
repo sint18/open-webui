@@ -2171,8 +2171,7 @@
 						{/if}
 					</div>
 				</Pane>
-
-				{#if $user?.role === "admin"}
+				{#if $user?.role === 'admin' || $user?.permissions.chat?.controls}
 					<ChatControls
 						bind:this={controlPaneComponent}
 						bind:history
