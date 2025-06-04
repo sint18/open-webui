@@ -64,8 +64,26 @@ export const initI18n = (defaultLocale?: string | undefined) => {
 			returnEmptyString: false,
 			interpolation: {
 				escapeValue: false // not needed for svelte as it escapes by default
-			}
+			},
 		});
+
+
+	// Override the translation function to handle empty English translations
+
+	const originalTFunction = i18next.t.bind(i18next);
+	i18next.t = function(key, ...args) {
+		// Get the translation using the original function
+		const translation = originalTFunction(key, ...args);
+
+		// If we're in English mode and the translation is empty, return the key itself
+		if (i18next.language.startsWith('en') && translation === '') {
+			return key;
+		}
+
+		// Otherwise return the translation (which might be the key itself if no translation was found)
+		return translation;
+	};
+
 
 	const lang = i18next?.language || defaultLocale || 'en-US';
 	document.documentElement.setAttribute('lang', lang);
