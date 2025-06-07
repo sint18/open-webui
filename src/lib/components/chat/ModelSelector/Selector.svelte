@@ -19,7 +19,7 @@
 		mobile,
 		temporaryChatEnabled,
 		settings,
-		config
+		config, type Model
 	} from '$lib/stores';
 	import { toast } from 'svelte-sonner';
 	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream } from '$lib/utils';
@@ -32,6 +32,7 @@
 	import dayjs from '$lib/dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import ArrowUpTray from '$lib/components/icons/ArrowUpTray.svelte';
+	import ModelImage from '$lib/components/common/ModelImage.svelte';
 	dayjs.extend(relativeTime);
 
 	const i18n = getContext('i18n');
@@ -49,6 +50,7 @@
 		label: string;
 		value: string;
 		model: Model;
+		icon?: string;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		[key: string]: any;
 	}[] = [];
@@ -492,7 +494,6 @@
 						</div>
 					</div>
 				{/if}
-
 				{#each filteredItems as item, index}
 					<button
 						aria-label="model-item"
@@ -529,11 +530,13 @@
 												content={$user?.role === 'admin' ? (item?.value ?? '') : ''}
 												placement="top-start"
 											>
-												<img
-													src={item.model?.info?.meta?.profile_image_url ?? '/static/favicon.png'}
-													alt="Model"
-													class="rounded-full size-5 flex items-center mr-2"
-												/>
+												<ModelImage selectedModel={item.model} class="rounded-full size-5 flex items-center mr-2">
+												</ModelImage>
+<!--												<img-->
+<!--													src={item.model?.info?.meta?.profile_image_url == "/static/favicon.png" ? item.icon : item.model?.info?.meta?.profile_image_url}-->
+<!--													alt="{item.model.name} logo"-->
+<!--													class="rounded-full size-5 flex items-center mr-2"-->
+<!--												/>-->
 
 												<div class="flex items-center line-clamp-1">
 													<div class="line-clamp-1">
