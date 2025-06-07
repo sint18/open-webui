@@ -15,6 +15,7 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 	import MessageInput from './MessageInput.svelte';
+	import ModelImage from '$lib/components/common/ModelImage.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -122,16 +123,10 @@
 										selectedModelIdx = modelIdx;
 									}}
 								>
-									<img
-										crossorigin="anonymous"
-										src={model?.info?.meta?.profile_image_url ??
-											($i18n.language === 'dg-DG'
-												? `/doge.png`
-												: `${WEBUI_BASE_URL}/static/favicon.png`)}
-										class=" size-9 @sm:size-10 rounded-full border-[1px] border-gray-100 dark:border-none"
-										alt="logo"
-										draggable="false"
-									/>
+									<ModelImage selectedModel={model} class="size-9 @sm:size-10 rounded-full border-[1px] border-gray-100 dark:border-none"
+															draggable="false"
+															crossorigin="anonymous"
+									></ModelImage>
 								</button>
 							</Tooltip>
 						{/each}

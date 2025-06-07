@@ -53,6 +53,7 @@
 	import Sparkles from '../icons/Sparkles.svelte';
 
 	import { KokoroWorker } from '$lib/workers/KokoroWorker';
+	import ModelImage from '$lib/components/common/ModelImage.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -183,6 +184,9 @@
 			behavior: 'smooth'
 		});
 	};
+
+
+
 
 	const screenCaptureHandler = async () => {
 		try {
@@ -495,16 +499,9 @@
 						>
 							<div class="flex items-center justify-between w-full">
 								<div class="pl-[1px] flex items-center gap-2 text-sm dark:text-gray-500">
-									<img
-										crossorigin="anonymous"
-										alt="model profile"
-										class="size-3.5 max-w-[28px] object-cover rounded-full"
-										src={$models.find((model) => model.id === atSelectedModel.id)?.info?.meta
-											?.profile_image_url ??
-											($i18n.language === 'dg-DG'
-												? `/doge.png`
-												: `${WEBUI_BASE_URL}/static/favicon.png`)}
-									/>
+
+									<!--{@debug debugvar}-->
+									<ModelImage selectedModel={atSelectedModel} class="size-3.5 max-w-[28px] object-cover rounded-full"></ModelImage>
 									<div class="translate-y-[0.5px]">
 										Talking to <span class=" font-medium">{atSelectedModel.name}</span>
 									</div>

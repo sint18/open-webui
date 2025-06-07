@@ -33,6 +33,26 @@ export const getCompanyName = (model: any) => {
 	return model.owned_by.charAt(0).toUpperCase() + model.owned_by.slice(1);
 };
 
+const modelLogoMap: Record<string, string> = {
+	"openai": "/assets/chatgpt.png",
+	"google": "/assets/gemini.png",
+	"mistral": "/assets/mistral.png",
+	"deepseek": "/assets/deepseek.png",
+	"ollama": "/assets/ollama.png",
+	"cohere": "/assets/cohere.png",
+	"anthropic": "/assets/claude.png",
+	"meta": "/assets/llama.png",
+	"vicuna": "/assets/vicuna.png",
+	"alibaba": "/assets/qwen.png",
+	"microsoft": "/assets/phi.png",
+	"falcon": "/assets/falcon.png",
+};
+
+export function getLogoForModel(company: string) {
+	return modelLogoMap[company.toLowerCase()] || "/assets/favicon.png";
+}
+
+
 // Format model name to be more readable (remove dashes, capitalize properly)
 export const formatModelName = (modelName: any) => {
 	// Extract the base name without company prefix if it exists
@@ -47,7 +67,7 @@ export const formatModelName = (modelName: any) => {
 		// Convert gpt-4o to GPT 4o
 		return baseName
 			.replace(/^gpt-/i, 'GPT ')
-			.replace(/-([a-z])/g, (_, letter) => ' ' + letter.toUpperCase())
+			.replace(/-([a-z])/g, (_, letter) => ' ' + letter.toLowerCase())
 			.replace(/-(\d)/g, ' $1');
 	}
 
@@ -107,5 +127,5 @@ export const formatModelName = (modelName: any) => {
 	return baseName
 		.replace(/-(\d+)/g, ' $1')  // Replace dash followed by numbers with space and numbers
 		.replace(/-([a-z])/gi, (_, letter) => ' ' + letter.charAt(0).toUpperCase() + letter.slice(1)) // Replace dash followed by letters with space and capitalized letter
-		.replace(/^([a-z])/i, (_, letter) => letter.toUpperCase()); // Capitalize first letter
+		.replace(/^([a-z])/i, (_, letter) => letter.toLowerCase()); // Capitalize first letter
 };

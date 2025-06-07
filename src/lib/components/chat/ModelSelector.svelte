@@ -6,7 +6,7 @@
 	import Tooltip from '../common/Tooltip.svelte';
 
 	import { updateUserSettings } from '$lib/apis/users';
-	import { formatModelName, getCompanyName } from '$lib/utils/helper-functions';
+	import { formatModelName, getCompanyName, getLogoForModel } from '$lib/utils/helper-functions';
 	const i18n = getContext('i18n');
 
 	export let selectedModels = [''];
@@ -50,7 +50,8 @@
 						return {
 							value: model.id,
 							label: formattedName,
-							model: model
+							model: model,
+							icon: getLogoForModel(companyName)
 						}
 
 						})}
