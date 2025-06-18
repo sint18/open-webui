@@ -109,7 +109,7 @@ RUN echo -n 00000000-0000-0000-0000-000000000000 > $HOME/.cache/chroma/telemetry
 # Make sure the user has access to the app and root directory
 RUN chown -R $UID:$GID /app $HOME
 
-RUN apt-get install -y --no-install-recommends curl jq
+RUN apt-get update && apt-get install -y jq
 
 RUN if [ "$USE_OLLAMA" = "true" ]; then \
     apt-get update && \
