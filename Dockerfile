@@ -169,7 +169,7 @@ COPY --chown=$UID:$GID ./backend .
 
 EXPOSE 8080
 
-HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health || exit 1
+#HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health || exit 1
 
 USER $UID:$GID
 
