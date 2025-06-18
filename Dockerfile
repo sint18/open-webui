@@ -168,6 +168,7 @@ COPY --chown=$UID:$GID --from=build /app/package.json /app/package.json
 COPY --chown=$UID:$GID ./backend .
 
 EXPOSE 8080
+HEALTHCHECK NONE
 
 #HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health || exit 1
 
