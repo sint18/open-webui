@@ -34,6 +34,7 @@ RUN npm ci
 
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
 
 ######## WebUI backend ########
@@ -167,8 +168,9 @@ COPY --chown=$UID:$GID --from=build /app/package.json /app/package.json
 COPY --chown=$UID:$GID ./backend .
 
 EXPOSE 8080
+HEALTHCHECK NONE
 
-HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
+#HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health || exit 1
 
 USER $UID:$GID
 
