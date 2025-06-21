@@ -1,131 +1,157 @@
 // Helper function to extract company name from the model
-export const getCompanyName = (model: any) => {
-	if (model.owned_by === 'openai') {
-		return 'OpenAI';
-	} else if (model.owned_by === 'ollama') {
-		// For Ollama models, use the family or parent_model to determine company
-		if (model.ollama?.details?.family) {
-			const family = model.ollama.details.family.toLowerCase();
-			if (family === 'llama') return 'Meta';
-			if (family === 'mistral' || family === 'mixtral') return 'Mistral';
-			if (family === 'falcon') return 'TII';
-			if (family === 'vicuna') return 'LMSYS';
-			if (family === 'qwen') return 'Alibaba';
-			if (family === 'phi') return 'Microsoft';
-			// Add more family mappings as needed
-		}
-		return 'Ollama'; // Default for ollama models
-	} else if (model.owned_by === 'arena') {
-		return 'Arena';
-	} else if (model.direct) {
-		// For direct connections, try to extract company from name or source
-		if (model.source?.includes('anthropic')) return 'Anthropic';
-		if (model.source?.includes('google')) return 'Google';
-		if (model.source?.includes('groq')) return 'Groq';
-		if (model.source?.includes('cohere')) return 'Cohere';
-		if (model.name.toLowerCase().includes('claude')) return 'Anthropic';
-		if (model.name.toLowerCase().includes('gemini')) return 'Google';
-		if (model.name.toLowerCase().includes('command')) return 'Cohere';
-		// Add more model name patterns as needed
+// utils/getCompanyName.ts
+export const getCompanyName = (model: {
+	id?: string;
+	name?: string;
+	owned_by?: string;
+	source?: string;
+	ollama?: { details?: { family?: string } };
+}) => {
+	const id = (model.id ?? '').toLowerCase();
+	const name = (model.name ?? '').toLowerCase();
+
+	/* ---------- 1. Easy string-contains matches on id / name ---------- */
+
+	if (id.includes('gpt') || name.includes('gpt')) return 'OpenAI';
+	if (id.includes('claude') || name.includes('claude')) return 'Anthropic';
+	if (id.includes('gemini') || name.includes('gemini')) return 'Google';
+	if (id.includes('command') || name.includes('command')) return 'Cohere';
+	if (id.includes('groq') || name.includes('groq')) return 'Groq';
+
+	/* ---------- 2. Ollama family mapping (works for both local + LiteLLM) ---------- */
+	const family = model.ollama?.details?.family?.toLowerCase();
+	if (family) {
+		if (family === 'llama') return 'Meta';
+		if (family === 'mistral' || family === 'mixtral') return 'Mistral';
+		if (family === 'falcon') return 'TII';
+		if (family === 'vicuna') return 'LMSYS';
+		if (family === 'qwen') return 'Alibaba';
+		if (family === 'phi') return 'Microsoft';
 	}
 
-	// If no specific company is identified, use the owned_by field
-	return model.owned_by.charAt(0).toUpperCase() + model.owned_by.slice(1);
+	/* ---------- 3. Source string (still works for LiteLLM virtual key) ---------- */
+	const src = model.source?.toLowerCase() ?? '';
+	if (src.includes('anthropic')) return 'Anthropic';
+	if (src.includes('gemini')) return 'Google';
+	if (src.includes('groq')) return 'Groq';
+	if (src.includes('cohere')) return 'Cohere';
+
+	/* ---------- 4. Legacy fallback ---------- */
+	if (typeof model.owned_by === 'string' && model.owned_by.length) {
+		return model.owned_by.charAt(0).toUpperCase() + model.owned_by.slice(1);
+	}
+
+	/* ---------- 5. Give up gracefully ---------- */
+	return 'Unknown';
 };
 
 const modelLogoMap: Record<string, string> = {
-	"openai": "/assets/chatgpt.png",
-	"google": "/assets/gemini.png",
-	"mistral": "/assets/mistral.png",
-	"deepseek": "/assets/deepseek.png",
-	"ollama": "/assets/ollama.png",
-	"cohere": "/assets/cohere.png",
-	"anthropic": "/assets/claude.png",
-	"meta": "/assets/llama.png",
-	"vicuna": "/assets/vicuna.png",
-	"alibaba": "/assets/qwen.png",
-	"microsoft": "/assets/phi.png",
-	"falcon": "/assets/falcon.png",
+	openai: '/assets/chatgpt.png',
+	google: '/assets/gemini.png',
+	mistral: '/assets/mistral.png',
+	deepseek: '/assets/deepseek.png',
+	ollama: '/assets/ollama.png',
+	cohere: '/assets/cohere.png',
+	anthropic: '/assets/claude.png',
+	meta: '/assets/llama.png',
+	vicuna: '/assets/vicuna.png',
+	alibaba: '/assets/qwen.png',
+	microsoft: '/assets/phi.png',
+	falcon: '/assets/falcon.png'
 };
 
 export function getLogoForModel(company: string) {
-	return modelLogoMap[company.toLowerCase()] || "/assets/favicon.png";
+	return modelLogoMap[company.toLowerCase()] || '/assets/favicon.png';
 }
 
-
 // Format model name to be more readable (remove dashes, capitalize properly)
-export const formatModelName = (modelName: any) => {
-	// Extract the base name without company prefix if it exists
-	let baseName = modelName;
-	if (modelName.includes(':')) {
-		baseName = modelName.split(':').pop().trim();
-	}
 
-	// Handle common model name patterns
-	if (baseName.toLowerCase().startsWith('gpt-')) {
-		// Convert gpt-4-turbo to GPT 4 Turbo
-		// Convert gpt-4o to GPT 4o
-		return baseName
+export const formatModelName = (modelName: string): string => {
+	if (!modelName) return '';
+
+	/* ---------- 1.  Strip provider prefix (e.g. "Google: …") ---------- */
+	let base = modelName.includes(':') ? modelName.split(':').pop()!.trim() : modelName.trim();
+
+	/* ---------- 2.  Remove duplicate word before a “/” ---------------- */
+	base = base.replace(/^([a-z0-9]+)\/\1(?=[-/\s]|$)/i, '$1');
+
+	/* ---------- 3.  Cut “Preview …” and trailing separators ----------- */
+	base = base
+		.replace(/\bpreview.*$/i, '') // drop “Preview-…”
+		.replace(/[-_/]+$/, '') // ➊ strip any leftover - / _
+		.trim();
+
+	/* ---------- 4.  Normalise separators ----------------------------- */
+	base = base.replace(/\//g, ' ').replace(/\s+/g, ' ').trim();
+	const lower = base.toLowerCase();
+
+	/* ---------- 5.  Friendly names ----------------------------------- */
+	if (lower.startsWith('gpt-')) {
+		return base
 			.replace(/^gpt-/i, 'GPT ')
-			.replace(/-([a-z])/g, (_, letter) => ' ' + letter.toLowerCase())
-			.replace(/-(\d)/g, ' $1');
+			.replace(/-([a-z])/g, (_, l) => ' ' + l.toLowerCase())
+			.replace(/-(\d)/g, ' $1')
+			.trim();
 	}
 
-	if (baseName.toLowerCase().startsWith('llama')) {
-		// Convert llama3-70b to Llama 3 70B
-		return baseName
+	if (lower.startsWith('gemini')) {
+		const pretty = base
+			.replace(/gemini/i, 'Gemini')
+			.replace(/-(\d+(\.\d+)?)/g, ' $1')
+			.replace(/-([a-z])/gi, (_, l) => ' ' + l.toUpperCase())
+			.trim();
+
+		return pretty.replace(/[-\s]+$/, ''); // ➋ final clean-up
+	}
+
+	// Llama → “Llama 3 70B”
+	if (lower.startsWith('llama')) {
+		return base
 			.replace(/llama(\d+)/i, 'Llama $1')
-			.replace(/-(\d+)b/i, ' $1B');
+			.replace(/-(\d+)b/i, ' $1B')
+			.trim();
 	}
 
-	if (baseName.toLowerCase().includes('mistral')) {
-		// Convert mistral-7b-instruct to Mistral 7B Instruct
-		return baseName
+	// Mistral → “Mistral 7B Instruct”
+	if (lower.includes('mistral')) {
+		return base
 			.replace(/mistral/i, 'Mistral')
 			.replace(/-(\d+)b/i, ' $1B')
-			.replace(/-([a-z])/gi, (_, letter) => ' ' + letter.charAt(0).toUpperCase() + letter.slice(1));
+			.replace(/-([a-z])/gi, (_, l) => ' ' + l.charAt(0).toUpperCase() + l.slice(1))
+			.trim();
 	}
 
-	if (baseName.toLowerCase().includes('mixtral')) {
-		// Convert mixtral-8x7b to Mixtral 8x7B
-		return baseName
+	// Mixtral → “Mixtral 8×7B”
+	if (lower.includes('mixtral')) {
+		return base
 			.replace(/mixtral/i, 'Mixtral')
 			.replace(/-(\d+x\d+)b/i, ' $1B')
-			.replace(/-([a-z])/gi, (_, letter) => ' ' + letter.charAt(0).toUpperCase() + letter.slice(1));
+			.replace(/-([a-z])/gi, (_, l) => ' ' + l.charAt(0).toUpperCase() + l.slice(1))
+			.trim();
 	}
 
-	if (baseName.toLowerCase().includes('claude')) {
-		// Convert claude-3-opus to Claude 3 Opus
-		return baseName
+	// Claude → “Claude 3 Opus”
+	if (lower.includes('claude')) {
+		return base
 			.replace(/claude/i, 'Claude')
 			.replace(/-(\d+)/g, ' $1')
-			.replace(/-([a-z])/gi, (_, letter) => ' ' + letter.charAt(0).toUpperCase() + letter.slice(1));
+			.replace(/-([a-z])/gi, (_, l) => ' ' + l.charAt(0).toUpperCase() + l.slice(1))
+			.trim();
 	}
 
-	if (baseName.toLowerCase().includes('gemini')) {
-		// Convert gemini-pro to Gemini Pro
-		return baseName
-			.replace(/gemini/i, 'Gemini')
-			.replace(/-([a-z])/gi, (_, letter) => ' ' + letter.charAt(0).toUpperCase() + letter.slice(1));
+	// CodeLlama, Falcon, … (unchanged from your original)
+	if (lower.includes('codellama')) {
+		return base.replace(/codellama/i, 'CodeLlama').replace(/-(\d+)b/i, ' $1B');
+	}
+	if (lower.includes('falcon')) {
+		return base.replace(/falcon/i, 'Falcon').replace(/-(\d+)b/i, ' $1B');
 	}
 
-	if (baseName.toLowerCase().includes('codellama')) {
-		// Convert codellama-34b to CodeLlama 34B
-		return baseName
-			.replace(/codellama/i, 'CodeLlama')
-			.replace(/-(\d+)b/i, ' $1B');
-	}
-
-	if (baseName.toLowerCase().includes('falcon')) {
-		// Convert falcon-40b to Falcon 40B
-		return baseName
-			.replace(/falcon/i, 'Falcon')
-			.replace(/-(\d+)b/i, ' $1B');
-	}
-
-	// General formatting for other models
-	return baseName
-		.replace(/-(\d+)/g, ' $1')  // Replace dash followed by numbers with space and numbers
-		.replace(/-([a-z])/gi, (_, letter) => ' ' + letter.charAt(0).toUpperCase() + letter.slice(1)) // Replace dash followed by letters with space and capitalized letter
-		.replace(/^([a-z])/i, (_, letter) => letter.toLowerCase()); // Capitalize first letter
+	/* ---------- 6.  Generic fallback --------------------------------- */
+	return base
+		.replace(/-(\d+)/g, ' $1')
+		.replace(/-([a-z])/gi, (_, l) => ' ' + l.charAt(0).toUpperCase() + l.slice(1))
+		.replace(/\b\w/g, (c) => c.toUpperCase())
+		.replace(/[-\s]+$/, '') // ➋ catch-all clean
+		.trim();
 };
