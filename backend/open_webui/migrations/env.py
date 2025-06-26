@@ -1,9 +1,20 @@
+# import sys
+# from pathlib import Path
+#
+# # sys.path = ['', '..'] + sys.path[1:]
+#
+# project_root = Path(__file__).parents[2]  # Adjust the number based on your project structure
+# print(project_root)
+# sys.path.append(str(project_root))
+# #
+
 from logging.config import fileConfig
 
 from alembic import context
 from open_webui.models.auths import Auth
 from open_webui.env import DATABASE_URL
 from sqlalchemy import engine_from_config, pool
+# from open_webui.internal.db import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -19,6 +30,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = Auth.metadata
+# target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

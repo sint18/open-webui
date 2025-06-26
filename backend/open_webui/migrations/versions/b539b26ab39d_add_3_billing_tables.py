@@ -40,8 +40,8 @@ def upgrade() -> None:
     sa.Column('amount_mmk', sa.Numeric(), nullable=False),
     sa.Column('provider', sa.String(), nullable=False),
     sa.Column('status', sa.Enum('pending', 'paid', 'failed', name='payment_status_enum'), nullable=False),
-    sa.Column('period_start', sa.Date(), nullable=True),
-    sa.Column('period_end', sa.Date(), nullable=True),
+    sa.Column('period_start', sa.BigInteger(), nullable=True),
+    sa.Column('period_end', sa.BigInteger(), nullable=True),
     sa.Column('created_at', sa.BigInteger(), nullable=False),
     sa.Column('paid_at', sa.BigInteger(), nullable=True),
     sa.PrimaryKeyConstraint('order_id')
@@ -51,7 +51,7 @@ def upgrade() -> None:
     sa.Column('plan_id', sa.Enum('starter', 'pro', 'studio', name='plan_enum'), nullable=False),
     sa.Column('credit_balance', sa.BigInteger(), nullable=False),
     sa.Column('monthly_quota', sa.BigInteger(), nullable=False),
-    sa.Column('current_period_end', sa.Date(), nullable=True),
+    sa.Column('current_period_end', sa.BigInteger(), nullable=True),
     sa.Column('status', sa.Enum('active', 'grace', 'expired', name='status_enum'), nullable=False),
     sa.Column('updated_at', sa.BigInteger(), nullable=False),
     sa.PrimaryKeyConstraint('user_id')

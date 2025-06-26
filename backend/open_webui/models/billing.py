@@ -60,7 +60,7 @@ class UserCredit(Base):
     plan_id = Column(SAEnum(PlanEnum, name="plan_enum"), nullable=False)
     credit_balance = Column(BigInteger, nullable=False)
     monthly_quota = Column(BigInteger, nullable=False)
-    current_period_end = Column(Date, nullable=True)
+    current_period_end = Column(BigInteger, nullable=True)
     status = Column(SAEnum(StatusEnum, name="status_enum"), nullable=False, default=StatusEnum.active)
     updated_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
 
@@ -88,8 +88,8 @@ class PaymentOrder(Base):
     amount_mmk = Column(Numeric, nullable=False)
     provider = Column(String, nullable=False)
     status = Column(SAEnum(PaymentStatusEnum, name="payment_status_enum"), nullable=False, default=PaymentStatusEnum.pending)
-    period_start = Column(Date, nullable=True)
-    period_end = Column(Date, nullable=True)
+    period_start = Column(BigInteger, nullable=True)
+    period_end = Column(BigInteger, nullable=True)
     Column(String, nullable=True)  # URL or local path of uploaded screenshot
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     paid_at = Column(BigInteger, nullable=True)
@@ -105,7 +105,7 @@ class UserCreditsModel(BaseModel):
     plan_id: PlanEnum
     credit_balance: int
     monthly_quota: int
-    current_period_end: Optional[datetime.date] = None
+    current_period_end: Optional[int] = None
     status: StatusEnum
     updated_at: int
 
@@ -113,7 +113,7 @@ class UserCreditsModel(BaseModel):
 class UserCreditsForm(BaseModel):
     plan_id: PlanEnum
     monthly_quota: int
-    current_period_end: Optional[datetime.date] = None
+    current_period_end: Optional[int] = None
 
 
 class CreditTransactionModel(BaseModel):
@@ -145,8 +145,8 @@ class PaymentOrderModel(BaseModel):
     amount_mmk: float
     provider: str
     status: PaymentStatusEnum
-    period_start: Optional[datetime.date] = None
-    period_end: Optional[datetime.date] = None
+    period_start: Optional[int] = None
+    period_end: Optional[int] = None
     created_at: int
     paid_at: Optional[int] = None
 
@@ -158,8 +158,8 @@ class PaymentOrderForm(BaseModel):
     credits: Optional[int] = None
     amount_mmk: float
     provider: str
-    period_start: Optional[datetime.date] = None
-    period_end: Optional[datetime.date] = None
+    period_start: Optional[int] = None
+    period_end: Optional[int] = None
 
 
 class PaymentCallbackForm(BaseModel):
@@ -191,12 +191,12 @@ class UserCreditsTable:
 
     def get_user_credits(self, user_id: str) -> Optional[UserCreditsModel]:
         with get_db() as db:
-            record = db.get(UserCredits, user_id)
+            record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             return UserCreditsModel.model_validate(record) if record else None
 
     def update_credits(self, user_id: str, delta: int) -> Optional[UserCreditsModel]:
         with get_db() as db:
-            record = db.get(UserCredits, user_id)
+            record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             if record is None:
                 return None
             record.credit_balance = record.credit_balance + delta
@@ -207,7 +207,7 @@ class UserCreditsTable:
 
     def update_subscription(self, user_id: str, new_end: datetime.date) -> Optional[UserCreditsModel]:
         with get_db() as db:
-            record = db.get(UserCredits, user_id)
+            record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             if not record:
                 return None
             record.current_period_end = new_end
@@ -284,7 +284,7 @@ class PaymentOrdersTable:
     ) -> Optional[PaymentOrderModel]:
         """Save the screenshot file path for an existing order."""
         with get_db() as db:
-            record = db.get(PaymentOrder, order_id)
+            record = db.query(PaymentOrder).filter_by(PaymentOrder.order_id == order_id).first()
             if record is None:
                 return None
             record.screenshot_path = path
@@ -296,7 +296,7 @@ class PaymentOrdersTable:
         self, order_id: str, form: PaymentCallbackForm
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
-            record = db.get(PaymentOrder, order_id)
+            record = db.query(PaymentOrder).filter_by(PaymentOrder.order_id == order_id).first()
             if record is None:
                 return None
             record.status = form.status
@@ -317,7 +317,7 @@ class PaymentOrdersTable:
         self, order_id: str
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
-            record = db.get(PaymentOrder, order_id)
+            record = db.query(PaymentOrder).filter_by(PaymentOrder.order_id == order_id).first()
             return PaymentOrderModel.model_validate(record) if record else None
 
     def get_orders_by_user(

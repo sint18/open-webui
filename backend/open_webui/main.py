@@ -80,6 +80,7 @@ from open_webui.routers import (
     tools,
     users,
     utils,
+    billing
 )
 
 from open_webui.routers.retrieval import (
@@ -1082,6 +1083,7 @@ app.include_router(
     evaluations.router, prefix="/api/v1/evaluations", tags=["evaluations"]
 )
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
+app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 
 
 try:
