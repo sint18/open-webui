@@ -197,21 +197,7 @@
 			</div>
 			<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-50 dark:bg-gray-850" />
 
-			{#if ($config?.license_metadata?.seats ?? null) !== null}
-				{#if total > $config?.license_metadata?.seats}
-					<span class="text-lg font-medium text-red-500"
-						>{total} of {$config?.license_metadata?.seats}
-						<span class="text-sm font-normal">available users</span></span
-					>
-				{:else}
-					<span class="text-lg font-medium text-gray-500 dark:text-gray-300"
-						>{total} of {$config?.license_metadata?.seats}
-						<span class="text-sm font-normal">available users</span></span
-					>
-				{/if}
-			{:else}
-				<span class="text-lg font-medium text-gray-500 dark:text-gray-300">{total}</span>
-			{/if}
+			<span class="text-lg font-medium text-gray-500 dark:text-gray-300">{total}</span>
 		</div>
 
 		<div class="flex gap-1">
@@ -424,7 +410,7 @@
 								/>
 							</button>
 						</td>
-						<td class="px-3 py-1 font-medium text-gray-900 dark:text-white w-max">
+						<td class="px-3 py-1 font-medium text-gray-900 dark:text-white w-max cursor-pointer" on:click={() => goto(`/admin/users/${user.id}`)}>
 							<div class="flex flex-row w-max">
 								<img
 									class=" rounded-full w-6 h-6 object-cover mr-2.5"
@@ -436,7 +422,7 @@
 									alt="user"
 								/>
 
-								<div class=" font-medium self-center">{user.name}</div>
+								<div class="font-medium self-center">{user.name}</div>
 							</div>
 						</td>
 						<td class=" px-3 py-1"> {user.email} </td>
