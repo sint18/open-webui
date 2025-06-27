@@ -89,6 +89,7 @@ class PaymentOrder(Base):
     provider = Column(String, nullable=False)
     status = Column(SAEnum(PaymentStatusEnum, name="payment_status_enum"), nullable=False, default=PaymentStatusEnum.pending)
     period_start = Column(BigInteger, nullable=True)
+    screenshot_path = Column(Text, nullable=True)
     period_end = Column(BigInteger, nullable=True)
     Column(String, nullable=True)  # URL or local path of uploaded screenshot
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
@@ -149,6 +150,7 @@ class PaymentOrderModel(BaseModel):
     period_end: Optional[int] = None
     created_at: int
     paid_at: Optional[int] = None
+    screenshot_path: Optional[str] = None
 
 
 class PaymentOrderForm(BaseModel):
@@ -158,8 +160,6 @@ class PaymentOrderForm(BaseModel):
     credits: Optional[int] = None
     amount_mmk: float
     provider: str
-    period_start: Optional[int] = None
-    period_end: Optional[int] = None
 
 
 class PaymentCallbackForm(BaseModel):
@@ -257,6 +257,8 @@ class PaymentOrdersTable:
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
             now_ts = int(time.time())
+            # add 30 days to the incoming period_end timestamp
+            period_end_ts = now_ts + int(datetime.timedelta(days=30).total_seconds())
             order_id = str(uuid.uuid4())
             record = PaymentOrder(
                 order_id=order_id,
@@ -268,8 +270,8 @@ class PaymentOrdersTable:
                 amount_mmk=form.amount_mmk,
                 provider=form.provider,
                 status=PaymentStatusEnum.pending,
-                period_start=form.period_start,
-                period_end=form.period_end,
+                period_start=now_ts,
+                period_end=period_end_ts,
                 screenshot_path=None,
                 created_at=now_ts,
                 paid_at=None,
@@ -284,7 +286,7 @@ class PaymentOrdersTable:
     ) -> Optional[PaymentOrderModel]:
         """Save the screenshot file path for an existing order."""
         with get_db() as db:
-            record = db.query(PaymentOrder).filter_by(PaymentOrder.order_id == order_id).first()
+            record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).first()
             if record is None:
                 return None
             record.screenshot_path = path
@@ -296,7 +298,7 @@ class PaymentOrdersTable:
         self, order_id: str, form: PaymentCallbackForm
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
-            record = db.query(PaymentOrder).filter_by(PaymentOrder.order_id == order_id).first()
+            record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).first()
             if record is None:
                 return None
             record.status = form.status
@@ -304,7 +306,7 @@ class PaymentOrdersTable:
                 record.paid_at = form.paid_at
             if record.type == OrderTypeEnum.plan_payment and record.status == PaymentStatusEnum.paid:
                 if record.period_end:
-                    user_rec = db.get(UserCredits, record.user_id)
+                    user_rec = db.query(UserCredit).filter(UserCredit.user_id == record.user_id).first()
                     if user_rec:
                         user_rec.current_period_end = record.period_end
                         user_rec.status = StatusEnum.active
@@ -317,7 +319,7 @@ class PaymentOrdersTable:
         self, order_id: str
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
-            record = db.query(PaymentOrder).filter_by(PaymentOrder.order_id == order_id).first()
+            record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).first()
             return PaymentOrderModel.model_validate(record) if record else None
 
     def get_orders_by_user(
