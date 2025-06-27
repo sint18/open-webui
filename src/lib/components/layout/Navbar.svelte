@@ -146,7 +146,18 @@
 						</button>
 					</Tooltip>
 				{/if}
-
+				<!-- Pricing Button -->
+				{#if !mobile}
+					<Tooltip content={$i18n.t('Pricing')}>
+						<a
+							href="/pricing"
+							class=" flex cursor-pointer px-3 py-2 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-850 transition"
+							aria-label="Pricing"
+						>
+							<div class=" m-auto self-center">Pricing</div>
+						</a>
+					</Tooltip>
+				{/if}
 				<Tooltip content={$i18n.t('New Chat')}>
 					<button
 						id="new-chat-button"
