@@ -18,7 +18,7 @@
 		{
 			name: 'Starter',
 			tagline: 'For individuals just getting started',
-			price: 29,
+			price: 30000,
 			interval: 'm',
 			cta: 'Get started',
 			features: [
@@ -31,7 +31,7 @@
 		{
 			name: 'Pro',
 			tagline: 'For power users & small teams',
-			price: 59,
+			price: 55000,
 			interval: 'm',
 			cta: 'Get started',
 			features: [
@@ -45,7 +45,7 @@
 		{
 			name: 'Studio',
 			tagline: 'For organisations & advanced workflows',
-			price: 99,
+			price: 125000,
 			interval: 'm',
 			cta: 'Contact sales',
 			features: [
@@ -78,14 +78,16 @@
 					</div>
 
 					<div class="mb-6">
-						<span class="text-4xl font-semibold text-gray-900 dark:text-white">${plan.price}</span>
+						<span class="text-4xl font-semibold text-gray-900 dark:text-white"
+							>MMK {' '}{plan.price}</span
+						>
 						<span class="text-base font-medium text-gray-600 dark:text-gray-400"
 							>/{plan.interval}</span
 						>
 					</div>
 
 					<a
-						href="#"
+						href="/checkout?plan={plan.name.toLowerCase()}"
 						class="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-700 focus-visible:ring-2 focus-visible:ring-primary-500"
 						>{plan.cta}</a
 					>
