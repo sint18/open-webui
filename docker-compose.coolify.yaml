@@ -1,0 +1,33 @@
+services:
+  labyai:
+    image: 'ghcr.io/sint18/open-webui:latest'
+    networks:
+      - my-network
+    volumes:
+      - 'labyai-data:/app/backend/data'
+    environment:
+      - SERVICE_FQDN_OPENWEBUI_8080
+      - ANONYMIZED_TELEMETRY
+      - DATABASE_URL
+      - DO_NOT_TRACK
+      - OPENAI_API_BASE_URL
+      - OPENAI_API_KEY
+      - SCARF_NO_ANALYTICS
+      - WEBUI_NAME
+      - ENV
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - '-f'
+        - 'http://127.0.0.1:8080'
+      interval: 5s
+      timeout: 30s
+      retries: 10
+volumes:
+  labyai-data:
+    external: true
+networks:
+  my-network:
+    name: shared-network
+    external: true
