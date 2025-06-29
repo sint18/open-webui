@@ -701,6 +701,7 @@ async def generate_chat_completion(
     idx = 0
 
     payload = {**form_data}
+    payload["stream_options"] = {"include_usage": True}
     metadata = payload.pop("metadata", None)
 
     model_id = form_data.get("model")

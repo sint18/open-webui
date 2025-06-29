@@ -25,6 +25,7 @@ from sqlalchemy import (
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
+
 ####################
 # Enums
 ####################
@@ -34,20 +35,24 @@ class PlanEnum(enum.Enum):
     pro = "pro"
     studio = "studio"
 
+
 class OrderTypeEnum(enum.Enum):
     credit = "credit"
     upgrade = "upgrade"
     plan_payment = "plan_payment"
+
 
 class StatusEnum(enum.Enum):
     active = "active"
     grace = "grace"
     expired = "expired"
 
+
 class PaymentStatusEnum(enum.Enum):
     pending = "pending"
     paid = "paid"
     failed = "failed"
+
 
 ####################
 # SQLAlchemy models
@@ -87,13 +92,15 @@ class PaymentOrder(Base):
     credits = Column(BigInteger, nullable=True)
     amount_mmk = Column(Numeric, nullable=False)
     provider = Column(String, nullable=False)
-    status = Column(SAEnum(PaymentStatusEnum, name="payment_status_enum"), nullable=False, default=PaymentStatusEnum.pending)
+    status = Column(SAEnum(PaymentStatusEnum, name="payment_status_enum"), nullable=False,
+                    default=PaymentStatusEnum.pending)
     period_start = Column(BigInteger, nullable=True)
     screenshot_path = Column(Text, nullable=True)
     period_end = Column(BigInteger, nullable=True)
     Column(String, nullable=True)  # URL or local path of uploaded screenshot
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     paid_at = Column(BigInteger, nullable=True)
+
 
 ####################
 # Pydantic models & forms
@@ -129,6 +136,7 @@ class CreditTransactionModel(BaseModel):
 
 
 class CreditTransactionForm(BaseModel):
+    tx_id: str
     delta: int
     usd_spend: float
     model_name: str
@@ -166,6 +174,7 @@ class PaymentCallbackForm(BaseModel):
     order_id: str
     status: PaymentStatusEnum
     paid_at: Optional[int] = None
+
 
 ####################
 # Table classes
@@ -220,11 +229,11 @@ class UserCreditsTable:
 
 class CreditTransactionsTable:
     def insert_transaction(
-        self, user_id: str, form: CreditTransactionForm
+            self, user_id: str, form: CreditTransactionForm
     ) -> Optional[CreditTransactionModel]:
         with get_db() as db:
             now_ts = int(time.time())
-            tx_id = str(uuid.uuid4())
+            tx_id = form.tx_id if form.tx_id else str(uuid.uuid4())
             record = CreditTransaction(
                 tx_id=tx_id,
                 user_id=user_id,
@@ -239,7 +248,7 @@ class CreditTransactionsTable:
             return CreditTransactionModel.model_validate(record) if record else None
 
     def get_transactions_by_user(
-        self, user_id: str, skip: int = 0, limit: int = 100
+            self, user_id: str, skip: int = 0, limit: int = 100
     ) -> list[CreditTransactionModel]:
         with get_db() as db:
             rows = (
@@ -252,10 +261,14 @@ class CreditTransactionsTable:
             )
             return [CreditTransactionModel.model_validate(r) for r in rows]
 
+    def exists(self, tx_id: str):
+        with get_db() as db:
+            return db.query(CreditTransaction).filter(CreditTransaction.tx_id == tx_id).first() is not None
+
 
 class PaymentOrdersTable:
     def create_payment_order(
-        self, user_id: str, form: PaymentOrderForm
+            self, user_id: str, form: PaymentOrderForm
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
             now_ts = int(time.time())
@@ -297,7 +310,7 @@ class PaymentOrdersTable:
             return PaymentOrderModel.model_validate(record)
 
     def update_payment_order_status(
-        self, order_id: str, form: PaymentCallbackForm
+            self, order_id: str, form: PaymentCallbackForm
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
             record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).first()
@@ -318,14 +331,14 @@ class PaymentOrdersTable:
             return PaymentOrderModel.model_validate(record)
 
     def get_order_by_id(
-        self, order_id: str
+            self, order_id: str
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
             record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).first()
             return PaymentOrderModel.model_validate(record) if record else None
 
     def get_orders_by_user(
-        self, user_id: str, skip: int = 0, limit: int = 50
+            self, user_id: str, skip: int = 0, limit: int = 50
     ) -> list[PaymentOrderModel]:
         with get_db() as db:
             rows = (
@@ -337,6 +350,7 @@ class PaymentOrdersTable:
                 .all()
             )
             return [PaymentOrderModel.model_validate(r) for r in rows]
+
 
 # Instantiate tables for import
 UserCredits = UserCreditsTable()

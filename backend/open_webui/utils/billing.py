@@ -1,22 +1,20 @@
-import asyncio
+import contextlib
 import math
 
 from datetime import datetime
 from functools import wraps
-
-import aiohttp
-from starlette.background import BackgroundTask
+from starlette.background import BackgroundTask, BackgroundTasks
 from starlette.responses import StreamingResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from fastapi import Request, HTTPException, status, Response
 
-from env import LITELLM_URL, LITELLM_MASTER_KEY
+from open_webui.utils.pricing import estimate_cost
 from open_webui.models.billing import StatusEnum
 from open_webui.models.billing import UserCredits, CreditTransactions, CreditTransactionForm
 from open_webui.utils.auth import get_current_user, get_http_authorization_cred
 import logging
 import json
-from typing import Optional, Dict, Any, List, AsyncGenerator
+from typing import Optional, Dict, Any, List
 
 log = logging.getLogger(__name__)
 
@@ -53,64 +51,7 @@ async def check_balance(user_id: str, min_credits: int = 1) -> Optional[int]:
     return my_credits.credit_balance
 
 
-async def _lookup_cost(request_id: str) -> Optional[float]:
-    """Fetch request cost from LiteLLM's spend logs endpoint"""
-    try:
-        headers = {
-            "Authorization": f"Bearer {LITELLM_MASTER_KEY}",
-            "Content-Type": "application/json"
-        }
-
-        async with aiohttp.ClientSession() as session:
-            print(f"Lookup cost from LiteLLM spend logs endpoint for request_id: {request_id}")
-            async with session.get(f"{LITELLM_URL}/spend/logs?request_id={request_id}", headers=headers) as response:
-                if response.status == 200:
-                    # Read the response content only once
-                    text_content = await response.text()
-                    print(f"Raw response: {text_content}")
-
-                    try:
-                        logs = json.loads(text_content)
-                        print(f"Parsed logs: {logs}")
-
-                        if isinstance(logs, list) and logs:
-                            spend = logs[0].get('spend')
-                            if spend is not None:
-                                return float(spend)
-                            else:
-                                print(f"No 'spend' field found in first log entry: {logs[0]}")
-                        else:
-                            print(f"Unexpected logs format. Expected list, got: {type(logs)}")
-                    except json.JSONDecodeError as e:
-                        print(f"Failed to parse JSON response: {e}")
-                    except AttributeError as e:
-                        print(f"No logs found in response: {e}")
-                        print(f"No logs found in response, logs: {logs}")
-                else:
-                    print(f"Unexpected status code: {response.status}")
-                    print(f"Response content: {await response.text()}")
-    except Exception as e:
-        log.error(f"Error fetching cost from LiteLLM: {e}", exc_info=True)
-    return None
-
-
-async def _lookup_cost_with_retry(request_id: str,
-                                  retries: int = 10,
-                                  base_delay: float = 5) -> float | None:
-    """
-    Try /spend/logs several times (exponential back-off) before giving up.
-    """
-    delay = base_delay
-    for _ in range(retries):
-        cost = await _lookup_cost(request_id)
-        if cost is not None:
-            return cost
-        await asyncio.sleep(delay)
-        delay *= 2  # 100 ms → 200 ms → 400 ms …
-    return None
-
-
-def _extract_request_id_from_body(response: Response) -> str | None:
+def _parse_response_body(response: Response) -> dict | None:
     """
     Try to grab the `id` field from a **non-streaming** response.
 
@@ -124,14 +65,14 @@ def _extract_request_id_from_body(response: Response) -> str | None:
     try:  # 1) JSON encoded?
         obj = json.loads(body)
         if isinstance(obj, dict):
-            return obj.get("id")
+            return obj
     except Exception:
         pass
 
     try:  # 2) Plain string that *is* JSON
         obj = json.loads(body.decode())
         if isinstance(obj, dict):
-            return obj.get("id")
+            return obj
     except Exception:
         pass
 
@@ -139,13 +80,15 @@ def _extract_request_id_from_body(response: Response) -> str | None:
 
 
 async def process_billing(
-        user_id: str, cost_usd: float, model_name: str
+        user_id: str, prompt_tokens: int, completion_tokens: int, model_name: str, request_id: str
 ) -> None:
     """Unmodified billing logic you provided."""
     try:
         # headers = response_metadata.get("headers", {})
-
-        credits_to_charge = calculate_cost(cost_usd)
+        if CreditTransactions.exists(tx_id=request_id):
+            return
+        cost_usd = estimate_cost(model_name, prompt_tokens, completion_tokens)
+        credits_to_charge = calculate_cost(float(cost_usd))
         print(credits_to_charge)
         updated = UserCredits.update_credits(user_id, -credits_to_charge)
         if not updated:
@@ -155,8 +98,9 @@ async def process_billing(
         CreditTransactions.insert_transaction(
             user_id,
             CreditTransactionForm(
+                tx_id=request_id,
                 delta=-credits_to_charge,
-                usd_spend=cost_usd,
+                usd_spend=float(cost_usd),
                 model_name=model_name,
             ),
         )
@@ -183,59 +127,71 @@ def requires_credits(min_credits: int = 1):
             # Call the original function
             response = await func(*args, **kwargs)
 
-            # Checking response type
+            # For non-streaming responses, process billing immediately
             if not isinstance(response, StreamingResponse):
-                request_id = _extract_request_id_from_body(response)
-                if request_id:
-                    cost_usd = await _lookup_cost_with_retry(request_id)
-                    if cost_usd is None:
-                        cost_usd = float(0)
+                response_body = _parse_response_body(response)
+                if response_body and response_body.get("id") and response_body.get("usage"):
+                    prompt_tokens = response_body.get("usage").get("prompt_tokens")
+                    completion_tokens = response_body.get("usage").get("completion_tokens")
 
-                    if cost_usd is not None:
-                        # bill *now*, inside the request-handling coroutine
-                        await process_billing(user.id, cost_usd, model_name)
+                    if prompt_tokens and completion_tokens:
+                        await process_billing(user.id, prompt_tokens, completion_tokens, model_name, response_body.get("id"))
                 return response
 
-            # 4. Streaming responses – bill *after* they finish
-            # -------------  STREAMING  -----‐----------------------------------------
+            # For streaming responses, only bill once after completion
             original_iter = response.body_iterator
-            # For Billing
-            captured: dict = {"id": None}  # to store the request_id
+            captured = {"id": None}  # to store the request_id
 
             async def capture_and_forward():
-                """
-                Pass chunks straight through **once** while trying to pull `"id"`
-                out of the last `data: {...}` message of the SSE stream.
-                """
-                async for chunk in original_iter:
-                    try:
-                        # SSE chunks look like:  b'data: {...}\n\n'
-                        if chunk.startswith(b"data:"):
-                            payload = chunk[5:].strip()  # drop 'data:'
-                            # ignore the special terminator 'data: [DONE]'
-                            if payload and payload != b"[DONE]":
-                                obj = json.loads(payload)
-                                if "id" in obj and captured["id"] is None:
-                                    captured["id"] = obj["id"]
-                    except Exception:
-                        pass  # never break the stream for parse errors
-                    yield chunk
-
+                """Pass chunks through while capturing the request ID"""
+                try:
+                    async for chunk in original_iter:
+                        try:
+                            if chunk.startswith(b"data:"):
+                                payload = chunk[5:].strip()  # drop 'data:'
+                                if payload and payload != b"[DONE]":
+                                    obj = json.loads(payload)
+                                    if "id" in obj and "usage" in obj:  # Only capture first ID
+                                        if captured["id"] is None:
+                                            captured["id"] = obj["id"]
+                                        captured["usage"] = obj["usage"]
+                        except Exception:
+                            pass  # never break the stream for parse errors
+                        yield chunk
+                finally:
+                    # whether the client disconnected or not, close what we wrapped
+                    with contextlib.suppress(Exception):
+                        if hasattr(original_iter, "aclose"):  # check for ACLOSE first
+                            await original_iter.aclose()  # ← async, must be awaited
+                        elif hasattr(original_iter, "close"):  # sync fallback (rare)
+                            original_iter.close()
             response.body_iterator = capture_and_forward()
 
             async def finalize():
-                if captured["id"]:
-                    print(captured)
-                    cost_usd = await _lookup_cost_with_retry(captured["id"])
-                    print(cost_usd)
-                    # 3b. fallback to header set by LiteLLM middleware
-                    if cost_usd is None:
-                        cost_usd = float(0)
+                """Process billing once after stream completes"""
+                print(captured)
+                if captured["id"] and captured["usage"]:
+                    prompt_tokens = captured["usage"].get("prompt_tokens")
+                    completion_tokens = captured.get("usage").get("completion_tokens")
+                    if prompt_tokens and completion_tokens:
+                        await process_billing(user.id, prompt_tokens, completion_tokens, model_name,
+                                              captured["id"])
 
-                    if cost_usd is not None:
-                        await process_billing(user.id, cost_usd, model_name)
-
-            response.background = BackgroundTask(finalize)
+                # ── 3. Chain background tasks properly
+            if response.background:
+                tasks = BackgroundTasks()
+                # put the original task(s) in
+                if isinstance(response.background, BackgroundTasks):
+                    for task in response.background.tasks:
+                        tasks.add_task(task.func, *task.args, **task.kwargs)
+                else:  # it's a single BackgroundTask
+                    t = response.background
+                    tasks.add_task(t.func, *t.args, **t.kwargs)
+                # add our billing task
+                tasks.add_task(finalize)
+                response.background = tasks
+            else:
+                response.background = BackgroundTask(finalize)
             return response
 
         return wrapper
