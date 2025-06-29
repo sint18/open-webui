@@ -86,6 +86,7 @@
 		"file-saver": "^2.0.5",
 		"focus-trap": "^7.6.4",
 		"fuse.js": "^7.0.0",
+		"gsap": "^3.13.0",
 		"highlight.js": "^11.9.0",
 		"html-entities": "^2.5.3",
 		"html2canvas-pro": "^1.5.8",

@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
+	import { WEBUI_API_BASE_URL } from '$lib/constants';
 
 	// --- plan table -----------------------------------------------------------
 	const PLAN_PRESETS = {
@@ -53,7 +54,7 @@
 		form.append('screenshot', screenshotFile);
 
 		try {
-			const res = await fetch('/api/v1/billing/orders', {
+			const res = await fetch(`${WEBUI_API_BASE_URL}/billing/orders`, {
 				method: 'POST',
 				body: form,
 				credentials: 'include'
