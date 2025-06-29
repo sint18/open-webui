@@ -80,7 +80,7 @@
 			}
 
 			toast.success("Payment submitted! We'll verify shortly.");
-			goto('/home');
+			goto('/pricing', { replaceState: true });
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : String(err));
 			console.error('Payment submission error:', err);
@@ -165,10 +165,10 @@
 			<!-- Submit button -->
 			<button
 				type="submit"
-				class="w-full inline-flex justify-center items-center rounded-lg bg-primary-600 hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+				class="w-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-white transition rounded-xl px-4 py-3 font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400"
 				disabled={submitting}
 			>
-				{submitting ? 'Submitting…' : 'Pay'}
+				{submitting ? 'Submitting…' : 'Pay Now'}
 			</button>
 		</form>
 	</div>
