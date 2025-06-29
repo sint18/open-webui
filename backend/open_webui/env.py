@@ -559,3 +559,10 @@ PIP_PACKAGE_INDEX_OPTIONS = os.getenv("PIP_PACKAGE_INDEX_OPTIONS", "").split()
 ####################################
 
 EXTERNAL_PWA_MANIFEST_URL = os.environ.get("EXTERNAL_PWA_MANIFEST_URL")
+
+
+####################################
+# LITELLM
+####################################
+LITELLM_URL = os.environ.get("LITELLM_URL", "http://localhost:8000")
+LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")

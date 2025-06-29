@@ -68,7 +68,7 @@ class UserCredit(Base):
 class CreditTransaction(Base):
     __tablename__ = "credit_transaction"
 
-    tx_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tx_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, nullable=False)
     delta = Column(BigInteger, nullable=False)
     usd_spend = Column(Numeric, nullable=False)
@@ -120,7 +120,7 @@ class UserCreditsForm(BaseModel):
 class CreditTransactionModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    tx_id: int
+    tx_id: str
     user_id: str
     delta: int
     usd_spend: float
@@ -224,7 +224,9 @@ class CreditTransactionsTable:
     ) -> Optional[CreditTransactionModel]:
         with get_db() as db:
             now_ts = int(time.time())
+            tx_id = str(uuid.uuid4())
             record = CreditTransaction(
+                tx_id=tx_id,
                 user_id=user_id,
                 delta=form.delta,
                 usd_spend=form.usd_spend,
