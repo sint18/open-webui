@@ -70,8 +70,25 @@
 		<div class="grid gap-6 md:grid-cols-3">
 			{#each plans as plan}
 				<div
-					class="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-8 shadow-sm"
+					class="flex flex-col rounded-2xl border {plan.highlight
+						? 'border-[#21706d] shadow-lg'
+						: 'border-gray-200 dark:border-gray-700'} bg-gray-50 dark:bg-gray-900 p-8 {plan.highlight
+						? 'shadow-lg'
+						: 'shadow-sm'} relative"
+					style={plan.highlight
+						? 'box-shadow: 0 10px 15px -3px rgba(33, 112, 109, 0.2), 0 4px 6px -4px rgba(33, 112, 109, 0.1);'
+						: ''}
 				>
+					{#if plan.highlight}
+						<div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+							<div
+								class="text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm"
+								style="background-color: #21706d;"
+							>
+								Most Popular
+							</div>
+						</div>
+					{/if}
 					<div class="mb-6">
 						<h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{plan.name}</h2>
 						<p class="text-sm text-gray-600 dark:text-gray-400">{plan.tagline}</p>
