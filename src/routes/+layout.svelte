@@ -660,7 +660,7 @@
 	<link crossorigin="anonymous" rel="icon" href="{WEBUI_BASE_URL}/static/favicon.png" />
 
 <!--	Umami Analytics -->
-	<script defer src="https://umami-zc84g0wow04wsgsks04cwsoc.innovaxweb.com/script.js" data-website-id="6ae8f4f1-46ba-475a-948b-35ce11973ccf"></script>
+<script defer src="https://umami-zc84g0wow04wsgsks04cwsoc.innovaxweb.com/script.js" data-website-id="6ae8f4f1-46ba-475a-948b-35ce11973ccf"></script>
 
 	<!-- rosepine themes have been disabled as it's not up to date with our latest version. -->
 	<!-- feel free to make a PR to fix if anyone wants to see it return -->
