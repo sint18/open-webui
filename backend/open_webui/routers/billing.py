@@ -4,7 +4,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body
 from open_webui.env import LITELLM_MASTER_KEY, LITELLM_URL
 
-from models.billing import PaymentStatusEnum
+from open_webui.models.billing import PaymentStatusEnum
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.utils.auth import get_verified_user, get_admin_user
 from open_webui.models.billing import (
