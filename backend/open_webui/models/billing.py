@@ -91,7 +91,7 @@ class PaymentOrder(Base):
     period_start = Column(BigInteger, nullable=True)
     screenshot_path = Column(Text, nullable=True)
     period_end = Column(BigInteger, nullable=True)
-    Column(String, nullable=True)  # URL or local path of uploaded screenshot
+      # URL or local path of uploaded screenshot
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     paid_at = Column(BigInteger, nullable=True)
 

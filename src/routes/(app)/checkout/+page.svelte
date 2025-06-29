@@ -5,6 +5,12 @@
 	import { toast } from 'svelte-sonner';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 
+	// Get user token from localStorage
+	let token = '';
+	if (typeof localStorage !== 'undefined') {
+		token = localStorage.getItem('token') || '';
+	}
+
 	// --- plan table -----------------------------------------------------------
 	const PLAN_PRESETS = {
 		starter: { label: 'Starter', amount_mmk: 30000 },
@@ -46,17 +52,25 @@
 		}
 
 		submitting = true;
-		const form = new FormData();
-		form.append('type', 'plan_payment');
-		form.append('plan_id', planId);
-		form.append('amount_mmk', currentPlan.amount_mmk.toString());
-		form.append('provider', provider);
-		form.append('screenshot', screenshotFile);
 
+		// Create URL with query parameters for the form data
+		const url = new URL(`${WEBUI_API_BASE_URL}/billing/orders`);
+		url.searchParams.append('type', 'plan_payment');
+		url.searchParams.append('plan_id', planId);
+		url.searchParams.append('amount_mmk', currentPlan.amount_mmk.toString());
+		url.searchParams.append('provider', provider);
+
+		// Create FormData only for the file
+		const formData = new FormData();
+		formData.append('screenshot', screenshotFile);
 		try {
-			const res = await fetch(`${WEBUI_API_BASE_URL}/billing/orders`, {
+			const res = await fetch(url.toString(), {
 				method: 'POST',
-				body: form,
+				headers: {
+					Accept: 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: formData,
 				credentials: 'include'
 			});
 
@@ -69,6 +83,7 @@
 			goto('/home');
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : String(err));
+			console.error('Payment submission error:', err);
 		} finally {
 			submitting = false;
 		}
