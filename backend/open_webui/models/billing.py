@@ -119,7 +119,9 @@ class UserCreditsModel(BaseModel):
 
 
 class UserCreditsForm(BaseModel):
+    user_id: str
     plan_id: PlanEnum
+    credit_balance: int  # Add explicit credit_balance field
     monthly_quota: int
     current_period_end: Optional[int] = None
 
@@ -187,7 +189,7 @@ class UserCreditsTable:
             record = UserCredit(
                 user_id=user_id,
                 plan_id=form.plan_id,
-                credit_balance=form.monthly_quota,
+                credit_balance=form.credit_balance,  # Use form.credit_balance instead of monthly_quota
                 monthly_quota=form.monthly_quota,
                 current_period_end=form.current_period_end,
                 status=StatusEnum.active,

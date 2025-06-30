@@ -13,9 +13,9 @@
 
 	// --- plan table -----------------------------------------------------------
 	const PLAN_PRESETS = {
-		starter: { label: 'Starter', amount_mmk: 30000, credits: 0 },
-		pro: { label: 'Pro', amount_mmk: 55000, credits: 0 },
-		studio: { label: 'Studio', amount_mmk: 125000, credits: 0 }
+		starter: { label: 'Starter', amount_mmk: 30000, credits: 750 },
+		pro: { label: 'Pro', amount_mmk: 55000, credits: 1500 },
+		studio: { label: 'Studio', amount_mmk: 125000, credits: 2500 }
 	} as const;
 
 	// --- reactive plan lookup --------------------------------------------------

@@ -63,10 +63,7 @@ export const getPaymentOrdersByUserId = async (
 	return await response.json();
 };
 
-export const confirmPaymentOrder = async (
-	token: string,
-	orderId: string,
-) => {
+export const confirmPaymentOrder = async (token: string, orderId: string) => {
 	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/orders/confirm`, {
 		method: 'POST',
 		headers: {
@@ -74,12 +71,42 @@ export const confirmPaymentOrder = async (
 			Authorization: `Bearer ${token}`
 		},
 		body: JSON.stringify({
-			order_id: orderId,
+			order_id: orderId
 		})
 	});
 
 	if (!response.ok) {
 		throw new Error('Failed to confirm payment order');
+	}
+	return response.json();
+};
+
+// Admin: Create credit wallet for a user
+export const createUserCredits = async (
+	token: string,
+	userId: string,
+	planId: string,
+	creditBalance: number,
+	monthlyQuota: number,
+	currentPeriodEnd?: number
+) => {
+	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/credits`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({
+			user_id: userId,
+			plan_id: planId,
+			credit_balance: creditBalance,
+			monthly_quota: monthlyQuota,
+			current_period_end: currentPeriodEnd
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error('Failed to create user credits');
 	}
 	return response.json();
 };

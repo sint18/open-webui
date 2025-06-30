@@ -29,7 +29,7 @@
 		if ($user?.role !== 'admin') {
 			await goto('/');
 		}
-		await loadData()
+		await loadData();
 	});
 
 	async function loadData() {
@@ -139,28 +139,28 @@
 				<div class="overflow-x-auto">
 					<table class="min-w-full">
 						<thead>
-						<tr class="text-left text-sm text-gray-500">
-							<th class="pb-2">Date</th>
-							<th class="pb-2">Model</th>
-							<th class="pb-2">Credits</th>
-							<th class="pb-2">USD</th>
-						</tr>
+							<tr class="text-left text-sm text-gray-500">
+								<th class="pb-2">Date</th>
+								<th class="pb-2">Model</th>
+								<th class="pb-2">Credits</th>
+								<th class="pb-2">USD</th>
+							</tr>
 						</thead>
 						<tbody>
-						{#each transactions as tx}
-							<tr class="border-t dark:border-gray-800">
-								<td class="py-2">
-									{dayjs(tx.created_at * 1000).format('MMM D, YYYY')}
-								</td>
-								<td class="py-2">{tx.model_name}</td>
-								<td class="py-2">
+							{#each transactions as tx}
+								<tr class="border-t dark:border-gray-800">
+									<td class="py-2">
+										{dayjs(tx.created_at * 1000).format('MMM D, YYYY')}
+									</td>
+									<td class="py-2">{tx.model_name}</td>
+									<td class="py-2">
 										<span class={tx.delta < 0 ? 'text-red-500' : 'text-green-500'}>
 											{tx.delta > 0 ? '+' : ''}{tx.delta}
 										</span>
-								</td>
-								<td class="py-2">${tx.usd_spend}</td>
-							</tr>
-						{/each}
+									</td>
+									<td class="py-2">${tx.usd_spend}</td>
+								</tr>
+							{/each}
 						</tbody>
 					</table>
 				</div>
@@ -176,63 +176,60 @@
 				<div class="overflow-x-auto">
 					<table class="min-w-full">
 						<thead>
-						<tr class="text-left text-sm text-gray-500">
-							<th class="pb-2">Date</th>
-							<th class="pb-2">Type</th>
-							<th class="pb-2">Amount</th>
-							<th class="pb-2">Status</th>
-							<th class="pb-2">Screenshot</th>
-							<th class="pb-2"></th>
-						</tr>
+							<tr class="text-left text-sm text-gray-500">
+								<th class="pb-2">Date</th>
+								<th class="pb-2">Type</th>
+								<th class="pb-2">Amount</th>
+								<th class="pb-2">Status</th>
+								<th class="pb-2">Screenshot</th>
+								<th class="pb-2"></th>
+							</tr>
 						</thead>
 						<tbody>
-						{#each orders as order}
-							<tr class="border-t dark:border-gray-800">
-								<td class="py-2">
-									{dayjs(order.created_at * 1000).format('LL')}
-								</td>
-								<td class="py-2">{order.type}</td>
-								<td class="py-2">{order.amount_mmk} MMK</td>
-								<td class="py-2">
-									<Badge
-										type={order.status === 'paid'
+							{#each orders as order}
+								<tr class="border-t dark:border-gray-800">
+									<td class="py-2">
+										{dayjs(order.created_at * 1000).format('LL')}
+									</td>
+									<td class="py-2">{order.type}</td>
+									<td class="py-2">{order.amount_mmk} MMK</td>
+									<td class="py-2">
+										<Badge
+											type={order.status === 'paid'
 												? 'success'
 												: order.status === 'pending'
 													? 'warning'
 													: 'error'}
-										content={order.status}
-									/>
-								</td>
-								<td class="py-2">
-									{#if order.screenshot_path}
-										<button
-											class="text-blue-500 hover:text-blue-700"
-											on:click={() => {
+											content={order.status}
+										/>
+									</td>
+									<td class="py-2">
+										{#if order.screenshot_path}
+											<button
+												class="text-blue-500 hover:text-blue-700"
+												on:click={() => {
 													// Open image in a modal or new window
 													window.open(
 														`${WEBUI_API_BASE_URL}/api/storage/${order.screenshot_path}`,
 														'_blank'
 													);
 												}}
-										>
-											View Screenshot
-										</button>
-									{:else}
-										<span class="text-gray-400">No screenshot</span>
-									{/if}
-								</td>
-								<td class="py-2">
-									{#if order.status === 'pending'}
-										<button
-											class="btn btn-sm btn-primary"
-											on:click={() => openConfirm(order)}
-										>
-											Confirm Payment
-										</button>
-									{/if}
-								</td>
-							</tr>
-						{/each}
+											>
+												View Screenshot
+											</button>
+										{:else}
+											<span class="text-gray-400">No screenshot</span>
+										{/if}
+									</td>
+									<td class="py-2">
+										{#if order.status === 'pending'}
+											<button class="btn btn-sm btn-primary" on:click={() => openConfirm(order)}>
+												Confirm Payment
+											</button>
+										{/if}
+									</td>
+								</tr>
+							{/each}
 						</tbody>
 					</table>
 				</div>
