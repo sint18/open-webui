@@ -8,7 +8,7 @@ from starlette.responses import StreamingResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from fastapi import Request, HTTPException, status, Response
 
-from open_webui.utils.pricing import estimate_cost
+from open_webui.utils.pricing import estimate_cost, affordable
 from open_webui.models.billing import StatusEnum
 from open_webui.models.billing import UserCredits, CreditTransactions, CreditTransactionForm
 from open_webui.utils.auth import get_current_user, get_http_authorization_cred
@@ -120,9 +120,15 @@ def requires_credits(min_credits: int = 1):
                 )
 
             model_name = kwargs.get('form_data', {}).get('model') or kwargs.get('body', {}).get('model', '')
-
+            message_list = kwargs.get('form_data', {}).get('messages') or kwargs.get('body', {}).get('messages', '')
             # Check credits before processing
-            await check_balance(user.id, min_credits)
+            balance = await check_balance(user.id, min_credits)
+
+            if not affordable(model_name, message_list, balance):
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail="Insufficient credits",
+                )
 
             # Call the original function
             response = await func(*args, **kwargs)
