@@ -16,7 +16,16 @@ export const getUserCreditsByUserId = async (token: string, userId: string) => {
 			Authorization: `Bearer ${token}`
 		}
 	});
-	if (!response.ok) throw new Error('Failed to fetch user credits');
+
+	// Handle 404 gracefully - user may not have credit record yet
+	if (response.status === 404) {
+		return null;
+	}
+
+	if (!response.ok) {
+		throw new Error('Failed to fetch user credits');
+	}
+
 	return response.json();
 };
 
@@ -47,7 +56,16 @@ export const getTransactionsByUserId = async (
 			}
 		}
 	);
-	if (!response.ok) throw new Error('Failed to fetch user transactions');
+
+	// Handle 404 gracefully - user may not have transactions yet
+	if (response.status === 404) {
+		return [];
+	}
+
+	if (!response.ok) {
+		throw new Error('Failed to fetch user transactions');
+	}
+
 	return response.json();
 };
 
