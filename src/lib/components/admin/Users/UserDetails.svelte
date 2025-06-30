@@ -83,6 +83,17 @@
 		}
 	}
 
+	// Add helper function to extract filename and create URL
+	const getScreenshotUrl = (screenshotPath) => {
+		if (!screenshotPath) return '';
+
+		// Extract just the filename from the full path
+		const filename = screenshotPath.split(/[\\/]/).pop();
+
+		// Return the correct URL
+		return `${WEBUI_API_BASE_URL}/storage/${filename}`;
+	};
+
 	function openConfirm(order) {
 		console.log(order);
 		selectedOrder = order;
@@ -264,11 +275,12 @@
 											<button
 												class="text-blue-500 hover:text-blue-700"
 												on:click={() => {
-													// Open image in a modal or new window
-													window.open(
-														`${WEBUI_API_BASE_URL}/api/storage/${order.screenshot_path}`,
-														'_blank'
-													);
+													const url = getScreenshotUrl(order.screenshot_path);
+													if (url) {
+														window.open(url, '_blank');
+													} else {
+														toast.error('Screenshot not available');
+													}
 												}}
 											>
 												View Screenshot

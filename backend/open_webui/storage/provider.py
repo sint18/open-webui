@@ -74,9 +74,24 @@ class LocalStorageProvider(StorageProvider):
         return contents, file_path
 
     @staticmethod
-    def get_file(file_path: str) -> str:
+    def get_file(file_path: str) -> bytes:
         """Handles downloading of the file from local storage."""
-        return file_path
+        # Extract filename from full path if needed
+        if os.path.isabs(file_path) or '\\' in file_path or file_path.startswith('D:'):
+            # Full path provided - use as is
+            if os.path.exists(file_path):
+                with open(file_path, "rb") as f:
+                    return f.read()
+
+        # Filename only - construct path
+        filename = file_path.split("/")[-1].split("\\")[-1]
+        full_path = f"{UPLOAD_DIR}/{filename}"
+
+        if os.path.exists(full_path):
+            with open(full_path, "rb") as f:
+                return f.read()
+
+        raise FileNotFoundError(f"File not found: {file_path}")
 
     @staticmethod
     def delete_file(file_path: str) -> None:
