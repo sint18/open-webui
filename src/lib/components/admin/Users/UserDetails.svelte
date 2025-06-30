@@ -3,7 +3,7 @@
 	import { toast } from 'svelte-sonner';
 	import dayjs from 'dayjs';
 	import {
-		getTransactions,
+		getTransactionsByUserId,
 		getUserCreditsByUserId,
 		getPaymentOrdersByUserId
 	} from '$lib/apis/billing';
@@ -36,7 +36,7 @@
 		try {
 			const [creditsData, transactionsData, ordersData, userInfo] = await Promise.all([
 				getUserCreditsByUserId(localStorage.token, userId),
-				getTransactions(localStorage.token),
+				getTransactionsByUserId(localStorage.token, userId),
 				getPaymentOrdersByUserId(localStorage.token, userId),
 				getUserById(localStorage.token, userId)
 			]);

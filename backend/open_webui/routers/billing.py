@@ -87,6 +87,16 @@ async def list_transactions(
     """List recent credit transactions for current user"""
     return CreditTransactions.get_transactions_by_user(user.id, skip, limit)
 
+@router.get('/{user_id}/transactions', response_model=List[CreditTransactionModel])
+async def get_user_transactions(
+    user_id: str,
+    skip: int = 0,
+    limit: int = 50,
+    admin=Depends(get_admin_user)
+):
+    """Admin: get transactions for a specific user"""
+    return CreditTransactions.get_transactions_by_user(user_id, skip, limit)
+
 # -------------------------
 # Payment Orders Endpoints
 # -------------------------
