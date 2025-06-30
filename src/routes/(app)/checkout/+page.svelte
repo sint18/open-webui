@@ -13,9 +13,9 @@
 
 	// --- plan table -----------------------------------------------------------
 	const PLAN_PRESETS = {
-		starter: { label: 'Starter', amount_mmk: 30000 },
-		pro: { label: 'Pro', amount_mmk: 55000 },
-		studio: { label: 'Studio', amount_mmk: 125000 }
+		starter: { label: 'Starter', amount_mmk: 30000, credits: 0 },
+		pro: { label: 'Pro', amount_mmk: 55000, credits: 0 },
+		studio: { label: 'Studio', amount_mmk: 125000, credits: 0 }
 	} as const;
 
 	// --- reactive plan lookup --------------------------------------------------
@@ -58,6 +58,7 @@
 		url.searchParams.append('type', 'plan_payment');
 		url.searchParams.append('plan_id', planId);
 		url.searchParams.append('amount_mmk', currentPlan.amount_mmk.toString());
+		url.searchParams.append('credits', currentPlan.credits.toString());
 		url.searchParams.append('provider', provider);
 
 		// Create FormData only for the file

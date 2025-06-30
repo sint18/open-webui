@@ -8,6 +8,7 @@
 		name: string;
 		tagline: string;
 		price: number;
+		credits: number; // Add credits field
 		interval: string; // "m" or "y" etc.
 		cta: string; // button label
 		features: string[];
@@ -19,6 +20,7 @@
 			name: 'Starter',
 			tagline: 'For individuals just getting started',
 			price: 30000,
+			credits: 750,
 			interval: 'm',
 			cta: 'Get started',
 			features: [
@@ -32,6 +34,7 @@
 			name: 'Pro',
 			tagline: 'For power users & small teams',
 			price: 55000,
+			credits: 1500,
 			interval: 'm',
 			cta: 'Get started',
 			features: [
@@ -46,6 +49,7 @@
 			name: 'Studio',
 			tagline: 'For organisations & advanced workflows',
 			price: 125000,
+			credits: 2500,
 			interval: 'm',
 			cta: 'Contact sales',
 			features: [
