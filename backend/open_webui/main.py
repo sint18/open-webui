@@ -431,7 +431,7 @@ from open_webui.tasks import (
 )  # Import from tasks.py
 
 from open_webui.utils.redis import get_sentinels_from_env
-
+from utils.billing import BillingMiddleware
 
 if SAFE_MODE:
     print("SAFE MODE ENABLED")
@@ -994,6 +994,7 @@ class RedirectMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CompressMiddleware)
 app.add_middleware(RedirectMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+# app.add_middleware(BillingMiddleware)
 
 
 @app.middleware("http")

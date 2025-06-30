@@ -1,7 +1,10 @@
 import logging
+import requests
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body
+from open_webui.env import LITELLM_MASTER_KEY, LITELLM_URL
 
+from open_webui.models.billing import PaymentStatusEnum
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.utils.auth import get_verified_user, get_admin_user
 from open_webui.models.billing import (
@@ -144,7 +147,10 @@ async def confirm_order(
     admin=Depends(get_admin_user)
 ):
     """Admin: confirm a payment order after manual verification"""
-    order = PaymentOrders.update_payment_order_status(order_id, PaymentCallbackForm(order_id=order_id, status="paid"))
+    order = PaymentOrders.update_payment_order_status(order_id, PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.paid))
+
+    await register_litellm_customer(order.user_id, order.plan_id)
+
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -161,12 +167,45 @@ async def list_orders(
     """List payment orders for current user"""
     return PaymentOrders.get_orders_by_user(user.id, skip, limit)
 
+
 @router.get('/{user_id}/orders', response_model=List[PaymentOrderModel])
 async def list_user_orders(
-    user_id: str,
-    skip: int = 0,
-    limit: int = 50,
-    admin=Depends(get_admin_user)
+        user_id: str,
+        skip: int = 0,
+        limit: int = 50,
+        admin=Depends(get_admin_user)
 ):
     """Admin: List payment orders for a specific user"""
     return PaymentOrders.get_orders_by_user(user_id, skip, limit)
+
+
+async def register_litellm_customer(user_id: str, budget_id: str):
+    """Register a new customer with LiteLLM"""
+    headers = {
+        "Authorization": f"Bearer {LITELLM_MASTER_KEY}"
+    }
+    payload = {
+        "user_id": user_id,
+        "budget_id": budget_id
+    }
+    response = requests.post(
+        f"{LITELLM_URL}/customer/new",
+        headers=headers,
+        json=payload
+    )
+
+    if not response.ok:
+        error_message = "Failed to register with LiteLLM"
+        try:
+            error_json = response.json()
+            if "error" in error_json and "message" in error_json["error"]:
+                error_message = error_json["error"]["message"]
+        except:
+            pass
+
+        log.error(f"Failed to register customer with LiteLLM: {response.text}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_message
+        )
+    return response.json()
