@@ -48,6 +48,7 @@
 	import ContentRenderer from './ContentRenderer.svelte';
 	import { KokoroWorker } from '$lib/workers/KokoroWorker';
 	import FileItem from '$lib/components/common/FileItem.svelte';
+	import ModelImage from '$lib/components/common/ModelImage.svelte';
 
 	interface MessageType {
 		id: string;
@@ -599,11 +600,12 @@
 		dir={$settings.chatDirection}
 	>
 		<div class={`shrink-0 ltr:mr-3 rtl:ml-3`}>
-			<ProfileImage
-				src={model?.info?.meta?.profile_image_url ??
-					($i18n.language === 'dg-DG' ? `/doge.png` : `/static/favicon.png`)}
-				className={'size-8'}
-			/>
+<!--			<ProfileImage-->
+<!--				src={model?.info?.meta?.profile_image_url ??-->
+<!--					($i18n.language === 'dg-DG' ? `/doge.png` : `/static/favicon.png`)}-->
+<!--				className={'size-8'}-->
+<!--			/>-->
+			<ModelImage selectedModel={model} class="size-8 object-cover rounded-full -translate-y-[1px]" alt="profile" draggable="false"></ModelImage>
 		</div>
 
 		<div class="flex-auto w-0 pl-1 relative">
