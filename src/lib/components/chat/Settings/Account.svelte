@@ -4,8 +4,10 @@
 
 	import { user, config, settings } from '$lib/stores';
 	import { updateUserProfile, createAPIKey, getAPIKey, getSessionUser } from '$lib/apis/auths';
+	import { userCredits, fetchUserCredits } from '$lib/stores/credits';
 
 	import UpdatePassword from './Account/UpdatePassword.svelte';
+	import CreditProgressBar from '$lib/components/common/CreditProgressBar.svelte';
 	import { getGravatarUrl } from '$lib/apis/utils';
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
 	import { copyToClipboard } from '$lib/utils';
@@ -83,6 +85,9 @@
 			console.log(error);
 			return '';
 		});
+
+		// Fetch user credits when visiting the account page
+		await fetchUserCredits(localStorage.token);
 	});
 </script>
 
@@ -245,6 +250,20 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Credit Progress Bar -->
+			{#if $userCredits?.credit_balance !== undefined && $userCredits?.monthly_quota !== undefined}
+				<div class="pt-2">
+					<div class="flex flex-col w-full">
+						<div class="mb-1 text-xs font-medium">{$i18n.t('Credits')}</div>
+						<CreditProgressBar
+							currentCredits={$userCredits.credit_balance}
+							totalCredits={$userCredits.monthly_quota}
+							size="sm"
+						/>
+					</div>
+				</div>
+			{/if}
 
 			{#if $config?.features?.enable_user_webhooks}
 				<div class="pt-2">
