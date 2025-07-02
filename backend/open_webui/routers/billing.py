@@ -30,7 +30,7 @@ async def create_credits(
     user=Depends(get_admin_user)
 ):
     """Admin: initialize a user's credit wallet"""
-    return UserCredits.insert_new_user_credits(user.id, form)
+    return UserCredits.insert_new_user_credits(form.user_id, form)
 
 @router.get('/credits', response_model=UserCreditsModel)
 async def get_credits(
@@ -86,6 +86,16 @@ async def list_transactions(
 ):
     """List recent credit transactions for current user"""
     return CreditTransactions.get_transactions_by_user(user.id, skip, limit)
+
+@router.get('/{user_id}/transactions', response_model=List[CreditTransactionModel])
+async def get_user_transactions(
+    user_id: str,
+    skip: int = 0,
+    limit: int = 50,
+    admin=Depends(get_admin_user)
+):
+    """Admin: get transactions for a specific user"""
+    return CreditTransactions.get_transactions_by_user(user_id, skip, limit)
 
 # -------------------------
 # Payment Orders Endpoints
@@ -147,15 +157,77 @@ async def confirm_order(
     admin=Depends(get_admin_user)
 ):
     """Admin: confirm a payment order after manual verification"""
-    order = PaymentOrders.update_payment_order_status(order_id, PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.paid))
-
-    await register_litellm_customer(order.user_id, order.plan_id)
+    # 1. Update order status to 'paid'
+    order = PaymentOrders.update_payment_order_status(
+        order_id,
+        PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.paid)
+    )
 
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ERROR_MESSAGES.DEFAULT()
         )
+
+    # 2. Allocate credits based on the order (if credits > 0)
+    if order.credits and order.credits > 0:
+        try:
+            # Check if user already has a credit wallet
+            existing_credits = UserCredits.get_user_credits(order.user_id)
+
+            if existing_credits:
+                # User has existing credits - add to their balance
+                updated_credits = UserCredits.update_credits(order.user_id, order.credits)
+                if updated_credits:
+                    log.info(f"Added {order.credits} credits to existing wallet for user {order.user_id}. New balance: {updated_credits.credit_balance}")
+                else:
+                    log.error(f"Failed to update credits for existing user {order.user_id}")
+            else:
+                # User doesn't have credits yet - create new wallet
+                credit_form = UserCreditsForm(
+                    user_id=order.user_id,
+                    plan_id=order.plan_id,
+                    credit_balance=order.credits,
+                    monthly_quota=order.credits,
+                    current_period_end=order.period_end
+                )
+                new_credits = UserCredits.insert_new_user_credits(order.user_id, credit_form)
+                if new_credits:
+                    log.info(f"Created new credit wallet with {order.credits} credits for user {order.user_id}")
+                else:
+                    log.error(f"Failed to create credit wallet for user {order.user_id}")
+
+            # Record the credit allocation transaction
+            try:
+                CreditTransactions.insert_transaction(
+                    order.user_id,
+                    CreditTransactionForm(
+                        tx_id=f"payment_{order.order_id}",
+                        delta=order.credits,  # Positive delta for credit addition
+                        usd_spend=0.0,  # This is a purchase, not usage
+                        model_name="plan_purchase"
+                    )
+                )
+                log.info(f"Recorded credit allocation transaction for order {order_id}")
+            except Exception as tx_error:
+                log.error(f"Failed to record credit transaction for order {order_id}: {tx_error}")
+                # Don't fail the whole operation for transaction logging failure
+
+        except Exception as credit_error:
+            log.error(f"Failed to allocate credits for order {order_id}: {credit_error}")
+            # Log error but don't fail the payment confirmation
+            # Consider adding a flag to track credit allocation failures
+    else:
+        log.info(f"No credits to allocate for order {order_id} (credits: {order.credits})")
+
+    # 3. Register with LiteLLM (existing functionality)
+    try:
+        await register_litellm_customer(order.user_id, order.plan_id)
+        log.info(f"Successfully registered user {order.user_id} with LiteLLM for plan {order.plan_id}")
+    except Exception as litellm_error:
+        log.error(f"Failed to register user {order.user_id} with LiteLLM: {litellm_error}")
+        # Log error but don't fail the confirmation
+
     return order
 
 @router.get('/orders', response_model=List[PaymentOrderModel])

@@ -97,10 +97,34 @@ class PaymentOrder(Base):
     period_start = Column(BigInteger, nullable=True)
     screenshot_path = Column(Text, nullable=True)
     period_end = Column(BigInteger, nullable=True)
-    Column(String, nullable=True)  # URL or local path of uploaded screenshot
+      # URL or local path of uploaded screenshot
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     paid_at = Column(BigInteger, nullable=True)
 
+
+####################
+# Helper functions for credit usage info
+####################
+
+async def get_credit_usage_info(user_id: str) -> dict:
+    """Get current credit usage information for piggy-backing in responses"""
+    try:
+        credits = UserCredits.get_user_credits(user_id)
+        if not credits:
+            return {}
+
+        used = credits.monthly_quota - credits.credit_balance
+        limit = credits.monthly_quota
+        percent = (used / limit * 100) if limit > 0 else 0
+
+        return {
+            "used": used,
+            "limit": limit,
+            "percent": round(percent, 1)
+        }
+    except Exception as e:
+        log.error(f"Error getting credit usage info: {e}")
+        return {}
 
 ####################
 # Pydantic models & forms
@@ -119,7 +143,9 @@ class UserCreditsModel(BaseModel):
 
 
 class UserCreditsForm(BaseModel):
+    user_id: str
     plan_id: PlanEnum
+    credit_balance: int  # Add explicit credit_balance field
     monthly_quota: int
     current_period_end: Optional[int] = None
 
@@ -187,7 +213,7 @@ class UserCreditsTable:
             record = UserCredit(
                 user_id=user_id,
                 plan_id=form.plan_id,
-                credit_balance=form.monthly_quota,
+                credit_balance=form.credit_balance,  # Use form.credit_balance instead of monthly_quota
                 monthly_quota=form.monthly_quota,
                 current_period_end=form.current_period_end,
                 status=StatusEnum.active,

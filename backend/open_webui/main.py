@@ -431,7 +431,7 @@ from open_webui.tasks import (
 )  # Import from tasks.py
 
 from open_webui.utils.redis import get_sentinels_from_env
-from utils.billing import BillingMiddleware
+from open_webui.utils.billing import BillingMiddleware
 
 if SAFE_MODE:
     print("SAFE MODE ENABLED")
