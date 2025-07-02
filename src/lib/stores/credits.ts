@@ -61,10 +61,10 @@ export const updateCreditUsage = (usage: CreditUsageInfo) => {
 	if (usage.percent >= 80) {
 		// 20% remaining = 80% used
 		const now = Date.now();
-		// if (now - lastLowCreditToastTime > TOAST_COOLDOWN) {
-		lastLowCreditToastTime = now;
-		showLowCreditToast(usage);
-		// }
+		if (now - lastLowCreditToastTime > TOAST_COOLDOWN) {
+			lastLowCreditToastTime = now;
+			showLowCreditToast(usage);
+		}
 	}
 
 	// Reset toast timer if credits go back above 80%
