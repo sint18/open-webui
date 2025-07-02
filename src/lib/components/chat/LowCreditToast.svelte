@@ -33,10 +33,10 @@
 					label: i18n?.t ? i18n.t('Upgrade Plan') : 'Upgrade Plan',
 					onClick: () => goto('/pricing')
 				},
-				cancel: {
-					label: i18n?.t ? i18n.t('Dismiss') : 'Dismiss',
-					onClick: () => {}
-				},
+				// cancel: {
+				// 	label: i18n?.t ? i18n.t('Dismiss') : 'Dismiss',
+				// 	onClick: () => {}
+				// },
 				style:
 					'background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b; color: #92400e; box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);'
 			}
