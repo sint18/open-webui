@@ -11,10 +11,23 @@ export interface UserCredits {
 	updated_at: number;
 }
 
+export interface CreditUsageInfo {
+	used: number;
+	limit: number;
+	percent: number;
+}
+
 // Credit store
 export const userCredits = writable<UserCredits | null>(null);
 export const creditsLoading = writable<boolean>(false);
 export const creditsError = writable<string | null>(null);
+
+// Last credit usage info from chat responses
+export const lastCreditUsage = writable<CreditUsageInfo | null>(null);
+
+// Track when we last showed low credit toast
+let lastLowCreditToastTime = 0;
+const TOAST_COOLDOWN = 60 * 60 * 1000; // 1 hour
 
 // Derived stores for computed values
 export const creditPercentage = derived(userCredits, ($credits) => {
@@ -25,6 +38,53 @@ export const creditPercentage = derived(userCredits, ($credits) => {
 export const isCreditsLow = derived(creditPercentage, ($percentage) => $percentage < 20);
 
 export const isCreditsCritical = derived(creditPercentage, ($percentage) => $percentage < 10);
+
+// Function to update credit usage from chat responses
+export const updateCreditUsage = (usage: CreditUsageInfo) => {
+	lastCreditUsage.set(usage);
+
+	// Update user credits based on usage info
+	if (usage.limit > 0) {
+		const credit_balance = usage.limit - usage.used;
+		userCredits.update((current) => {
+			if (current) {
+				return {
+					...current,
+					credit_balance: credit_balance
+				};
+			}
+			return current;
+		});
+	}
+
+	// Check if we should show low credit toast
+	if (usage.percent >= 80) {
+		// 20% remaining = 80% used
+		const now = Date.now();
+		// if (now - lastLowCreditToastTime > TOAST_COOLDOWN) {
+		lastLowCreditToastTime = now;
+		showLowCreditToast(usage);
+		// }
+	}
+
+	// Reset toast timer if credits go back above 80%
+	if (usage.percent < 80) {
+		lastLowCreditToastTime = 0;
+	}
+};
+
+const showLowCreditToast = (usage: CreditUsageInfo) => {
+	// Dispatch a custom event that the toast component will listen for
+	const event = new CustomEvent('low-credit-warning', {
+		detail: {
+			remaining: 100 - usage.percent,
+			used: usage.used,
+			limit: usage.limit,
+			percent: usage.percent
+		}
+	});
+	window.dispatchEvent(event);
+};
 
 // Cache with timestamp to avoid duplicate calls
 let lastFetch = 0;
