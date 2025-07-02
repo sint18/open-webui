@@ -103,6 +103,30 @@ class PaymentOrder(Base):
 
 
 ####################
+# Helper functions for credit usage info
+####################
+
+async def get_credit_usage_info(user_id: str) -> dict:
+    """Get current credit usage information for piggy-backing in responses"""
+    try:
+        credits = UserCredits.get_user_credits(user_id)
+        if not credits:
+            return {}
+
+        used = credits.monthly_quota - credits.credit_balance
+        limit = credits.monthly_quota
+        percent = (used / limit * 100) if limit > 0 else 0
+
+        return {
+            "used": used,
+            "limit": limit,
+            "percent": round(percent, 1)
+        }
+    except Exception as e:
+        log.error(f"Error getting credit usage info: {e}")
+        return {}
+
+####################
 # Pydantic models & forms
 ####################
 
