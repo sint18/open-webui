@@ -38,6 +38,7 @@
 		tools,
 		toolServers
 	} from '$lib/stores';
+	import { updateCreditUsage } from '$lib/stores/credits';
 	import {
 		convertMessagesToHistory,
 		copyToClipboard,
@@ -88,6 +89,7 @@
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import Placeholder from './Placeholder.svelte';
 	import NotificationToast from '../NotificationToast.svelte';
+	import LowCreditToast from './LowCreditToast.svelte';
 	import Spinner from '../common/Spinner.svelte';
 	import { fade } from 'svelte/transition';
 
@@ -294,8 +296,16 @@
 					chatCompletionEventHandler(data, message, event.chat_id);
 				} else if (type === 'chat:message:delta' || type === 'message') {
 					message.content += data.content;
+					// Handle credit usage in delta messages
+					if (data.credit_usage) {
+						updateCreditUsage(data.credit_usage);
+					}
 				} else if (type === 'chat:message' || type === 'replace') {
 					message.content = data.content;
+					// Handle credit usage in replace messages
+					if (data.credit_usage) {
+						updateCreditUsage(data.credit_usage);
+					}
 				} else if (type === 'chat:message:files' || type === 'files') {
 					message.files = data.files;
 				} else if (type === 'chat:title') {
@@ -1164,10 +1174,16 @@
 	};
 
 	const chatCompletionEventHandler = async (data, message, chatId) => {
-		const { id, done, choices, content, sources, selected_model_id, error, usage } = data;
+		const { id, done, choices, content, sources, selected_model_id, error, usage, credit_usage } =
+			data;
 
 		if (error) {
 			await handleOpenAIError(error, message);
+		}
+
+		// Handle credit usage info if present
+		if (credit_usage) {
+			updateCreditUsage(credit_usage);
 		}
 
 		if (sources) {
@@ -2204,3 +2220,6 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Low Credit Toast Component -->
+<LowCreditToast />
