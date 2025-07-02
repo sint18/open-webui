@@ -80,6 +80,8 @@ from open_webui.routers import (
     tools,
     users,
     utils,
+    billing,
+    storage
 )
 
 from open_webui.routers.retrieval import (
@@ -429,7 +431,7 @@ from open_webui.tasks import (
 )  # Import from tasks.py
 
 from open_webui.utils.redis import get_sentinels_from_env
-
+from utils.billing import BillingMiddleware
 
 if SAFE_MODE:
     print("SAFE MODE ENABLED")
@@ -992,6 +994,7 @@ class RedirectMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CompressMiddleware)
 app.add_middleware(RedirectMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+# app.add_middleware(BillingMiddleware)
 
 
 @app.middleware("http")
@@ -1082,6 +1085,8 @@ app.include_router(
     evaluations.router, prefix="/api/v1/evaluations", tags=["evaluations"]
 )
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
+app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
+app.include_router(storage.router, prefix="/api/v1/storage", tags=["storage"])
 
 
 try:

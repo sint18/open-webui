@@ -5,6 +5,7 @@
 	import { tick, getContext } from 'svelte';
 
 	import { models } from '$lib/stores';
+	import ModelImage from '$lib/components/common/ModelImage.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -91,11 +92,12 @@
 							on:focus={() => {}}
 						>
 							<div class="flex font-medium text-black dark:text-gray-100 line-clamp-1">
-								<img
-									src={model?.info?.meta?.profile_image_url ?? '/static/favicon.png'}
-									alt={model?.name ?? model.id}
-									class="rounded-full size-6 items-center mr-2"
-								/>
+<!--								<img-->
+<!--									src={model?.info?.meta?.profile_image_url ?? '/static/favicon.png'}-->
+<!--									alt={model?.name ?? model.id}-->
+<!--									class="rounded-full size-6 items-center mr-2"-->
+<!--								/>-->
+								<ModelImage selectedModel={model} alt={model?.name ?? model.id} class="rounded-full size-6 items-center mr-2"></ModelImage>
 								{model.name}
 							</div>
 						</button>
