@@ -1167,14 +1167,24 @@ async def process_chat_response(
 
                     title = Chats.get_chat_title_by_id(metadata["chat_id"])
 
+                    # Add credit usage info for piggy-backing
+                    from open_webui.models.billing import get_credit_usage_info
+                    credit_usage = await get_credit_usage_info(user.id)
+
+                    completion_data = {
+                        "done": True,
+                        "content": content,
+                        "title": title,
+                    }
+
+                    # Include credit usage if available
+                    if credit_usage:
+                        completion_data["credit_usage"] = credit_usage
+
                     await event_emitter(
                         {
                             "type": "chat:completion",
-                            "data": {
-                                "done": True,
-                                "content": content,
-                                "title": title,
-                            },
+                            "data": completion_data,
                         }
                     )
 
@@ -2294,11 +2304,20 @@ async def process_chat_response(
                             break
 
                 title = Chats.get_chat_title_by_id(metadata["chat_id"])
+
+                # Add credit usage info for piggy-backing
+                from open_webui.models.billing import get_credit_usage_info
+                credit_usage = await get_credit_usage_info(user.id)
+
                 data = {
                     "done": True,
                     "content": serialize_content_blocks(content_blocks),
                     "title": title,
                 }
+
+                # Include credit usage if available
+                if credit_usage:
+                    data["credit_usage"] = credit_usage
 
                 if not ENABLE_REALTIME_CHAT_SAVE:
                     # Save message in the database
