@@ -17,6 +17,9 @@ export const getCompanyName = (model: {
 	if (id.includes('gemini') || name.includes('gemini')) return 'Google';
 	if (id.includes('command') || name.includes('command')) return 'Cohere';
 	if (id.includes('groq') || name.includes('groq')) return 'Groq';
+	if (id.includes('deepseek') || name.includes('deepseek')) return 'Deepseek';
+	if (id.includes('perplexity') || name.includes('perplexity')) return 'Perplexity';
+	if (id.includes('mistral') || name.includes('mistral')) return 'Mistral';
 
 	/* ---------- 2. Ollama family mapping (works for both local + LiteLLM) ---------- */
 	const family = model.ollama?.details?.family?.toLowerCase();
