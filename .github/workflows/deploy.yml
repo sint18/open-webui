@@ -10,6 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set up image tag
+        id: vars
+        run: echo "TAG=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -17,10 +21,16 @@ jobs:
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
 
       - name: Build Docker image
-        run: docker build -t ghcr.io/${{ secrets.GHCR_USERNAME }}/open-webui:latest .
+        run: docker build -t ghcr.io/${{ secrets.GHCR_USERNAME }}/open-webui:$TAG .
 
       - name: Push Docker image
-        run: docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/open-webui:latest
+        run: |
+          docker tag ghcr.io/${{ secrets.GHCR_USERNAME }}/open-webui:$TAG ghcr.io/${{ secrets.GHCR_USERNAME }}/open-webui:latest
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/open-webui:$TAG
+          docker push ghcr.io/${{ secrets.GHCR_USERNAME }}/open-webui:latest
+
+      - name: Wait before Coolify redeploy (optional but helps)
+        run: sleep 10
 
       - name: Trigger Coolify redeploy
         run: |
