@@ -21,12 +21,14 @@
 			tagline: 'For individuals just getting started',
 			price: 30000,
 			credits: 750,
-			interval: 'm',
+			interval: 'month',
 			cta: 'Get started',
 			features: [
 				'Unlimited chats',
-				'1 active chatbot',
+				'GPT-4o-mini, GPT-4.1-mini, Gemini 2.5 Flash',
+				'DeepSeek-chat V3, Mistral Small 3.1, Llama-3/4 and more models in the future',
 				'Community support',
+				'Basic chat interface',
 				'Pause or cancel anytime'
 			]
 		},
@@ -35,11 +37,13 @@
 			tagline: 'For power users & small teams',
 			price: 55000,
 			credits: 1500,
-			interval: 'm',
+			interval: 'month',
 			cta: 'Get started',
 			features: [
-				'Unlimited chats',
-				'3 active chatbots',
+				'All Starter models & features plus',
+				'GPT-4o-full, GPT-4.1-full, Gemini 2.5 Pro, Claude 3.5 Sonnet',
+				'DeepSeek-Reasoner R1, Mistral Medium 3, Llama-4 Maverick',
+				'Advanced features',
 				'Priority support',
 				'Pause or cancel anytime'
 			],
@@ -49,14 +53,16 @@
 			name: 'Studio',
 			tagline: 'For organisations & advanced workflows',
 			price: 125000,
-			credits: 2500,
-			interval: 'm',
-			cta: 'Contact sales',
+			credits: 4500,
+			interval: 'month',
+			cta: 'Get started',
 			features: [
 				'Unlimited chats & bots',
-				'Custom branding',
-				'Dedicated account manager',
-				'Enterprise‑grade SLA'
+				'All Pro models & features plus',
+				'Claude 3.7 Sonnet, Claude Opus 4, OpenAI o3, GPT-4o-Vision',
+				'Mixtral 8×22B, Llama-4 Maverick-LongCtx, Llama-3 70B',
+				'24/7 priority support',
+				'Pause or cancel anytime'
 			]
 		}
 	];
