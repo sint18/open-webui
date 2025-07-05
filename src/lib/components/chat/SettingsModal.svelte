@@ -55,77 +55,77 @@
 		},
 		...($user?.role === 'admin'
 			? [
-				{
-					id: 'interface',
-					title: 'Interface',
-					keywords: [
-						'defaultmodel',
-						'selectmodel',
-						'ui',
-						'userinterface',
-						'display',
-						'layout',
-						'design',
-						'landingpage',
-						'landingpagemode',
-						'default',
-						'chat',
-						'chatbubble',
-						'chatui',
-						'username',
-						'showusername',
-						'displayusername',
-						'widescreen',
-						'widescreenmode',
-						'fullscreen',
-						'expandmode',
-						'chatdirection',
-						'lefttoright',
-						'ltr',
-						'righttoleft',
-						'rtl',
-						'notifications',
-						'toast',
-						'toastnotifications',
-						'largechunks',
-						'streamlargechunks',
-						'scroll',
-						'scrollonbranchchange',
-						'scrollbehavior',
-						'richtext',
-						'richtextinput',
-						'background',
-						'chatbackground',
-						'chatbackgroundimage',
-						'backgroundimage',
-						'uploadbackground',
-						'resetbackground',
-						'titleautogen',
-						'titleautogeneration',
-						'autotitle',
-						'chattags',
-						'autochattags',
-						'responseautocopy',
-						'clipboard',
-						'location',
-						'userlocation',
-						'userlocationaccess',
-						'haptic',
-						'hapticfeedback',
-						'vibration',
-						'voice',
-						'voicecontrol',
-						'voiceinterruption',
-						'call',
-						'emojis',
-						'displayemoji',
-						'save',
-						'interfaceoptions',
-						'interfacecustomization',
-						'alwaysonwebsearch'
-					]
-				},
-			]
+					{
+						id: 'interface',
+						title: 'Interface',
+						keywords: [
+							'defaultmodel',
+							'selectmodel',
+							'ui',
+							'userinterface',
+							'display',
+							'layout',
+							'design',
+							'landingpage',
+							'landingpagemode',
+							'default',
+							'chat',
+							'chatbubble',
+							'chatui',
+							'username',
+							'showusername',
+							'displayusername',
+							'widescreen',
+							'widescreenmode',
+							'fullscreen',
+							'expandmode',
+							'chatdirection',
+							'lefttoright',
+							'ltr',
+							'righttoleft',
+							'rtl',
+							'notifications',
+							'toast',
+							'toastnotifications',
+							'largechunks',
+							'streamlargechunks',
+							'scroll',
+							'scrollonbranchchange',
+							'scrollbehavior',
+							'richtext',
+							'richtextinput',
+							'background',
+							'chatbackground',
+							'chatbackgroundimage',
+							'backgroundimage',
+							'uploadbackground',
+							'resetbackground',
+							'titleautogen',
+							'titleautogeneration',
+							'autotitle',
+							'chattags',
+							'autochattags',
+							'responseautocopy',
+							'clipboard',
+							'location',
+							'userlocation',
+							'userlocationaccess',
+							'haptic',
+							'hapticfeedback',
+							'vibration',
+							'voice',
+							'voicecontrol',
+							'voiceinterruption',
+							'call',
+							'emojis',
+							'displayemoji',
+							'save',
+							'interfaceoptions',
+							'interfacecustomization',
+							'alwaysonwebsearch'
+						]
+					}
+				]
 			: []),
 
 		...($user?.role === 'admin' ||
@@ -165,51 +165,56 @@
 				'accountpreferences'
 			]
 		},
-		{
-			id: 'audio',
-			title: 'Audio',
-			keywords: [
-				'audio',
-				'sound',
-				'soundsettings',
-				'audiocontrol',
-				'volume',
-				'speech',
-				'speechrecognition',
-				'stt',
-				'speechtotext',
-				'tts',
-				'texttospeech',
-				'playback',
-				'playbackspeed',
-				'voiceplayback',
-				'speechplayback',
-				'audiooutput',
-				'speechengine',
-				'voicecontrol',
-				'audioplayback',
-				'transcription',
-				'autotranscribe',
-				'autosend',
-				'speechsettings',
-				'audiovoice',
-				'voiceoptions',
-				'setvoice',
-				'nonlocalvoices',
-				'savesettings',
-				'audioconfig',
-				'speechconfig',
-				'voicerecognition',
-				'speechsynthesis',
-				'speechmode',
-				'voicespeed',
-				'speechrate',
-				'speechspeed',
-				'audioinput',
-				'audiofeatures',
-				'voicemodes'
-			]
-		},
+		...($user?.role === 'admin' ||
+		($user?.role === 'user' && ($user?.permissions?.chat?.stt || $user?.permissions?.chat?.tts))
+			? [
+					{
+						id: 'audio',
+						title: 'Audio',
+						keywords: [
+							'audio',
+							'sound',
+							'soundsettings',
+							'audiocontrol',
+							'volume',
+							'speech',
+							'speechrecognition',
+							'stt',
+							'speechtotext',
+							'tts',
+							'texttospeech',
+							'playback',
+							'playbackspeed',
+							'voiceplayback',
+							'speechplayback',
+							'audiooutput',
+							'speechengine',
+							'voicecontrol',
+							'audioplayback',
+							'transcription',
+							'autotranscribe',
+							'autosend',
+							'speechsettings',
+							'audiovoice',
+							'voiceoptions',
+							'setvoice',
+							'nonlocalvoices',
+							'savesettings',
+							'audioconfig',
+							'speechconfig',
+							'voicerecognition',
+							'speechsynthesis',
+							'speechmode',
+							'voicespeed',
+							'speechrate',
+							'speechspeed',
+							'audioinput',
+							'audiofeatures',
+							'voicemodes'
+						]
+					}
+				]
+			: []),
 		{
 			id: 'chats',
 			title: 'Chats',
@@ -548,32 +553,34 @@
 								<div class=" self-center">{$i18n.t('Personalization')}</div>
 							</button>
 						{:else if tabId === 'audio'}
-							<button
-								class="px-0.5 py-1 min-w-fit rounded-lg flex-1 md:flex-none flex text-left transition {selectedTab ===
-								'audio'
-									? ''
-									: ' text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'}"
-								on:click={() => {
-									selectedTab = 'audio';
-								}}
-							>
-								<div class=" self-center mr-2">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 16 16"
-										fill="currentColor"
-										class="w-4 h-4"
-									>
-										<path
-											d="M7.557 2.066A.75.75 0 0 1 8 2.75v10.5a.75.75 0 0 1-1.248.56L3.59 11H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.59l3.162-2.81a.75.75 0 0 1 .805-.124ZM12.95 3.05a.75.75 0 1 0-1.06 1.06 5.5 5.5 0 0 1 0 7.78.75.75 0 1 0 1.06 1.06 7 7 0 0 0 0-9.9Z"
-										/>
-										<path
-											d="M10.828 5.172a.75.75 0 1 0-1.06 1.06 2.5 2.5 0 0 1 0 3.536.75.75 0 1 0 1.06 1.06 4 4 0 0 0 0-5.656Z"
-										/>
-									</svg>
-								</div>
-								<div class=" self-center">{$i18n.t('Audio')}</div>
-							</button>
+							{#if $user?.role === 'admin' || ($user?.role === 'user' && ($user?.permissions?.chat?.tts || $user?.permissions?.chat?.stt))}
+								<button
+									class="px-0.5 py-1 min-w-fit rounded-lg flex-1 md:flex-none flex text-left transition {selectedTab ===
+									'audio'
+										? ''
+										: ' text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'}"
+									on:click={() => {
+										selectedTab = 'audio';
+									}}
+								>
+									<div class=" self-center mr-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											class="w-4 h-4"
+										>
+											<path
+												d="M7.557 2.066A.75.75 0 0 1 8 2.75v10.5a.75.75 0 0 1-1.248.56L3.59 11H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.59l3.162-2.81a.75.75 0 0 1 .805-.124ZM12.95 3.05a.75.75 0 1 0-1.06 1.06 5.5 5.5 0 0 1 0 7.78.75.75 0 1 0 1.06 1.06 7 7 0 0 0 0-9.9Z"
+											/>
+											<path
+												d="M10.828 5.172a.75.75 0 1 0-1.06 1.06 2.5 2.5 0 0 1 0 3.536.75.75 0 1 0 1.06 1.06 4 4 0 0 0 0-5.656Z"
+											/>
+										</svg>
+									</div>
+									<div class=" self-center">{$i18n.t('Audio')}</div>
+								</button>
+							{/if}
 						{:else if tabId === 'chats'}
 							<button
 								class="px-0.5 py-1 min-w-fit rounded-lg flex-1 md:flex-none flex text-left transition {selectedTab ===
