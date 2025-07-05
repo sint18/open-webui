@@ -29,6 +29,7 @@
 		toolServers,
 		playingNotificationSound
 	} from '$lib/stores';
+	import { fetchUserCredits } from '$lib/stores/credits';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Toaster, toast } from 'svelte-sonner';
@@ -598,6 +599,7 @@
 						$socket.emit('user-join', { auth: { token: sessionUser.token } });
 
 						await user.set(sessionUser);
+						await fetchUserCredits(sessionUser.token)
 						await config.set(await getBackendConfig());
 					} else {
 						// Redirect Invalid Session User to /auth Page

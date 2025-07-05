@@ -15,6 +15,7 @@
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import OnBoarding from '$lib/components/OnBoarding.svelte';
+	import { fetchUserCredits } from '$lib/stores/credits';
 
 	const i18n = getContext('i18n');
 
@@ -43,6 +44,7 @@
 			}
 			$socket.emit('user-join', { auth: { token: sessionUser.token } });
 			await user.set(sessionUser);
+			await fetchUserCredits(sessionUser.token);
 			await config.set(await getBackendConfig());
 
 			const redirectPath = querystringValue('redirect') || '/';

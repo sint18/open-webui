@@ -251,6 +251,18 @@
 				</div>
 			</div>
 
+			{#if $userCredits?.plan_id !== undefined && $userCredits?.monthly_quota !== undefined}
+				<div class="pt-2">
+					<div class="flex flex-col">
+						<div class="mb-1 text-xs font-medium">{$i18n.t('Current Plan')}</div>
+						<span class="inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-md bg-[#21706d]/10 text-[#21706d] dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize">
+                {$userCredits?.plan_id}
+            </span>
+
+					</div>
+				</div>
+			{/if}
+
 			<!-- Credit Progress Bar -->
 			{#if $userCredits?.credit_balance !== undefined && $userCredits?.monthly_quota !== undefined}
 				<div class="pt-2">

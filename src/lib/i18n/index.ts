@@ -76,7 +76,7 @@ export const initI18n = (defaultLocale?: string | undefined) => {
 		const translation = originalTFunction(key, ...args);
 
 		// If we're in English mode and the translation is empty, return the key itself
-		if (i18next.language.startsWith('en') && translation === '') {
+		if (i18next.language && i18next.language.startsWith('en') && translation === '') {
 			return key;
 		}
 

@@ -21,8 +21,9 @@
 		channels,
 		socket,
 		config,
-		isApp
+		isApp,
 	} from '$lib/stores';
+	import {userCredits} from '$lib/stores/credits';
 	import { onMount, getContext, tick, onDestroy } from 'svelte';
 
 	const i18n = getContext('i18n');
@@ -934,7 +935,15 @@
 									alt="User profile"
 								/>
 							</div>
-							<div class=" self-center font-medium">{$user?.name}</div>
+							<div class="flex flex-1 items-center justify-between">
+								<div class="self-center font-medium">{$user?.name}</div>
+									{#if $userCredits?.plan_id}
+										<span class="inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-md bg-[#21706d]/10 text-[#21706d] dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize">
+												{$userCredits?.plan_id}
+										</span>
+									{/if}
+								</div>
+
 						</button>
 					</UserMenu>
 				{/if}

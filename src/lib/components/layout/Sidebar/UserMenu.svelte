@@ -13,6 +13,7 @@
 	import Map from '$lib/components/icons/Map.svelte';
 	import Keyboard from '$lib/components/icons/Keyboard.svelte';
 	import ShortcutsModal from '$lib/components/chat/ShortcutsModal.svelte';
+	import Bolt from '$lib/components/icons/Bolt.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -199,6 +200,20 @@
 					<div class="flex items-center">{$i18n.t('Keyboard shortcuts')}</div>
 				</DropdownMenu.Item>
 			{/if}
+
+			<!-- Add this before the Sign Out button, after the help section -->
+			<hr class="border-gray-100 dark:border-gray-800 my-1 p-0" />
+
+			<DropdownMenu.Item
+				class="flex gap-2 items-center py-1.5 px-3 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
+				on:click={() => {
+					goto('/pricing');
+					show = false;
+				}}
+			>
+				<Bolt className="size-5 mr-1" strokeWidth="1.5" />
+				<div class="flex items-center">{$i18n.t('Pricing')}</div>
+			</DropdownMenu.Item>
 
 			<hr class=" border-gray-100 dark:border-gray-800 my-1 p-0" />
 

@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import CheckCircle from '$lib/components/icons/Check.svelte'; // adjust path if necessary
+	import { fetchUserCredits, userCredits } from '$lib/stores/credits';
 
 	const i18n = getContext('i18n');
 
@@ -79,6 +80,7 @@
 
 		<div class="grid gap-6 md:grid-cols-3">
 			{#each plans as plan}
+				{@const isCurrentPlan = $userCredits?.plan_id.toLowerCase() === plan.name.toLowerCase()}
 				<div
 					class="flex flex-col rounded-2xl border {plan.highlight
 						? 'border-[#21706d] shadow-lg'
@@ -99,6 +101,16 @@
 							</div>
 						</div>
 					{/if}
+					{#if isCurrentPlan}
+						<div class="absolute -top-3 right-4">
+							<div
+								class="bg-gray-700 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm"
+							>
+								Current Plan
+							</div>
+						</div>
+					{/if}
+
 					<div class="mb-6">
 						<h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{plan.name}</h2>
 						<p class="text-sm text-gray-600 dark:text-gray-400">{plan.tagline}</p>
