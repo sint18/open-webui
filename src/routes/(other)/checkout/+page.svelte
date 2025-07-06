@@ -53,19 +53,26 @@
 
 		submitting = true;
 
-		// Create URL with query parameters for the form data
-		const url = new URL(`${WEBUI_API_BASE_URL}/billing/orders`);
-		url.searchParams.append('type', 'plan_payment');
-		url.searchParams.append('plan_id', planId);
-		url.searchParams.append('amount_mmk', currentPlan.amount_mmk.toString());
-		url.searchParams.append('credits', currentPlan.credits.toString());
-		url.searchParams.append('provider', provider);
-
-		// Create FormData only for the file
-		const formData = new FormData();
-		formData.append('screenshot', screenshotFile);
 		try {
-			const res = await fetch(url.toString(), {
+			// Build the URL like other API calls in the codebase
+			const endpoint = `${WEBUI_API_BASE_URL}/billing/orders`;
+
+			// Build query parameters manually
+			const params = new URLSearchParams({
+				type: 'plan_payment',
+				plan_id: planId,
+				amount_mmk: currentPlan.amount_mmk.toString(),
+				credits: currentPlan.credits.toString(),
+				provider: provider
+			});
+
+			const fullUrl = `${endpoint}?${params.toString()}`;
+
+			// Create FormData for the file
+			const formData = new FormData();
+			formData.append('screenshot', screenshotFile);
+
+			const res = await fetch(fullUrl, {
 				method: 'POST',
 				headers: {
 					Accept: 'application/json',
