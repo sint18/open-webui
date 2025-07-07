@@ -20,7 +20,6 @@ import aiohttp
 import anyio.to_thread
 import requests
 
-
 from fastapi import (
     Depends,
     FastAPI,
@@ -46,7 +45,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response, StreamingResponse
-
 
 from open_webui.utils import logger
 from open_webui.utils.audit import AuditLevel, AuditLoggingMiddleware
@@ -81,7 +79,8 @@ from open_webui.routers import (
     users,
     utils,
     billing,
-    storage
+    storage,
+    discount
 )
 
 from open_webui.routers.retrieval import (
@@ -399,7 +398,6 @@ from open_webui.env import (
     AIOHTTP_CLIENT_SESSION_SSL,
 )
 
-
 from open_webui.utils.models import (
     get_all_models,
     get_all_base_models,
@@ -515,7 +513,6 @@ app.state.config = AppConfig(
 app.state.WEBUI_NAME = WEBUI_NAME
 app.state.LICENSE_METADATA = None
 
-
 ########################################
 #
 # OPENTELEMETRY
@@ -526,7 +523,6 @@ if ENABLE_OTEL:
     from open_webui.utils.telemetry.setup import setup as setup_opentelemetry
 
     setup_opentelemetry(app=app, db_engine=engine)
-
 
 ########################################
 #
@@ -592,7 +588,6 @@ app.state.config.JWT_EXPIRES_IN = JWT_EXPIRES_IN
 app.state.config.SHOW_ADMIN_DETAILS = SHOW_ADMIN_DETAILS
 app.state.config.ADMIN_EMAIL = ADMIN_EMAIL
 
-
 app.state.config.DEFAULT_MODELS = DEFAULT_MODELS
 app.state.config.DEFAULT_PROMPT_SUGGESTIONS = DEFAULT_PROMPT_SUGGESTIONS
 app.state.config.DEFAULT_USER_ROLE = DEFAULT_USER_ROLE
@@ -606,7 +601,6 @@ app.state.config.USER_PERMISSIONS = USER_PERMISSIONS
 app.state.config.WEBHOOK_URL = WEBHOOK_URL
 app.state.config.BANNERS = WEBUI_BANNERS
 app.state.config.MODEL_ORDER_LIST = MODEL_ORDER_LIST
-
 
 app.state.config.ENABLE_CHANNELS = ENABLE_CHANNELS
 app.state.config.ENABLE_NOTES = ENABLE_NOTES
@@ -641,7 +635,6 @@ app.state.config.LDAP_CA_CERT_FILE = LDAP_CA_CERT_FILE
 app.state.config.LDAP_VALIDATE_CERT = LDAP_VALIDATE_CERT
 app.state.config.LDAP_CIPHERS = LDAP_CIPHERS
 
-
 app.state.AUTH_TRUSTED_EMAIL_HEADER = WEBUI_AUTH_TRUSTED_EMAIL_HEADER
 app.state.AUTH_TRUSTED_NAME_HEADER = WEBUI_AUTH_TRUSTED_NAME_HEADER
 app.state.WEBUI_AUTH_SIGNOUT_REDIRECT_URL = WEBUI_AUTH_SIGNOUT_REDIRECT_URL
@@ -669,7 +662,6 @@ app.state.config.HYBRID_BM25_WEIGHT = RAG_HYBRID_BM25_WEIGHT
 app.state.config.ALLOWED_FILE_EXTENSIONS = RAG_ALLOWED_FILE_EXTENSIONS
 app.state.config.FILE_MAX_SIZE = RAG_FILE_MAX_SIZE
 app.state.config.FILE_MAX_COUNT = RAG_FILE_MAX_COUNT
-
 
 app.state.config.RAG_FULL_CONTEXT = RAG_FULL_CONTEXT
 app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL = BYPASS_EMBEDDING_AND_RETRIEVAL
@@ -727,7 +719,6 @@ app.state.config.PDF_EXTRACT_IMAGES = PDF_EXTRACT_IMAGES
 app.state.config.YOUTUBE_LOADER_LANGUAGE = YOUTUBE_LOADER_LANGUAGE
 app.state.config.YOUTUBE_LOADER_PROXY_URL = YOUTUBE_LOADER_PROXY_URL
 
-
 app.state.config.ENABLE_WEB_SEARCH = ENABLE_WEB_SEARCH
 app.state.config.WEB_SEARCH_ENGINE = WEB_SEARCH_ENGINE
 app.state.config.WEB_SEARCH_DOMAIN_FILTER_LIST = WEB_SEARCH_DOMAIN_FILTER_LIST
@@ -773,7 +764,6 @@ app.state.config.EXTERNAL_WEB_SEARCH_API_KEY = EXTERNAL_WEB_SEARCH_API_KEY
 app.state.config.EXTERNAL_WEB_LOADER_URL = EXTERNAL_WEB_LOADER_URL
 app.state.config.EXTERNAL_WEB_LOADER_API_KEY = EXTERNAL_WEB_LOADER_API_KEY
 
-
 app.state.config.PLAYWRIGHT_WS_URL = PLAYWRIGHT_WS_URL
 app.state.config.PLAYWRIGHT_TIMEOUT = PLAYWRIGHT_TIMEOUT
 app.state.config.FIRECRAWL_API_BASE_URL = FIRECRAWL_API_BASE_URL
@@ -785,7 +775,6 @@ app.state.ef = None
 app.state.rf = None
 
 app.state.YOUTUBE_LOADER_TRANSLATION = None
-
 
 try:
     app.state.ef = get_ef(
@@ -804,7 +793,6 @@ try:
 except Exception as e:
     log.error(f"Error updating models: {e}")
     pass
-
 
 app.state.EMBEDDING_FUNCTION = get_embedding_function(
     app.state.config.RAG_EMBEDDING_ENGINE,
@@ -884,7 +872,6 @@ app.state.config.COMFYUI_WORKFLOW_NODES = COMFYUI_WORKFLOW_NODES
 app.state.config.IMAGE_SIZE = IMAGE_SIZE
 app.state.config.IMAGE_STEPS = IMAGE_STEPS
 
-
 ########################################
 #
 # AUDIO
@@ -914,16 +901,13 @@ app.state.config.TTS_VOICE = AUDIO_TTS_VOICE
 app.state.config.TTS_API_KEY = AUDIO_TTS_API_KEY
 app.state.config.TTS_SPLIT_ON = AUDIO_TTS_SPLIT_ON
 
-
 app.state.config.TTS_AZURE_SPEECH_REGION = AUDIO_TTS_AZURE_SPEECH_REGION
 app.state.config.TTS_AZURE_SPEECH_BASE_URL = AUDIO_TTS_AZURE_SPEECH_BASE_URL
 app.state.config.TTS_AZURE_SPEECH_OUTPUT_FORMAT = AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT
 
-
 app.state.faster_whisper_model = None
 app.state.speech_synthesiser = None
 app.state.speech_speaker_embeddings_dataset = None
-
 
 ########################################
 #
@@ -935,13 +919,11 @@ app.state.speech_speaker_embeddings_dataset = None
 app.state.config.TASK_MODEL = TASK_MODEL
 app.state.config.TASK_MODEL_EXTERNAL = TASK_MODEL_EXTERNAL
 
-
 app.state.config.ENABLE_SEARCH_QUERY_GENERATION = ENABLE_SEARCH_QUERY_GENERATION
 app.state.config.ENABLE_RETRIEVAL_QUERY_GENERATION = ENABLE_RETRIEVAL_QUERY_GENERATION
 app.state.config.ENABLE_AUTOCOMPLETE_GENERATION = ENABLE_AUTOCOMPLETE_GENERATION
 app.state.config.ENABLE_TAGS_GENERATION = ENABLE_TAGS_GENERATION
 app.state.config.ENABLE_TITLE_GENERATION = ENABLE_TITLE_GENERATION
-
 
 app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE = TITLE_GENERATION_PROMPT_TEMPLATE
 app.state.config.TAGS_GENERATION_PROMPT_TEMPLATE = TAGS_GENERATION_PROMPT_TEMPLATE
@@ -959,7 +941,6 @@ app.state.config.AUTOCOMPLETE_GENERATION_PROMPT_TEMPLATE = (
 app.state.config.AUTOCOMPLETE_GENERATION_INPUT_MAX_LENGTH = (
     AUTOCOMPLETE_GENERATION_INPUT_MAX_LENGTH
 )
-
 
 ########################################
 #
@@ -994,6 +975,8 @@ class RedirectMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CompressMiddleware)
 app.add_middleware(RedirectMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+
+
 # app.add_middleware(BillingMiddleware)
 
 
@@ -1022,8 +1005,8 @@ async def check_url(request: Request, call_next):
 @app.middleware("http")
 async def inspect_websocket(request: Request, call_next):
     if (
-        "/ws/socket.io" in request.url.path
-        and request.query_params.get("transport") == "websocket"
+            "/ws/socket.io" in request.url.path
+            and request.query_params.get("transport") == "websocket"
     ):
         upgrade = (request.headers.get("Upgrade") or "").lower()
         connection = (request.headers.get("Connection") or "").lower().split(",")
@@ -1045,13 +1028,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 app.mount("/ws", socket_app)
-
 
 app.include_router(ollama.router, prefix="/ollama", tags=["ollama"])
 app.include_router(openai.router, prefix="/openai", tags=["openai"])
-
 
 app.include_router(pipelines.router, prefix="/api/v1/pipelines", tags=["pipelines"])
 app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
@@ -1065,11 +1045,9 @@ app.include_router(configs.router, prefix="/api/v1/configs", tags=["configs"])
 app.include_router(auths.router, prefix="/api/v1/auths", tags=["auths"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
-
 app.include_router(channels.router, prefix="/api/v1/channels", tags=["channels"])
 app.include_router(chats.router, prefix="/api/v1/chats", tags=["chats"])
 app.include_router(notes.router, prefix="/api/v1/notes", tags=["notes"])
-
 
 app.include_router(models.router, prefix="/api/v1/models", tags=["models"])
 app.include_router(knowledge.router, prefix="/api/v1/knowledge", tags=["knowledge"])
@@ -1087,7 +1065,7 @@ app.include_router(
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(storage.router, prefix="/api/v1/storage", tags=["storage"])
-
+app.include_router(discount.router, prefix="/api/v1/discount", tags=["discount"])
 
 try:
     audit_level = AuditLevel(AUDIT_LOG_LEVEL)
@@ -1102,6 +1080,8 @@ if audit_level != AuditLevel.NONE:
         excluded_paths=AUDIT_EXCLUDED_PATHS,
         max_body_size=MAX_BODY_LOG_SIZE,
     )
+
+
 ##################################
 #
 # Chat Endpoints
@@ -1116,11 +1096,11 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
         for model in models:
             if model.get("arena"):
                 if has_access(
-                    user.id,
-                    type="read",
-                    access_control=model.get("info", {})
-                    .get("meta", {})
-                    .get("access_control", {}),
+                        user.id,
+                        type="read",
+                        access_control=model.get("info", {})
+                                .get("meta", {})
+                                .get("access_control", {}),
                 ):
                     filtered_models.append(model)
                 continue
@@ -1128,7 +1108,7 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
             model_info = Models.get_model_by_id(model["id"])
             if model_info:
                 if user.id == model_info.user_id or has_access(
-                    user.id, type="read", access_control=model_info.access_control
+                        user.id, type="read", access_control=model_info.access_control
                 ):
                     filtered_models.append(model)
 
@@ -1184,9 +1164,9 @@ async def get_base_models(request: Request, user=Depends(get_admin_user)):
 
 @app.post("/api/chat/completions")
 async def chat_completion(
-    request: Request,
-    form_data: dict,
-    user=Depends(get_verified_user),
+        request: Request,
+        form_data: dict,
+        user=Depends(get_verified_user),
 ):
     if not request.app.state.MODELS:
         await get_all_models(request, user=user)
@@ -1233,11 +1213,11 @@ async def chat_completion(
             **(
                 {"function_calling": "native"}
                 if form_data.get("params", {}).get("function_calling") == "native"
-                or (
-                    model_info
-                    and model_info.params.model_dump().get("function_calling")
-                    == "native"
-                )
+                   or (
+                           model_info
+                           and model_info.params.model_dump().get("function_calling")
+                           == "native"
+                   )
                 else {}
             ),
         }
@@ -1286,7 +1266,7 @@ generate_chat_completion = chat_completion
 
 @app.post("/api/chat/completed")
 async def chat_completed(
-    request: Request, form_data: dict, user=Depends(get_verified_user)
+        request: Request, form_data: dict, user=Depends(get_verified_user)
 ):
     try:
         model_item = form_data.pop("model_item", {})
@@ -1305,7 +1285,7 @@ async def chat_completed(
 
 @app.post("/api/chat/actions/{action_id}")
 async def chat_action(
-    request: Request, action_id: str, form_data: dict, user=Depends(get_verified_user)
+        request: Request, action_id: str, form_data: dict, user=Depends(get_verified_user)
 ):
     try:
         model_item = form_data.pop("model_item", {})
@@ -1507,8 +1487,8 @@ async def get_app_latest_release_version(user=Depends(get_verified_user)):
         timeout = aiohttp.ClientTimeout(total=1)
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
             async with session.get(
-                "https://api.github.com/repos/open-webui/open-webui/releases/latest",
-                ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                    "https://api.github.com/repos/open-webui/open-webui/releases/latest",
+                    ssl=AIOHTTP_CLIENT_SESSION_SSL,
             ) as response:
                 response.raise_for_status()
                 data = await response.json()

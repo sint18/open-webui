@@ -1,10 +1,13 @@
 import logging
 import requests
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body
+from typing import Optional, List, Annotated
+from decimal import Decimal
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body, Form
+
+from open_webui.models.discount import UserDiscountForm
 from open_webui.env import LITELLM_MASTER_KEY, LITELLM_URL
 
-from open_webui.models.billing import PaymentStatusEnum
+from open_webui.models.billing import PaymentStatusEnum, OrderTypeEnum, PlanEnum
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.utils.auth import get_verified_user, get_admin_user
 from open_webui.models.billing import (
@@ -20,21 +23,23 @@ log.setLevel(logging.INFO)
 
 router = APIRouter()
 
+
 # -------------------------
 # User Credits Endpoints
 # -------------------------
 
 @router.post('/credits', response_model=UserCreditsModel)
 async def create_credits(
-    form: UserCreditsForm,
-    user=Depends(get_admin_user)
+        form: UserCreditsForm,
+        user=Depends(get_admin_user)
 ):
     """Admin: initialize a user's credit wallet"""
     return UserCredits.insert_new_user_credits(form.user_id, form)
 
+
 @router.get('/credits', response_model=UserCreditsModel)
 async def get_credits(
-    user=Depends(get_verified_user)
+        user=Depends(get_verified_user)
 ):
     """Retrieve current user's credit balance"""
     result = UserCredits.get_user_credits(user.id)
@@ -45,10 +50,11 @@ async def get_credits(
         )
     return result
 
+
 @router.get('/{user_id}/credits', response_model=UserCreditsModel)
 async def get_user_credits(
-    user_id: str,
-    admin=Depends(get_admin_user)
+        user_id: str,
+        admin=Depends(get_admin_user)
 ):
     """Admin: get credit information for a specific user"""
     result = UserCredits.get_user_credits(user_id)
@@ -80,22 +86,24 @@ async def get_user_credits(
 
 @router.get('/transactions', response_model=List[CreditTransactionModel])
 async def list_transactions(
-    skip: int = 0,
-    limit: int = 50,
-    user=Depends(get_verified_user)
+        skip: int = 0,
+        limit: int = 50,
+        user=Depends(get_verified_user)
 ):
     """List recent credit transactions for current user"""
     return CreditTransactions.get_transactions_by_user(user.id, skip, limit)
 
+
 @router.get('/{user_id}/transactions', response_model=List[CreditTransactionModel])
 async def get_user_transactions(
-    user_id: str,
-    skip: int = 0,
-    limit: int = 50,
-    admin=Depends(get_admin_user)
+        user_id: str,
+        skip: int = 0,
+        limit: int = 50,
+        admin=Depends(get_admin_user)
 ):
     """Admin: get transactions for a specific user"""
     return CreditTransactions.get_transactions_by_user(user_id, skip, limit)
+
 
 # -------------------------
 # Payment Orders Endpoints
@@ -103,14 +111,24 @@ async def get_user_transactions(
 
 @router.post("/orders", response_model=PaymentOrderModel)
 async def create_order(
-    form: PaymentOrderForm = Depends(),
-    screenshot: UploadFile = File(...),
-    user=Depends(get_verified_user),
+        type: Annotated[OrderTypeEnum, Form()],
+        amount_mmk: Annotated[float, Form()],
+        provider: Annotated[str, Form()],
+        plan_id: Annotated[Optional[PlanEnum], Form()] = None,
+        plan_target: Annotated[Optional[str], Form()] = None,
+        credits: Annotated[Optional[int], Form()] = None,
+        discount_code: Annotated[Optional[str], Form()] = None,
+        screenshot: UploadFile = File(...),
+        user=Depends(get_verified_user),
 ):
     """
     Create a new payment order (credit pack, upgrade, or plan renewal)
     and save the money-transfer screenshot via the configured Storage.
+
+    Optional discount_code parameter can be provided to apply discounts.
     """
+    from open_webui.models.discount import UserDiscounts, DiscountCodes
+    from decimal import Decimal
 
     if not screenshot.filename:
         raise HTTPException(
@@ -118,6 +136,46 @@ async def create_order(
             detail="Please upload a valid payment screenshot."
         )
 
+    # Convert form fields to PaymentOrderForm
+    form = PaymentOrderForm(
+        type=type,
+        amount_mmk=amount_mmk,
+        provider=provider,
+        plan_id=plan_id,
+        plan_target=plan_target,
+        credits=credits
+    )
+
+    # Check if discount code was provided and is valid
+    original_amount = form.amount_mmk
+    applied_discount = None
+
+    if discount_code:
+        # Validate the discount code
+        discount_validation = DiscountCodes.validate_discount_code(discount_code)
+        if discount_validation.valid:
+            # Calculate discounted amount
+            discount_percent = discount_validation.discount_percent
+            discount_amount = Decimal(original_amount) * (Decimal(discount_percent) / Decimal(100))
+            discounted_amount = Decimal(original_amount) - discount_amount
+
+            # Update the form with discounted amount
+            form.amount_mmk = float(discounted_amount.quantize(Decimal('0.01')))
+            applied_discount = {
+                "code": discount_code,
+                "percent": discount_percent,
+                "original_amount": original_amount,
+                "discount_amount": float(discount_amount.quantize(Decimal('0.01'))),
+                "final_amount": form.amount_mmk
+            }
+
+            log.info(f"Applied discount code {discount_code} ({discount_percent}%) to order. "
+                     f"Original: {original_amount}, Discounted: {form.amount_mmk}")
+        else:
+            # Invalid discount code, but we'll continue with the order
+            log.warning(f"Invalid discount code provided: {discount_code}. Reason: {discount_validation.message}")
+
+    # Create the payment order with the potentially discounted amount
     order = PaymentOrders.create_payment_order(user.id, form)
     if not order:
         raise HTTPException(
@@ -128,6 +186,10 @@ async def create_order(
     try:
         # tag with order_id and user_id for future lookup
         tags = {"order_id": order.order_id, "user_id": user.id}
+        if applied_discount:
+            tags["discount_code"] = applied_discount["code"]
+            tags["discount_percent"] = str(applied_discount["percent"])
+
         # give it a unique filename
         filename = f"{order.order_id}_{screenshot.filename}"
         contents, path = Storage.upload_file(screenshot.file, filename, tags)
@@ -140,7 +202,7 @@ async def create_order(
             detail="Could not save payment screenshot"
         )
 
-    # 3) Attach the file path to the order
+    # Attach the file path to the order
     updated = PaymentOrders.save_screenshot_path(order.order_id, path)
     if not updated:
         raise HTTPException(
@@ -148,13 +210,23 @@ async def create_order(
             detail="Failed to associate screenshot with order"
         )
 
-    # 4) Return the order, now including `screenshot_path`
+    # If we successfully applied a discount code, record its usage
+    if applied_discount and discount_validation and discount_validation.valid:
+        try:
+            UserDiscounts.apply_discount(UserDiscountForm(user_id=user.id, discount_code=discount_code))
+            log.info(f"Recorded discount code usage for user {user.id}, code {discount_code}")
+        except Exception as e:
+            # Don't fail the whole transaction if discount recording fails
+            log.error(f"Failed to record discount code usage: {e}")
+
+    # Return the order, now including `screenshot_path`
     return updated
+
 
 @router.post('/orders/confirm', response_model=PaymentOrderModel)
 async def confirm_order(
-    order_id: str = Body(..., embed=True),
-    admin=Depends(get_admin_user)
+        order_id: str = Body(..., embed=True),
+        admin=Depends(get_admin_user)
 ):
     """Admin: confirm a payment order after manual verification"""
     # 1. Update order status to 'paid'
@@ -179,7 +251,8 @@ async def confirm_order(
                 # User has existing credits - add to their balance
                 updated_credits = UserCredits.update_credits(order.user_id, order.credits)
                 if updated_credits:
-                    log.info(f"Added {order.credits} credits to existing wallet for user {order.user_id}. New balance: {updated_credits.credit_balance}")
+                    log.info(
+                        f"Added {order.credits} credits to existing wallet for user {order.user_id}. New balance: {updated_credits.credit_balance}")
                 else:
                     log.error(f"Failed to update credits for existing user {order.user_id}")
             else:
@@ -230,11 +303,12 @@ async def confirm_order(
 
     return order
 
+
 @router.get('/orders', response_model=List[PaymentOrderModel])
 async def list_orders(
-    skip: int = 0,
-    limit: int = 50,
-    user=Depends(get_verified_user)
+        skip: int = 0,
+        limit: int = 50,
+        user=Depends(get_verified_user)
 ):
     """List payment orders for current user"""
     return PaymentOrders.get_orders_by_user(user.id, skip, limit)
