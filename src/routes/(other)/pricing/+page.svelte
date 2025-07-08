@@ -53,7 +53,7 @@
 		{
 			name: 'Studio',
 			tagline: 'For organisations & advanced workflows',
-			price: 125000,
+			price: 120000,
 			credits: 4500,
 			interval: 'month',
 			cta: 'Get started',
