@@ -4,6 +4,7 @@
 	import { toast } from 'svelte-sonner';
 	import Selector from './ModelSelector/Selector.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
+	import TwoColumnSelector from '../common/TwoColumnSelector.svelte';
 
 	import { updateUserSettings } from '$lib/apis/users';
 	import { formatModelName, getCompanyName, getLogoForModel } from '$lib/utils/helper-functions';
@@ -38,20 +39,37 @@
 		<div class="flex w-full max-w-fit">
 			<div class="overflow-hidden w-full">
 				<div class="mr-1 max-w-full">
-					<Selector
-						id={`${selectedModelIdx}`}
+<!--					<Selector-->
+<!--						id={`${selectedModelIdx}`}-->
+<!--						placeholder={$i18n.t('Select a model')}-->
+<!--						items={$models.map((model) => {-->
+<!--							        // Format the model name to "Company: Model Name" format-->
+<!--						const companyName = getCompanyName(model);-->
+<!--						const formattedModelName = formatModelName(model.name);-->
+
+<!--						const formattedName = `${companyName}: ${formattedModelName}`;-->
+<!--						return {-->
+<!--							value: model.id,-->
+<!--							label: formattedName,-->
+<!--							model: model,-->
+<!--							icon: getLogoForModel(companyName)-->
+<!--						}-->
+
+<!--						})}-->
+<!--						showTemporaryChatControl={$user?.role === 'user'-->
+<!--							? ($user?.permissions?.chat?.temporary ?? true) &&-->
+<!--								!($user?.permissions?.chat?.temporary_enforced ?? false)-->
+<!--							: true}-->
+<!--						bind:value={selectedModel}-->
+<!--					/>-->
+					<TwoColumnSelector
+											id={`${selectedModelIdx}`}
 						placeholder={$i18n.t('Select a model')}
 						items={$models.map((model) => {
-							        // Format the model name to "Company: Model Name" format
-						const companyName = getCompanyName(model);
-						const formattedModelName = formatModelName(model.name);
-
-						const formattedName = `${companyName}: ${formattedModelName}`;
 						return {
 							value: model.id,
-							label: formattedName,
+							label: model.name,
 							model: model,
-							icon: getLogoForModel(companyName)
 						}
 
 						})}
@@ -60,7 +78,7 @@
 								!($user?.permissions?.chat?.temporary_enforced ?? false)
 							: true}
 						bind:value={selectedModel}
-					/>
+					></TwoColumnSelector>
 				</div>
 			</div>
 
