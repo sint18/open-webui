@@ -1,20 +1,26 @@
 <script lang="ts">
+	import { DropdownMenu } from 'bits-ui';
+
 	import Fuse from 'fuse.js';
 
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
 
+	import ChatBubbleOval from '$lib/components/icons/ChatBubbleOval.svelte';
 	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import Search from '$lib/components/icons/Search.svelte';
+	import Switch from '$lib/components/common/Switch.svelte';
 
 	import { getOllamaVersion } from '$lib/apis/ollama';
 
-	import { models, mobile, settings, config, type Model } from '$lib/stores';
+	import { models, mobile, settings, config, type Model, temporaryChatEnabled } from '$lib/stores';
 	import { getModels } from '$lib/apis';
 
 	import dayjs from '$lib/dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { getCompanyName, getLogoForModel } from '$lib/utils/helper-functions';
+	import { goto } from '$app/navigation';
+
 	dayjs.extend(relativeTime);
 
 	const i18n = getContext('i18n');
@@ -98,9 +104,9 @@
 	$: selectedVendor = vendors[selectedVendorIdx] || vendors[0];
 	$: filteredModels = searchValue
 		? fuse
-				.search(searchValue)
-				.map((e) => e.item)
-				.filter((item) => selectedVendor.models.some((model) => model.value === item.value))
+			.search(searchValue)
+			.map((e) => e.item)
+			.filter((item) => selectedVendor.models.some((model) => model.value === item.value))
 		: selectedVendor?.models || [];
 
 	const fuse = new Fuse(items, {
@@ -154,44 +160,56 @@
 	}
 
 	/**
-   * Usage: <button use:collect={index}>…
-   * It will keep modelItemEls[index] = the DOM node.
-   */
-  function collect(node: HTMLElement, index: number) {
-    modelItemEls[index] = node;
-    return {
-      update(newIndex: number) {
-        modelItemEls[newIndex] = node;
-      },
-      destroy() {
-        modelItemEls[index] = undefined;
-      }
-    };
-  }
-
-	function formatModelSpecs(model: Model): string {
-		const specs = [];
-
-		// Speed indicator
-		if (model.name?.toLowerCase().includes('mini') || model.name?.toLowerCase().includes('fast')) {
-			specs.push('Fast');
-		}
-
-		// Vision capability
-		if (model.info?.meta?.vision || model.name?.toLowerCase().includes('vision')) {
-			specs.push('Vision ✓');
-		}
-
-		// Cost indicator
-		if (
-			model.name?.toLowerCase().includes('turbo') ||
-			model.name?.toLowerCase().includes('cheap')
-		) {
-			specs.push('Cheap');
-		}
-
-		return specs.join(' │ ');
+	 * Usage: <button use:collect={index}>…
+	 * It will keep modelItemEls[index] = the DOM node.
+	 */
+	function collect(node: HTMLElement, index: number) {
+		modelItemEls[index] = node;
+		return {
+			update(newIndex: number) {
+				modelItemEls[newIndex] = node;
+			},
+			destroy() {
+				modelItemEls[index] = undefined;
+			}
+		};
 	}
+
+/**
+ * Returns a single “speciality” object – { tag, description } – for a model.
+ * Order matters: the first rule that matches wins.
+ */
+function getModelSpeciality(model: Model): { tag: string; description: string } {
+	const n = model.name?.toLowerCase() ?? '';
+
+	/* CODE-FOCUSED ------------------------------------------------------- */
+	if (n.includes('coder') || n.includes('code'))
+		return { tag: 'Coding assistant', description: 'Fine-tuned for code generation & debugging' };
+
+	/* SOTA REASONING ----------------------------------------------------- */
+	if (/claude-4|claude-opus|gpt-4\.5|gpt-o3/.test(n))
+		return { tag: 'Advanced reasoning', description: 'Highest-level analytical & logic skills' };
+
+	/* LONG CONTEXT / GIANT MODELS --------------------------------------- */
+	if (/72b|235b|large|medium|opus|200k|long|r1/.test(n))
+		return { tag: 'Long-context', description: 'Handles very large documents & chats' };
+
+	/* LOW-LATENCY SKUs --------------------------------------------------- */
+	if (n.includes('flash') || n.includes('fast') || n.includes('mini') || n.includes('nano'))
+		return { tag: 'Fast inference', description: 'Optimised for low-latency responses' };
+
+	/* MULTIMODAL --------------------------------------------------------- */
+	if (n.includes('vision') || n.includes('gpt-4o'))
+		return { tag: 'Multimodal', description: 'Understands images as well as text' };
+
+	/* PRICE SENSITIVE ---------------------------------------------------- */
+	if (n.includes('turbo') || n.includes('cheap') || n.includes('small'))
+		return { tag: 'Budget-friendly', description: 'Lowest cost per 1 K tokens' };
+
+	/* FALLBACK ----------------------------------------------------------- */
+	return { tag: 'General-purpose', description: 'Good for most day-to-day tasks' };
+}
+
 
 	function formatModelName(modelName: string): string {
 		return modelName.split('/').pop() || modelName;
@@ -225,12 +243,12 @@
 			case 'ArrowUp':
 				e.preventDefault();
 				selectedModelIdx = Math.max(0, selectedModelIdx - 1);
-				scrollSelectedIntoView()
+				scrollSelectedIntoView();
 				break;
 			case 'ArrowDown':
 				e.preventDefault();
 				selectedModelIdx = Math.min(filteredModels.length - 1, selectedModelIdx + 1);
-				scrollSelectedIntoView()
+				scrollSelectedIntoView();
 				break;
 			case 'Enter':
 				e.preventDefault();
@@ -382,7 +400,7 @@
 							on:click={() => selectModel(item)}
 							use:collect={index}
 						>
-							<div class="flex items-center justify-between">
+							<div class="flex-col lg:flex-row items-center justify-between">
 								<div class="flex items-center gap-3 min-w-0 flex-1">
 									<div class="flex items-center gap-2">
 										{#if isSelected}
@@ -394,15 +412,18 @@
 											class="rounded-full size-5 mr-2"
 										/>
 									</div>
-									<div class="font-medium text-gray-900 dark:text-white truncate">{item.label}</div>
-								</div>
+									<div>
+										<div class="font-medium text-gray-900 dark:text-white truncate">{formatModelName(item.label)}</div>
 
-								<!-- Model specs (right-aligned) -->
-								{#if formatModelSpecs(item.model)}
-									<div class="ml-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-										{formatModelSpecs(item.model)}
+										<!-- Model specs (right-aligned) -->
+										{#if getModelSpeciality(item.model)}
+											{@const specs = getModelSpeciality(item.model)}
+											<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+												{specs.tag} — {specs.description}
+											</div>
+										{/if}
 									</div>
-								{/if}
+								</div>
 							</div>
 						</button>
 					{:else}
@@ -418,7 +439,44 @@
 		<div
 			class="border-t border-gray-200 dark:border-gray-700 px-4 py-2 text-xs text-gray-500 dark:text-gray-400"
 		>
-			← → switch vendor • ↑↓ within list • ↵ select • Esc close
+			{#if showTemporaryChatControl}
+				<div class="flex items-center mt-1 mb-2">
+					<button
+						class="flex justify-between w-full font-medium line-clamp-1 select-none items-center rounded-button py-2 px-3 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer data-highlighted:bg-muted"
+						on:click={async () => {
+							temporaryChatEnabled.set(!$temporaryChatEnabled);
+							await goto('/');
+							const newChatButton = document.getElementById('new-chat-button');
+							setTimeout(() => {
+								newChatButton?.click();
+							}, 0);
+
+							// add 'temporary-chat=true' to the URL
+							if ($temporaryChatEnabled) {
+								history.replaceState(null, '', '?temporary-chat=true');
+							} else {
+								history.replaceState(null, '', location.pathname);
+							}
+
+							show = false;
+						}}
+					>
+						<div class="flex gap-2.5 items-center">
+							<ChatBubbleOval className="size-4" strokeWidth="2.5" />
+
+							{$i18n.t(`Temporary Chat`)}
+						</div>
+
+						<div>
+							<Switch state={$temporaryChatEnabled} />
+						</div>
+					</button>
+				</div>
+			{/if}
+			<div class="px-2">
+				← → switch vendor • ↑↓ within list • ↵ select • Esc close
+			</div>
+
 		</div>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
