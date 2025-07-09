@@ -73,8 +73,8 @@
 
 		// Add "Recent" vendor if there are recent models
 		if (recentModels.length > 0) {
-			vendorMap.set('★ RECENT', {
-				name: '★ RECENT',
+			vendorMap.set('★ Recent', {
+				name: '★ Recent',
 				icon: '★',
 				models: recentModels,
 				count: recentModels.length
@@ -175,40 +175,40 @@
 		};
 	}
 
-/**
- * Returns a single “speciality” object – { tag, description } – for a model.
- * Order matters: the first rule that matches wins.
- */
-function getModelSpeciality(model: Model): { tag: string; description: string } {
-	const n = model.name?.toLowerCase() ?? '';
+	/**
+	 * Returns a single “speciality” object – { tag, description } – for a model.
+	 * Order matters: the first rule that matches wins.
+	 */
+	function getModelSpeciality(model: Model): { tag: string; description: string } {
+		const n = model.name?.toLowerCase() ?? '';
 
-	/* CODE-FOCUSED ------------------------------------------------------- */
-	if (n.includes('coder') || n.includes('code'))
-		return { tag: 'Coding assistant', description: 'Fine-tuned for code generation & debugging' };
+		/* CODE-FOCUSED ------------------------------------------------------- */
+		if (n.includes('coder') || n.includes('code'))
+			return { tag: 'Coding assistant', description: 'Fine-tuned for code generation & debugging' };
 
-	/* SOTA REASONING ----------------------------------------------------- */
-	if (/claude-4|claude-opus|gpt-4\.5|gpt-o3/.test(n))
-		return { tag: 'Advanced reasoning', description: 'Highest-level analytical & logic skills' };
+		/* SOTA REASONING ----------------------------------------------------- */
+		if (/claude-4|claude-opus|gpt-4\.5|gpt-o3/.test(n))
+			return { tag: 'Advanced reasoning', description: 'Highest-level analytical & logic skills' };
 
-	/* LONG CONTEXT / GIANT MODELS --------------------------------------- */
-	if (/72b|235b|large|medium|opus|200k|long|r1/.test(n))
-		return { tag: 'Long-context', description: 'Handles very large documents & chats' };
+		/* LONG CONTEXT / GIANT MODELS --------------------------------------- */
+		if (/72b|235b|large|medium|opus|200k|long|r1/.test(n))
+			return { tag: 'Long-context', description: 'Handles very large documents & chats' };
 
-	/* LOW-LATENCY SKUs --------------------------------------------------- */
-	if (n.includes('flash') || n.includes('fast') || n.includes('mini') || n.includes('nano'))
-		return { tag: 'Fast inference', description: 'Optimised for low-latency responses' };
+		/* LOW-LATENCY SKUs --------------------------------------------------- */
+		if (n.includes('flash') || n.includes('fast') || n.includes('mini') || n.includes('nano'))
+			return { tag: 'Fast inference', description: 'Optimised for low-latency responses' };
 
-	/* MULTIMODAL --------------------------------------------------------- */
-	if (n.includes('vision') || n.includes('gpt-4o'))
-		return { tag: 'Multimodal', description: 'Understands images as well as text' };
+		/* MULTIMODAL --------------------------------------------------------- */
+		if (n.includes('vision') || n.includes('gpt-4o'))
+			return { tag: 'Multimodal', description: 'Understands images as well as text' };
 
-	/* PRICE SENSITIVE ---------------------------------------------------- */
-	if (n.includes('turbo') || n.includes('cheap') || n.includes('small'))
-		return { tag: 'Budget-friendly', description: 'Lowest cost per 1 K tokens' };
+		/* PRICE SENSITIVE ---------------------------------------------------- */
+		if (n.includes('turbo') || n.includes('cheap') || n.includes('small'))
+			return { tag: 'Budget-friendly', description: 'Lowest cost per 1 K tokens' };
 
-	/* FALLBACK ----------------------------------------------------------- */
-	return { tag: 'General-purpose', description: 'Good for most day-to-day tasks' };
-}
+		/* FALLBACK ----------------------------------------------------------- */
+		return { tag: 'General-purpose', description: 'Good for most day-to-day tasks' };
+	}
 
 
 	function formatModelName(modelName: string): string {
@@ -262,6 +262,30 @@ function getModelSpeciality(model: Model): { tag: string; description: string } 
 				break;
 		}
 	}
+
+	/* ───────────────── Swipe to change vendor ───────────────── */
+	let touchStartX: number | null = null;
+	const SWIPE_PX = 50;				// adjust to taste
+
+	function handleTouchStart(e: TouchEvent) {
+		touchStartX = e.touches[0].clientX;
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		if (touchStartX === null) return;
+		const dx = e.changedTouches[0].clientX - touchStartX;
+		if (Math.abs(dx) > SWIPE_PX) {
+			if (dx < 0 && selectedVendorIdx < vendors.length - 1) {
+				selectedVendorIdx += 1;
+			} else if (dx > 0 && selectedVendorIdx > 0) {
+				selectedVendorIdx -= 1;
+			}
+			selectedModelIdx = null
+			scrollSelectedIntoView();
+		}
+		touchStartX = null;
+	}
+
 
 	onMount(async () => {
 		ollamaVersion = await getOllamaVersion(localStorage.token).catch(() => false);
@@ -350,9 +374,34 @@ function getModelSpeciality(model: Model): { tag: string; description: string } 
 			{/if}
 		</div>
 
-		<div class="flex min-h-[400px] max-h-[500px]">
+		<div class="flex {$mobile ? 'flex-col' : 'flex-row'} min-h-[400px] max-h-[500px]">
+
+			{#if $mobile}
+				<!-- H-scrollable vendor bar (top) -->
+				<div class="shrink-0 bg-white dark:bg-gray-850
+	            flex overflow-x-auto no-scrollbar
+	            snap-x snap-mandatory border-b border-gray-200 dark:border-gray-700">
+					{#each vendors as vendor, index}
+						<button
+							class="shrink-0 px-4 py-3 flex flex-col items-center gap-1
+				       transition-colors
+				       {index === selectedVendorIdx
+						? 'text-teal-500 dark:text-teal-400 border-b-2 border-teal-500'
+						: 'text-gray-400 dark:text-gray-500'}"
+							on:click={() => { selectedVendorIdx = index; selectedModelIdx = 0; }}
+						>
+							<span class="text-lg">{vendor.icon}</span>
+							<span class="text-xs font-medium truncate max-w-[5rem]">
+					{vendor.name.replace('★ ', '')}
+				</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+
 			<!-- Left sidebar - Vendor tabs -->
-			<div class="w-32 md:w-36 border-r border-gray-200 dark:border-gray-700 py-2">
+			<div class="{!$mobile && 'w-32 md:w-36'} hidden sm:block border-r border-gray-200 dark:border-gray-700 py-2">
 				{#each vendors as vendor, index}
 					<button
 						class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {index ===
@@ -383,7 +432,10 @@ function getModelSpeciality(model: Model): { tag: string; description: string } 
 			</div>
 
 			<!-- Right panel - Models list -->
-			<div class="flex-1 py-2 overflow-y-auto">
+			<div class="flex-1 py-2 overflow-y-auto"
+					 on:touchstart|passive={handleTouchStart}
+					 on:touchend|passive={handleTouchEnd}
+			>
 				{#if selectedVendor}
 					<div class="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
 						<h3 class="font-medium text-gray-900 dark:text-white">{selectedVendor.name}</h3>
@@ -473,10 +525,30 @@ function getModelSpeciality(model: Model): { tag: string; description: string } 
 					</button>
 				</div>
 			{/if}
-			<div class="px-2">
-				← → switch vendor • ↑↓ within list • ↵ select • Esc close
-			</div>
+
+			{#if $mobile}
+				<!-- NEW: swipe tip -->
+				<div class="px-2">← → Swipe sideways to change vendor</div>
+			{:else}
+				<div class="px-2">
+					← → switch vendor • ↑↓ within list • ↵ select • Esc close
+				</div>
+			{/if}
+
 
 		</div>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
+
+<style>
+    /* global.css or <style> block */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+</style>
