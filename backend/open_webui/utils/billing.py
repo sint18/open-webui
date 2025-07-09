@@ -8,7 +8,7 @@ from starlette.responses import StreamingResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from fastapi import Request, HTTPException, status, Response
 
-from open_webui.utils.pricing import estimate_cost, affordable
+from open_webui.utils.pricing import estimate_cost, affordable, calculate_cost
 from open_webui.models.billing import StatusEnum
 from open_webui.models.billing import UserCredits, CreditTransactions, CreditTransactionForm
 from open_webui.utils.auth import get_current_user, get_http_authorization_cred
@@ -18,11 +18,6 @@ from typing import Optional, Dict, Any, List
 
 log = logging.getLogger(__name__)
 
-CREDIT_RATE = 0.0015
-
-
-def calculate_cost(cost_usd: float) -> int:
-    return math.ceil(cost_usd / CREDIT_RATE)
 
 
 async def check_balance(user_id: str, min_credits: int = 1) -> Optional[int]:
@@ -89,7 +84,7 @@ async def process_billing(
             return
         cost_usd = estimate_cost(model_name, prompt_tokens, completion_tokens)
         credits_to_charge = calculate_cost(float(cost_usd))
-        print(credits_to_charge)
+        print(f"Actual Credit Cost: {credits_to_charge}")
         updated = UserCredits.update_credits(user_id, -credits_to_charge)
         if not updated:
             log.error(f"Failed to debit credits for user {user_id}")

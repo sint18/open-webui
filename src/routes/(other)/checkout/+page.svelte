@@ -48,6 +48,19 @@
 		if (previewUrl) URL.revokeObjectURL(previewUrl);
 	});
 
+	// --- payment details ---------------------------------------------------
+	const paymentDetails = {
+		kpay: {
+			name: 'Zaw Htike Aung',
+			phone: '09777541818'
+		},
+		wavepay: {
+			name: 'Zaw Htike Aung',
+			phone: '09777541818'
+		}
+	};
+
+
 	// --- discount validation ---------------------------------------------------
 	async function validateDiscountCode() {
 		if (!discountCode.trim()) {
@@ -96,6 +109,17 @@
 			toast.error(error instanceof Error ? error.message : 'Failed to validate discount code');
 		} finally {
 			discountValidating = false;
+		}
+	}
+
+	// Add this function to your script section
+	async function copyToClipboard(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			toast.success('Phone number copied to clipboard!');
+		} catch (err) {
+			console.error('Failed to copy: ', err);
+			toast.error('Failed to copy phone number');
 		}
 	}
 
@@ -156,7 +180,7 @@
 				throw new Error(msg || 'Payment submission failed');
 			}
 
-			toast.success("Payment submitted! We'll verify shortly.");
+			toast.success('Payment submitted! We\'ll verify shortly.');
 			goto('/pricing', { replaceState: true });
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : String(err));
@@ -302,6 +326,75 @@
 					</select>
 				</div>
 
+				<!-- Payment details -->
+				{#if provider}
+					<div class="bg-blue-50 dark:bg-blue-900/20 border border-teal-200 dark:border-teal-900 rounded-lg p-4">
+						<h3 class="text-sm font-medium text-teal-800 dark:text-blue-200 mb-3">
+							Payment Details
+						</h3>
+						<div class="space-y-2 text-sm text-teal-700 dark:text-teal-300">
+							{#if provider === 'kpay'}
+								<div class="flex justify-between">
+									<span class="font-medium">KBZ Pay Name:</span>
+									<span>{paymentDetails.kpay.name}</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="font-medium">KBZ Pay Phone:</span>
+
+									<div class="flex items-center gap-2">
+										<button
+											type="button"
+											on:click={() => copyToClipboard(paymentDetails.kpay.phone)}
+											class="p-1 text-teal-600 hover:text-teal-800 dark:text-blue-400 dark:hover:text-teal-200 transition-colors"
+											title="Copy phone number"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+													 stroke="currentColor" stroke-width="2">
+												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+												<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+											</svg>
+										</button>
+										<span>{paymentDetails.kpay.phone}</span>
+
+									</div>
+								</div>
+
+							{:else if provider === 'wavepay'}
+								<div class="flex justify-between">
+									<span class="font-medium">Wave Pay Name:</span>
+									<span>{paymentDetails.wavepay.name}</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="font-medium">Wave Pay Phone:</span>
+									<div class="flex items-center gap-2">
+										<button
+											type="button"
+											on:click={() => copyToClipboard(paymentDetails.wavepay.phone)}
+											class="p-1 text-teal-600 hover:text-teal-800 dark:text-blue-400 dark:hover:text-teal-200 transition-colors"
+											title="Copy phone number"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+													 stroke="currentColor" stroke-width="2">
+												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+												<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+											</svg>
+										</button>
+										<span>{paymentDetails.wavepay.phone}</span>
+
+									</div>
+								</div>
+							{/if}
+						</div>
+						<div
+							class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 rounded-md">
+							<p class="text-xs text-yellow-700 dark:text-yellow-300">
+								Please send the payment to the above details and upload the screenshot below.
+							</p>
+						</div>
+					</div>
+				{/if}
+
+
 				<!-- Screenshot upload with drag‑n‑drop feel -->
 				<div>
 					<p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -356,5 +449,5 @@
 </section>
 
 <style>
-	/* rely on Tailwind for utility classes */
+    /* rely on Tailwind for utility classes */
 </style>

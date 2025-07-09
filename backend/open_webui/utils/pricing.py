@@ -1,15 +1,21 @@
 # billing/test_pricing.py
 from __future__ import annotations
 import json, httpx, functools, decimal
+import math
 from decimal import Decimal
 from typing import Tuple
 import tiktoken
+import re
 
 PRICE_URL = (
     "https://raw.githubusercontent.com/"
     "BerriAI/litellm/main/model_prices_and_context_window.json"
 )
 
+CREDIT_RATE = 0.0015
+
+def calculate_cost(cost_usd: float) -> int:
+    return math.ceil(cost_usd / CREDIT_RATE)
 
 # ────────────────────────────────────────────────────────────────
 # Internal: fetch-once JSON → {model: {"input_cost_per_token": …}}
@@ -54,29 +60,121 @@ def estimate_cost(
 
 def extract_prompt_text(messages: list[dict]) -> str:
     """
-    Convert messages into a role-tagged prompt string for accurate estimation.
+    Convert messages into a role-tagged prompt string for token estimation.
+
+    - String content → used directly.
+    - List content:
+      • type == "text"      → part["text"]
+      • type == "image_url" → "[Image]"
+      • type == "audio_url" → "[Audio]"
+      • type == "video_url" → "[Video]"
+      • type == "file"      → "[File: filename.ext]"
+      • Other parts         → ignored
     """
-    parts = []
+    def _render_content(content):
+        if isinstance(content, str):
+            return content.strip()
+
+        if isinstance(content, list):
+            pieces = []
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                t = part.get("type")
+                if t == "text" and "text" in part:
+                    pieces.append(str(part["text"]).strip())
+                elif t == "image_url" and isinstance(part.get("image_url"), dict):
+                    url = part["image_url"].get("url", "")
+                    # base64 or remote images count as one token placeholder
+                    pieces.append("[Image]" if url.startswith("data:") else "[Image]")
+                elif t == "audio_url":
+                    pieces.append("[Audio]")
+                elif t == "video_url":
+                    pieces.append("[Video]")
+                elif t == "file" and isinstance(part.get("file"), dict):
+                    name = part["file"].get("name") or part["file"].get("filename")
+                    ext = name.split(".")[-1] if name else ""
+                    pieces.append(f"[File: {name}]" if name else "[File]")
+                # else: skip unknown part types
+            return " ".join(pieces).strip()
+
+        return str(content).strip()
+
+    lines = []
     for msg in messages:
-        role = msg.get("role", "unknown").strip()
-        content = msg.get("content", "").strip()
+        role = str(msg.get("role", "unknown")).strip()
+        raw = msg.get("content", "")
+        content = _render_content(raw)
         if content:
-            parts.append(f"{role}: {content}")
-    return "\n".join(parts)
+            lines.append(f"{role}: {content}")
+    return "\n".join(lines)
+
+#
+# def estimate_prompt_tokens(prompt: str, model: str) -> int:
+#     """
+#     Estimate token count for the prompt using tiktoken or a fallback heuristic.
+#     """
+#     model = model.lower().strip()
+#     try:
+#         if "gpt" in model or "openai" in model:
+#             encoding = tiktoken.encoding_for_model(model)
+#             return len(encoding.encode(prompt))
+#     except Exception:
+#         pass
+#     return max(1, len(prompt) // 4)  # heuristic fallback
 
 
 def estimate_prompt_tokens(prompt: str, model: str) -> int:
     """
-    Estimate token count for the prompt using tiktoken or a fallback heuristic.
+    Estimate token count for the prompt, counting placeholders for
+    images, audio, video, and generic files as fixed token costs, plus
+    estimating the remaining text with tiktoken or a fallback heuristic.
+
+    Placeholders recognized:
+      - [Image]          → 1 token each
+      - [Audio]          → 1 token each
+      - [Video]          → 1 token each
+      - [File: NAME.EXT] → 1 token each
+
+    All other text is tokenized via tiktoken (if available) or
+    len(text)//4 fallback.
     """
-    model = model.lower().strip()
-    try:
-        if "gpt" in model or "openai" in model:
-            encoding = tiktoken.encoding_for_model(model)
-            return len(encoding.encode(prompt))
-    except Exception:
-        pass
-    return max(1, len(prompt) // 4)  # heuristic fallback
+    # Define fixed costs for each placeholder type
+    placeholder_costs = {
+        'Image': 16,
+        'Audio': 16,
+        'Video': 16,
+        'File': 4,
+    }
+
+    # Regex to find all placeholders of the form [Type] or [File: xyz]
+    pattern = re.compile(r'\[(Image|Audio|Video|File)(?:: [^\]]+)?\]')
+
+    total_cost = 0
+
+    # Extract placeholders and count their cost
+    def _placeholder_repl(match):
+        kind = match.group(1)  # 'Image', 'Audio', 'Video', or 'File'
+        nonlocal total_cost
+        total_cost += placeholder_costs.get(kind, 1)
+        return ""  # remove from prompt for text estimate
+
+    # Remove all placeholders, summing their costs
+    text_without_placeholders = pattern.sub(_placeholder_repl, prompt)
+
+    # Estimate tokens for the remaining text
+    text = text_without_placeholders.strip()
+    text_tokens = 0
+    model_key = model.lower().strip()
+    if tiktoken and ("gpt" in model_key or "openai" in model_key):
+        try:
+            enc = tiktoken.encoding_for_model(model_key)
+            text_tokens = len(enc.encode(text))
+        except Exception:
+            text_tokens = max(0, len(text) // 4)
+    else:
+        text_tokens = max(0, len(text) // 4)
+    return total_cost + text_tokens
 
 
 def estimate_completion_tokens(model: str, prompt_tokens: int) -> int:
@@ -103,7 +201,7 @@ def estimate_completion_tokens(model: str, prompt_tokens: int) -> int:
     return max(50, min(estimated, 500))
 
 
-def affordable(model: str, messages: list[dict], user_credit_usd: int, buffer: float = 1.0) -> bool:
+def affordable(model: str, messages: list[dict], user_credit: int, buffer: float = 1.0) -> bool:
     """
     Main function to check if the user can afford an LLM request.
     """
@@ -113,6 +211,10 @@ def affordable(model: str, messages: list[dict], user_credit_usd: int, buffer: f
     completion_tokens = estimate_completion_tokens(model, prompt_tokens)
 
     estimated_cost = estimate_cost(model, prompt_tokens, completion_tokens)
-    total_cost = estimated_cost * Decimal(str(buffer))
+    total_cost_usd = estimated_cost * Decimal(str(buffer))
+    print(f"Estimate cost usd: {total_cost_usd}")
+    print(f"Estimate cost: {estimated_cost}")
+    total_cost_credit = calculate_cost(float(total_cost_usd))
+    print(f"Estimate cost total: {total_cost_credit}")
 
-    return total_cost <= user_credit_usd
+    return total_cost_credit <= user_credit
