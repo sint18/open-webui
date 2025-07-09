@@ -10,6 +10,7 @@
 	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import Search from '$lib/components/icons/Search.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
+	import Check from '$lib/components/icons/Check.svelte';
 
 	import { getOllamaVersion } from '$lib/apis/ollama';
 
@@ -280,7 +281,7 @@
 			} else if (dx > 0 && selectedVendorIdx > 0) {
 				selectedVendorIdx -= 1;
 			}
-			selectedModelIdx = null
+			selectedModelIdx = null;
 			scrollSelectedIntoView();
 		}
 		touchStartX = null;
@@ -453,28 +454,35 @@
 							use:collect={index}
 						>
 							<div class="flex-col lg:flex-row items-center justify-between">
-								<div class="flex items-center gap-3 min-w-0 flex-1">
-									<div class="flex items-center gap-2">
-										{#if isSelected}
-											<div class="w-2 h-2 bg-teal-500 rounded-full"></div>
-										{/if}
-										<img
-											src={getLogoForModel(getCompanyName(item.model))}
-											alt="Logo for {item.model.name}"
-											class="rounded-full size-5 mr-2"
-										/>
-									</div>
-									<div>
-										<div class="font-medium text-gray-900 dark:text-white truncate">{formatModelName(item.label)}</div>
+								<div class="flex items-center justify-between gap-3 min-w-0 flex-1">
+									<div class="flex items-center gap-2 min-w-0 flex-1">
+										<div class="flex items-center gap-2">
+											<!--{#if isSelected}-->
+											<!--	<div class="w-2 h-2 bg-teal-500 rounded-full"></div>-->
+											<!--{/if}-->
+											<img
+												src={getLogoForModel(getCompanyName(item.model))}
+												alt="Logo for {item.model.name}"
+												class="rounded-full size-5 mr-2"
+											/>
+										</div>
+										<div>
+											<div
+												class="font-medium text-gray-900 dark:text-white truncate">{formatModelName(item.label)}</div>
 
-										<!-- Model specs (right-aligned) -->
-										{#if getModelSpeciality(item.model)}
-											{@const specs = getModelSpeciality(item.model)}
-											<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-												{specs.tag} — {specs.description}
-											</div>
-										{/if}
+											<!-- Model specs (right-aligned) -->
+											{#if getModelSpeciality(item.model)}
+												{@const specs = getModelSpeciality(item.model)}
+												<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+													{specs.tag} — {specs.description}
+												</div>
+											{/if}
+										</div>
 									</div>
+									{#if isSelected}
+										<Check className="size-4 text-teal-500 flex-shrink-0" strokeWidth="2" />
+									{/if}
+
 								</div>
 							</div>
 						</button>
