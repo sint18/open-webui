@@ -98,8 +98,8 @@
 					<div>
 						<p class="text-gray-500 dark:text-gray-400">{$i18n.t('Expiry Date')}</p>
 						<p class="font-semibold text-gray-900 dark:text-white">
-							{discount.expiry_date
-								? dayjs(discount.expiry_date).format('MMM D, YYYY')
+							{discount.expires_at
+								? dayjs(discount.expires_at * 1000).format('MMM D, YYYY')
 								: $i18n.t('No expiry')}
 						</p>
 					</div>

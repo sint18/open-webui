@@ -103,7 +103,7 @@
 		}
 
 		// Check if expired
-		if (discount.expiry_date && new Date(discount.expiry_date) < new Date()) {
+		if (discount.expires_at && new Date(discount.expires_at * 1000) < new Date()) {
 			return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
 		}
 
@@ -117,14 +117,14 @@
 
 	function getStatusText(discount: DiscountCode) {
 		if (!discount.active) return 'Inactive';
-		if (discount.expiry_date && new Date(discount.expiry_date) < new Date()) return 'Expired';
+		if (discount.expires_at && new Date(discount.expires_at * 1000) < new Date()) return 'Expired';
 		if (discount.usage_limit && discount.used_count >= discount.usage_limit) return 'Limit Reached';
 		return 'Active';
 	}
 
-	function formatDate(dateString: string | null | undefined) {
-		if (!dateString) return '-';
-		return dayjs(dateString).format('MMM D, YYYY');
+	function formatDate(timestamp: number | null | undefined) {
+		if (!timestamp) return '-';
+		return dayjs(timestamp * 1000).format('MMM D, YYYY');
 	}
 
 	// Apply filters
@@ -134,7 +134,7 @@
 		if (statusFilter === 'inactive' && discount.active) return false;
 		if (
 			statusFilter === 'expired' &&
-			(!discount.expiry_date || new Date(discount.expiry_date) >= new Date())
+			(!discount.expires_at || new Date(discount.expires_at * 1000) >= new Date())
 		)
 			return false;
 
@@ -297,7 +297,7 @@
 									</div>
 								</td>
 								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-									{formatDate(discount.expiry_date)}
+									{formatDate(discount.expires_at)}
 								</td>
 								<td class="px-6 py-4 whitespace-nowrap">
 									<span

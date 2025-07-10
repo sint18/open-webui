@@ -8,6 +8,7 @@
 	import UserList from './Users/UserList.svelte';
 	import Groups from './Users/Groups.svelte';
 	import Orders from './Settings/Orders.svelte';
+	import Discounts from './Users/Discounts.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -116,6 +117,33 @@
 			</div>
 			<div class=" self-center">{$i18n.t('Orders')}</div>
 		</button>
+
+		<button
+			class="px-0.5 py-1 min-w-fit rounded-lg lg:flex-none flex text-right transition {selectedTab ===
+			'discounts'
+				? ''
+				: ' text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'}"
+			on:click={() => {
+				selectedTab = 'discounts';
+			}}
+		>
+			<div class=" self-center mr-2">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="currentColor"
+					class="size-4"
+				>
+					<path d="M4.5 3.75a3 3 0 00-3 3v.75h21v-.75a3 3 0 00-3-3h-15z" />
+					<path
+						fill-rule="evenodd"
+						d="M22.5 9.75h-21v7.5a3 3 0 003 3h15a3 3 0 003-3v-7.5zm-18 3.75a.75.75 0 01.75-.75h6a.75.75 0 010 1.5h-6a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			</div>
+			<div class=" self-center">{$i18n.t('Discounts')}</div>
+		</button>
 	</div>
 
 	<div class="flex-1 mt-1 lg:mt-0 overflow-y-scroll">
@@ -125,6 +153,8 @@
 			<Groups />
 		{:else if selectedTab === 'orders'}
 			<Orders />
+		{:else if selectedTab === 'discounts'}
+			<Discounts />
 		{/if}
 	</div>
 </div>
