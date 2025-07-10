@@ -19,6 +19,9 @@
 	// Separate field for date input (HTML date input expects YYYY-MM-DD format)
 	let expiryDateString: string = '';
 
+	// Separate field for date input (HTML date input expects YYYY-MM-DD format)
+	let expiryDateString: string = '';
+
 	// Validation
 	let errors: Record<string, string> = {};
 
