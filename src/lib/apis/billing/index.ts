@@ -142,7 +142,9 @@ export const confirmPaymentOrder = async (token: string, orderId: string) => {
 	if (!response.ok) {
 		if (response.status === 409) {
 			// Handle conflict status (order already processed)
-			const errorData = await response.json().catch(() => ({ detail: 'Order has already been processed' }));
+			const errorData = await response
+				.json()
+				.catch(() => ({ detail: 'Order has already been processed' }));
 			throw new Error(errorData.detail || 'Order has already been processed');
 		}
 		throw new Error('Failed to confirm payment order');
@@ -162,7 +164,9 @@ export const declinePaymentOrder = async (token: string, orderId: string) => {
 	if (!response.ok) {
 		if (response.status === 409) {
 			// Handle conflict status (order already processed)
-			const errorData = await response.json().catch(() => ({ detail: 'Order has already been processed' }));
+			const errorData = await response
+				.json()
+				.catch(() => ({ detail: 'Order has already been processed' }));
 			throw new Error(errorData.detail || 'Order has already been processed');
 		}
 		throw new Error('Failed to decline payment order');
