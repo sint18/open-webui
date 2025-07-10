@@ -146,15 +146,12 @@ export const confirmPaymentOrder = async (token: string, orderId: string) => {
 };
 
 export const declinePaymentOrder = async (token: string, orderId: string) => {
-	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/orders/decline`, {
-		method: 'POST',
+	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/admin/orders/${orderId}/decline`, {
+		method: 'PATCH',
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`
-		},
-		body: JSON.stringify({
-			order_id: orderId
-		})
+		}
 	});
 
 	if (!response.ok) {
