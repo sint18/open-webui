@@ -411,10 +411,9 @@
 <ConfirmDialog
 	bind:show={showConfirmDialog}
 	title={$i18n.t('Confirm Payment')}
-	message={selectedOrderForConfirmation ? 
-		`Are you sure you want to confirm payment for order **${selectedOrderForConfirmation.order_id.substring(0, 8)}...** from user **${selectedOrderForConfirmation.user_email || selectedOrderForConfirmation.user_name || 'Unknown'}** for **${formatAmount(selectedOrderForConfirmation.amount_mmk)} MMK**? This action cannot be undone.` : 
-		$i18n.t('Are you sure you want to confirm this payment?')
-	}
+	message={selectedOrderForConfirmation
+		? `Are you sure you want to confirm payment for order **${selectedOrderForConfirmation.order_id.substring(0, 8)}...** from user **${selectedOrderForConfirmation.user_email || selectedOrderForConfirmation.user_name || 'Unknown'}** for **${formatAmount(selectedOrderForConfirmation.amount_mmk)} MMK**? This action cannot be undone.`
+		: $i18n.t('Are you sure you want to confirm this payment?')}
 	confirmLabel={$i18n.t('Confirm Payment')}
 	on:confirm={() => {
 		if (selectedOrderForConfirmation) {
