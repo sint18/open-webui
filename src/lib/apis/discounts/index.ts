@@ -4,7 +4,7 @@ export interface DiscountCode {
 	id?: string;
 	code: string;
 	discount_percent: number;
-	expiry_date?: string | null;
+	expires_at?: number | null;
 	usage_limit?: number | null;
 	used_count: number;
 	active: boolean;
@@ -15,7 +15,7 @@ export interface DiscountCode {
 export interface CreateDiscountForm {
 	code: string;
 	discount_percent: number;
-	expiry_date?: string | null;
+	expires_at?: number | null;
 	usage_limit?: number | null;
 	active?: boolean;
 }
@@ -23,7 +23,7 @@ export interface CreateDiscountForm {
 export interface UpdateDiscountForm {
 	code?: string;
 	discount_percent?: number;
-	expiry_date?: string | null;
+	expires_at?: number | null;
 	usage_limit?: number | null;
 	active?: boolean;
 }
@@ -37,9 +37,43 @@ export interface DiscountUsage {
 	user_email?: string;
 }
 
+// Helper function to convert date string to Unix timestamp
+const dateStringToTimestamp = (dateString: string | null): number | null => {
+	if (!dateString) return null;
+	return Math.floor(new Date(dateString + 'T23:59:59').getTime() / 1000);
+};
+
+// Helper function to convert Unix timestamp to date string
+const timestampToDateString = (timestamp: number | null): string | null => {
+	if (!timestamp) return null;
+	return new Date(timestamp * 1000).toISOString().split('T')[0];
+};
+
+// Helper function to transform backend response to frontend format
+const transformDiscountCode = (
+	discount: DiscountCode
+): DiscountCode & { expiry_date?: string | null } => {
+	return {
+		...discount,
+		expiry_date: timestampToDateString(discount.expires_at ?? null)
+	};
+};
+
 // Admin: Create a new discount code
-export const createDiscountCode = async (token: string, discount: CreateDiscountForm) => {
+export const createDiscountCode = async (
+	token: string,
+	discount: CreateDiscountForm & { expiry_date?: string | null }
+) => {
 	let error = null;
+
+	// Convert expiry_date to expires_at if provided
+	const submitData: CreateDiscountForm = {
+		...discount,
+		expires_at: discount.expiry_date ? dateStringToTimestamp(discount.expiry_date) : null
+	};
+
+	// Remove expiry_date from the payload since backend expects expires_at
+	delete (submitData as CreateDiscountForm & { expiry_date?: string }).expiry_date;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/discount`, {
 		method: 'POST',
@@ -48,12 +82,13 @@ export const createDiscountCode = async (token: string, discount: CreateDiscount
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`
 		},
-		body: JSON.stringify(discount)
+		body: JSON.stringify(submitData)
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
 		})
+		.then((discount) => transformDiscountCode(discount))
 		.catch((err) => {
 			console.log(err);
 			error = err.detail ?? err.message ?? 'An error occurred';
@@ -83,6 +118,7 @@ export const getDiscountCodes = async (token: string) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
 		})
+		.then((discounts: DiscountCode[]) => discounts.map(transformDiscountCode))
 		.catch((err) => {
 			console.log(err);
 			error = err.detail ?? err.message ?? 'An error occurred';
@@ -112,6 +148,7 @@ export const getDiscountCodeById = async (token: string, codeId: string) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
 		})
+		.then((discount) => transformDiscountCode(discount))
 		.catch((err) => {
 			console.log(err);
 			error = err.detail ?? err.message ?? 'An error occurred';
@@ -141,6 +178,7 @@ export const getDiscountCodeByCode = async (token: string, code: string) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
 		})
+		.then((discount) => transformDiscountCode(discount))
 		.catch((err) => {
 			console.log(err);
 			error = err.detail ?? err.message ?? 'An error occurred';
@@ -158,9 +196,18 @@ export const getDiscountCodeByCode = async (token: string, code: string) => {
 export const updateDiscountCode = async (
 	token: string,
 	codeId: string,
-	discount: UpdateDiscountForm
+	discount: UpdateDiscountForm & { expiry_date?: string | null }
 ) => {
 	let error = null;
+
+	// Convert expiry_date to expires_at if provided
+	const submitData: UpdateDiscountForm = {
+		...discount,
+		expires_at: discount.expiry_date ? dateStringToTimestamp(discount.expiry_date) : null
+	};
+
+	// Remove expiry_date from the payload since backend expects expires_at
+	delete (submitData as UpdateDiscountForm & { expiry_date?: string }).expiry_date;
 
 	const res = await fetch(`${WEBUI_API_BASE_URL}/discount/${codeId}`, {
 		method: 'PUT',
@@ -169,12 +216,13 @@ export const updateDiscountCode = async (
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`
 		},
-		body: JSON.stringify(discount)
+		body: JSON.stringify(submitData)
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();
 			return res.json();
 		})
+		.then((discount) => transformDiscountCode(discount))
 		.catch((err) => {
 			console.log(err);
 			error = err.detail ?? err.message ?? 'An error occurred';
