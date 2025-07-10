@@ -8,6 +8,7 @@
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import dayjs from '$lib/dayjs';
 	import ImagePreview from '$lib/components/common/ImagePreview.svelte';
+	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
 	const i18n: any = getContext('i18n');
 
@@ -30,6 +31,10 @@
 	let statusFilter = 'all';
 	let searchEmail = '';
 	let confirmingOrderId: string | null = null;
+
+	// Confirmation dialog state
+	let showConfirmDialog = false;
+	let selectedOrderForConfirmation: PaymentOrder | null = null;
 
 	// Pagination
 	let skip = 0;
@@ -82,6 +87,11 @@
 
 	async function handleFilterChange() {
 		await loadOrders(true);
+	}
+
+	function showConfirmationDialog(order: PaymentOrder) {
+		selectedOrderForConfirmation = order;
+		showConfirmDialog = true;
 	}
 
 	async function handleConfirmOrder(orderId: string) {
@@ -314,7 +324,7 @@
 								<td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
 									{#if order.status === 'pending'}
 										<button
-											on:click={() => handleConfirmOrder(order.order_id)}
+											on:click={() => showConfirmationDialog(order)}
 											disabled={confirmingOrderId === order.order_id}
 											class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
 										>
@@ -396,3 +406,23 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Confirmation Dialog -->
+<ConfirmDialog
+	bind:show={showConfirmDialog}
+	title={$i18n.t('Confirm Payment')}
+	message={selectedOrderForConfirmation ? 
+		`Are you sure you want to confirm payment for order **${selectedOrderForConfirmation.order_id.substring(0, 8)}...** from user **${selectedOrderForConfirmation.user_email || selectedOrderForConfirmation.user_name || 'Unknown'}** for **${formatAmount(selectedOrderForConfirmation.amount_mmk)} MMK**? This action cannot be undone.` : 
+		$i18n.t('Are you sure you want to confirm this payment?')
+	}
+	confirmLabel={$i18n.t('Confirm Payment')}
+	on:confirm={() => {
+		if (selectedOrderForConfirmation) {
+			handleConfirmOrder(selectedOrderForConfirmation.order_id);
+		}
+		selectedOrderForConfirmation = null;
+	}}
+	on:cancel={() => {
+		selectedOrderForConfirmation = null;
+	}}
+/>
