@@ -315,9 +315,9 @@ async def confirm_order(
     return order
 
 
-@router.post('/orders/decline', response_model=PaymentOrderModel)
+@router.patch('/admin/orders/{order_id}/decline', response_model=PaymentOrderModel)
 async def decline_order(
-        order_id: str = Body(..., embed=True),
+        order_id: str,
         admin=Depends(get_admin_user)
 ):
     """Admin: decline a payment order after manual verification"""
