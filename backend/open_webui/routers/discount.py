@@ -7,6 +7,7 @@ from open_webui.models.discount import (
     DiscountCodeUpdate,
     DiscountCodeValidateResponse,
     DiscountCodes,
+    DiscountUsageResponse,
     UserDiscountResponse,
     UserDiscounts,
 )
@@ -64,19 +65,21 @@ async def validate_discount_code(code: str, user=Depends(get_verified_user)):
 @router.get("/user", response_model=list[UserDiscountResponse])
 async def get_user_discounts(user=Depends(get_verified_user)):
     """Get all discounts used by the current user"""
-    return UserDiscounts.get_user_discounts(user.id)
+    user_discounts = UserDiscounts.get_user_discounts(user.id)
+    return [UserDiscountResponse.from_user_discount_model(ud) for ud in user_discounts]
 
 
 @router.get("/user/{user_id}", response_model=list[UserDiscountResponse])
 async def get_user_discounts_by_id(user_id: str, admin=Depends(get_admin_user)):
     """Get all discounts used by a specific user (admin only)"""
-    return UserDiscounts.get_user_discounts(user_id)
+    user_discounts = UserDiscounts.get_user_discounts(user_id)
+    return [UserDiscountResponse.from_user_discount_model(ud) for ud in user_discounts]
 
 
-@router.get("/users/{code}", response_model=list[UserDiscountResponse])
+@router.get("/users/{code}", response_model=list[DiscountUsageResponse])
 async def get_users_by_discount_code(code: str, admin=Depends(get_admin_user)):
     """Get all users who have used a specific discount code (admin only)"""
-    return UserDiscounts.get_discount_users(code)
+    return UserDiscounts.get_discount_usage_with_user_details(code)
 
 
 #########################
