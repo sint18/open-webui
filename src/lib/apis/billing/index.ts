@@ -128,15 +128,12 @@ export const getAllPaymentOrders = async (
 };
 
 export const confirmPaymentOrder = async (token: string, orderId: string) => {
-	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/orders/confirm`, {
-		method: 'POST',
+	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/admin/orders/${orderId}/confirm`, {
+		method: 'PATCH',
 		headers: {
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`
-		},
-		body: JSON.stringify({
-			order_id: orderId
-		})
+		}
 	});
 
 	if (!response.ok) {
