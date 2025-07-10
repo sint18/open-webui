@@ -5,7 +5,9 @@
 
 	import { getAllPaymentOrders, confirmPaymentOrder } from '$lib/apis/billing';
 	import { user } from '$lib/stores';
+	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import dayjs from '$lib/dayjs';
+	import ImagePreview from '$lib/components/common/ImagePreview.svelte';
 
 	const i18n: any = getContext('i18n');
 
@@ -117,10 +119,40 @@
 		return new Intl.NumberFormat('en-US').format(amount);
 	}
 
-	function viewScreenshot(screenshotPath: string | undefined) {
+	async function viewScreenshot(screenshotPath: string | undefined) {
 		if (screenshotPath) {
-			// Open screenshot in new tab/window
-			window.open(screenshotPath, '_blank');
+			try {
+				// Fetch the file through the authenticated API
+				const response = await fetch(`${WEBUI_API_BASE_URL}/storage/${screenshotPath}`, {
+					headers: {
+						Authorization: `Bearer ${localStorage.token}`
+					}
+				});
+
+				if (!response.ok) {
+					throw new Error('Failed to fetch screenshot');
+				}
+
+				// Create a blob URL and open in new window
+				const blob = await response.blob();
+				const blobUrl = URL.createObjectURL(blob);
+				const newWindow = window.open(blobUrl, '_blank');
+
+				// Clean up the blob URL after some time to prevent memory leaks
+				if (newWindow) {
+					newWindow.addEventListener('beforeunload', () => {
+						URL.revokeObjectURL(blobUrl);
+					});
+					// Also cleanup after 5 minutes as a fallback
+					setTimeout(() => URL.revokeObjectURL(blobUrl), 300000);
+				} else {
+					// If popup was blocked, cleanup immediately
+					URL.revokeObjectURL(blobUrl);
+				}
+			} catch (error) {
+				console.error('Error viewing screenshot:', error);
+				toast.error('Failed to load screenshot');
+			}
 		}
 	}
 </script>
