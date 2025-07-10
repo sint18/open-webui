@@ -98,7 +98,7 @@
 	}
 
 	function getStatusBadgeClass(discount: DiscountCode) {
-		if (!discount.is_active) {
+		if (!discount.active) {
 			return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
 		}
 
@@ -116,7 +116,7 @@
 	}
 
 	function getStatusText(discount: DiscountCode) {
-		if (!discount.is_active) return 'Inactive';
+		if (!discount.active) return 'Inactive';
 		if (discount.expiry_date && new Date(discount.expiry_date) < new Date()) return 'Expired';
 		if (discount.usage_limit && discount.used_count >= discount.usage_limit) return 'Limit Reached';
 		return 'Active';
@@ -130,8 +130,8 @@
 	// Apply filters
 	$: filteredDiscounts = discounts.filter((discount) => {
 		// Status filter
-		if (statusFilter === 'active' && !discount.is_active) return false;
-		if (statusFilter === 'inactive' && discount.is_active) return false;
+		if (statusFilter === 'active' && !discount.active) return false;
+		if (statusFilter === 'inactive' && discount.active) return false;
 		if (
 			statusFilter === 'expired' &&
 			(!discount.expiry_date || new Date(discount.expiry_date) >= new Date())
