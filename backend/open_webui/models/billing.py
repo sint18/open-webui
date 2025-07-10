@@ -52,6 +52,7 @@ class PaymentStatusEnum(enum.Enum):
     pending = "pending"
     paid = "paid"
     failed = "failed"
+    declined = "declined"
 
 
 ####################
