@@ -2,7 +2,7 @@ import logging
 import requests
 from typing import Optional, List, Annotated
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body, Form, Query
 
 from open_webui.models.discount import UserDiscountForm
 from open_webui.env import LITELLM_MASTER_KEY, LITELLM_URL
@@ -13,7 +13,7 @@ from open_webui.utils.auth import get_verified_user, get_admin_user
 from open_webui.models.billing import (
     UserCreditsModel, UserCreditsForm, CreditTransactionModel,
     CreditTransactionForm, PaymentOrderModel, PaymentOrderForm,
-    PaymentCallbackForm, UserCredits, CreditTransactions, PaymentOrders
+    PaymentCallbackForm, PaymentOrderWithUserModel, UserCredits, CreditTransactions, PaymentOrders
 )
 
 from open_webui.storage.provider import Storage
@@ -108,6 +108,17 @@ async def get_user_transactions(
 # -------------------------
 # Payment Orders Endpoints
 # -------------------------
+
+@router.get('/admin/orders', response_model=List[PaymentOrderWithUserModel])
+async def list_all_orders(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=100),
+        status: Optional[PaymentStatusEnum] = Query(None),
+        user_email: Optional[str] = Query(None),
+        admin=Depends(get_admin_user)
+):
+    """Admin: Get all payment orders across all users with filtering"""
+    return PaymentOrders.get_all_orders(skip, limit, status, user_email)
 
 @router.post("/orders", response_model=PaymentOrderModel)
 async def create_order(
