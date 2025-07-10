@@ -19,7 +19,7 @@
 		discount_percent: discount.discount_percent,
 		expiry_date: discount.expiry_date,
 		usage_limit: discount.usage_limit,
-		is_active: discount.is_active
+		active: discount.active
 	};
 
 	// Validation
@@ -270,12 +270,12 @@
 			<!-- Active Status -->
 			<div class="flex items-center space-x-2">
 				<input
-					id="is_active"
+					id="active"
 					type="checkbox"
-					bind:checked={form.is_active}
+					bind:checked={form.active}
 					class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
 				/>
-				<label for="is_active" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+				<label for="active" class="text-sm font-medium text-gray-700 dark:text-gray-300">
 					{$i18n.t('Active')}
 				</label>
 			</div>
