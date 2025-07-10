@@ -17,10 +17,7 @@
 	};
 
 	// Separate field for date input (HTML date input expects YYYY-MM-DD format)
-	let expiryDateString: string = '';
-
-	// Separate field for date input (HTML date input expects YYYY-MM-DD format)
-	let expiryDateString: string = '';
+	let expiryDateInput: string = '';
 
 	// Validation
 	let errors: Record<string, string> = {};
@@ -44,8 +41,8 @@
 			errors.usage_limit = 'Usage limit must be at least 1';
 		}
 
-		if (expiryDateString) {
-			const expiryDate = new Date(expiryDateString);
+		if (expiryDateInput) {
+			const expiryDate = new Date(expiryDateInput);
 			const today = new Date();
 			today.setHours(0, 0, 0, 0);
 
@@ -69,7 +66,7 @@
 			const submitData = {
 				...form,
 				code: form.code.trim().toUpperCase(),
-				expires_at: expiryDateString ? dateStringToTimestamp(expiryDateString) : null,
+				expires_at: expiryDateInput ? dateStringToTimestamp(expiryDateInput) : null,
 				usage_limit: form.usage_limit || null
 			};
 
@@ -100,8 +97,8 @@
 
 	// Auto-format expiry date and convert to timestamp
 	function formatExpiryDate() {
-		if (expiryDateString) {
-			form.expires_at = dateStringToTimestamp(expiryDateString);
+		if (expiryDateInput) {
+			form.expires_at = dateStringToTimestamp(expiryDateInput);
 		} else {
 			form.expires_at = null;
 		}
@@ -211,7 +208,7 @@
 				<input
 					id="expiry_date"
 					type="date"
-					bind:value={expiryDateString}
+					bind:value={expiryDateInput}
 					on:change={formatExpiryDate}
 					on:input={validateForm}
 					min={new Date().toISOString().split('T')[0]}

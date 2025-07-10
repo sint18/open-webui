@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 import time
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.models.discount import (
