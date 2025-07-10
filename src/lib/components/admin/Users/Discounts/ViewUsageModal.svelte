@@ -42,6 +42,9 @@
 	function formatDate(timestamp: number) {
 		return dayjs(timestamp * 1000).format('MMM D, YYYY HH:mm');
 	}
+
+	// Reactive variables for computed values
+	$: uniqueUsersCount = new Set(usageHistory.map((u) => u.user_id)).size;
 </script>
 
 <Modal size="lg" on:close={closeModal}>
@@ -210,7 +213,7 @@
 					<div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
 						<p class="text-sm text-green-600 dark:text-green-400">{$i18n.t('Unique Users')}</p>
 						<p class="text-2xl font-bold text-green-900 dark:text-green-100">
-							{new Set(usageHistory.map((u) => u.user_id)).size}
+							{uniqueUsersCount}
 						</p>
 					</div>
 					<div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
