@@ -321,20 +321,34 @@ async def decline_order(
         admin=Depends(get_admin_user)
 ):
     """Admin: decline a payment order after manual verification"""
-    # Update order status to 'declined'
-    order = PaymentOrders.update_payment_order_status(
-        order_id,
-        PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.declined)
-    )
+    log.info(f"Admin {admin.id} attempting to decline order {order_id}")
 
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ERROR_MESSAGES.DEFAULT()
+    # Update order status to 'declined'
+    try:
+        order = PaymentOrders.update_payment_order_status(
+            order_id,
+            PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.declined)
         )
 
-    log.info(f"Order {order_id} has been declined by admin")
-    return order
+        if not order:
+            log.warning(f"Order {order_id} not found for decline request")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ERROR_MESSAGES.DEFAULT()
+            )
+
+        log.info(f"Order {order_id} has been successfully declined by admin {admin.id}")
+        return order
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 409 Conflict)
+        raise
+    except Exception as e:
+        log.error(f"Unexpected error declining order {order_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while declining the order"
+        )
 
 
 # @router.get('/orders', response_model=List[PaymentOrderModel])
