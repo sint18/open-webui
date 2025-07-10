@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
 
-	import { getAllPaymentOrders, confirmPaymentOrder } from '$lib/apis/billing';
+	import { getAllPaymentOrders, confirmPaymentOrder, declinePaymentOrder } from '$lib/apis/billing';
 	import { user } from '$lib/stores';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import dayjs from '$lib/dayjs';
@@ -31,10 +31,15 @@
 	let statusFilter = 'all';
 	let searchEmail = '';
 	let confirmingOrderId: string | null = null;
+	let decliningOrderId: string | null = null;
 
 	// Confirmation dialog state
 	let showConfirmDialog = false;
 	let selectedOrderForConfirmation: PaymentOrder | null = null;
+
+	// Decline dialog state
+	let showDeclineDialog = false;
+	let selectedOrderForDecline: PaymentOrder | null = null;
 
 	// Pagination
 	let skip = 0;
@@ -94,6 +99,11 @@
 		showConfirmDialog = true;
 	}
 
+	function showDeclineConfirmationDialog(order: PaymentOrder) {
+		selectedOrderForDecline = order;
+		showDeclineDialog = true;
+	}
+
 	async function handleConfirmOrder(orderId: string) {
 		try {
 			confirmingOrderId = orderId;
@@ -108,6 +118,20 @@
 		}
 	}
 
+	async function handleDeclineOrder(orderId: string) {
+		try {
+			decliningOrderId = orderId;
+			await declinePaymentOrder(localStorage.token, orderId);
+			toast.success('Payment declined successfully');
+			await loadOrders(true); // Refresh the list
+		} catch (error) {
+			console.error('Failed to decline order:', error);
+			toast.error('Failed to decline payment');
+		} finally {
+			decliningOrderId = null;
+		}
+	}
+
 	function viewUserDetails(userId: string) {
 		goto(`/admin/users/${userId}`);
 	}
@@ -119,6 +143,8 @@
 			case 'pending':
 				return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
 			case 'failed':
+				return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+			case 'declined':
 				return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
 			default:
 				return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
@@ -196,6 +222,7 @@
 				<option value="pending">{$i18n.t('Pending')}</option>
 				<option value="paid">{$i18n.t('Paid')}</option>
 				<option value="failed">{$i18n.t('Failed')}</option>
+				<option value="declined">{$i18n.t('Declined')}</option>
 			</select>
 		</div>
 
@@ -354,6 +381,37 @@
 												{$i18n.t('Confirm')}
 											{/if}
 										</button>
+										<button
+											on:click={() => showDeclineConfirmationDialog(order)}
+											disabled={decliningOrderId === order.order_id}
+											class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+										>
+											{#if decliningOrderId === order.order_id}
+												<svg
+													class="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+												>
+													<circle
+														class="opacity-25"
+														cx="12"
+														cy="12"
+														r="10"
+														stroke="currentColor"
+														stroke-width="4"
+													></circle>
+													<path
+														class="opacity-75"
+														fill="currentColor"
+														d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+													></path>
+												</svg>
+												{$i18n.t('Declining...')}
+											{:else}
+												{$i18n.t('Decline')}
+											{/if}
+										</button>
 									{/if}
 									<button
 										on:click={() => viewUserDetails(order.user_id)}
@@ -423,5 +481,24 @@
 	}}
 	on:cancel={() => {
 		selectedOrderForConfirmation = null;
+	}}
+/>
+
+<!-- Decline Dialog -->
+<ConfirmDialog
+	bind:show={showDeclineDialog}
+	title={$i18n.t('Decline Payment')}
+	message={selectedOrderForDecline
+		? `Are you sure you want to decline payment for order **${selectedOrderForDecline.order_id.substring(0, 8)}...** from user **${selectedOrderForDecline.user_email || selectedOrderForDecline.user_name || 'Unknown'}** for **${formatAmount(selectedOrderForDecline.amount_mmk)} MMK**? This action cannot be undone.`
+		: $i18n.t('Are you sure you want to decline this payment?')}
+	confirmLabel={$i18n.t('Decline Payment')}
+	on:confirm={() => {
+		if (selectedOrderForDecline) {
+			handleDeclineOrder(selectedOrderForDecline.order_id);
+		}
+		selectedOrderForDecline = null;
+	}}
+	on:cancel={() => {
+		selectedOrderForDecline = null;
 	}}
 />
