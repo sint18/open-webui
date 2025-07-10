@@ -17,6 +17,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     Date
 )
+from fastapi import HTTPException, status
 
 ####################
 # Logger setup
@@ -346,9 +347,30 @@ class PaymentOrdersTable:
             self, order_id: str, form: PaymentCallbackForm
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
-            record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).first()
+            # Use SELECT FOR UPDATE to prevent race conditions
+            record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).with_for_update().first()
             if record is None:
                 return None
+            
+            # Guard against double-handling: only allow status changes from 'pending'
+            if record.status != PaymentStatusEnum.pending:
+                # Determine the appropriate error message based on current status
+                if record.status == PaymentStatusEnum.paid:
+                    error_detail = f"Order {order_id} is already confirmed/paid and cannot be modified"
+                elif record.status == PaymentStatusEnum.declined:
+                    error_detail = f"Order {order_id} is already declined and cannot be modified"
+                elif record.status == PaymentStatusEnum.failed:
+                    error_detail = f"Order {order_id} has failed and cannot be modified"
+                else:
+                    error_detail = f"Order {order_id} has status '{record.status.value}' and cannot be modified"
+                
+                log.warning(f"Attempted to modify order {order_id} with status {record.status.value}")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=error_detail
+                )
+            
+            # Proceed with status update
             record.status = form.status
             if form.paid_at:
                 record.paid_at = form.paid_at
