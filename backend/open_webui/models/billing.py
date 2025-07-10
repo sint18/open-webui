@@ -187,6 +187,12 @@ class PaymentOrderModel(BaseModel):
     screenshot_path: Optional[str] = None
 
 
+class PaymentOrderWithUserModel(PaymentOrderModel):
+    """Extended payment order model that includes user information"""
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+
+
 class PaymentOrderForm(BaseModel):
     type: OrderTypeEnum
     plan_target: Optional[str] = None
@@ -376,6 +382,37 @@ class PaymentOrdersTable:
                 .all()
             )
             return [PaymentOrderModel.model_validate(r) for r in rows]
+
+    def get_all_orders(
+            self, skip: int = 0, limit: int = 50,
+            status: Optional[PaymentStatusEnum] = None,
+            user_email: Optional[str] = None
+    ) -> list[PaymentOrderWithUserModel]:
+        """Get all orders across all users with optional filtering"""
+        with get_db() as db:
+            from open_webui.models.users import User
+
+            query = (
+                db.query(PaymentOrder, User)
+                .join(User, PaymentOrder.user_id == User.id)
+                .order_by(PaymentOrder.created_at.desc())
+            )
+
+            if status:
+                query = query.filter(PaymentOrder.status == status)
+
+            if user_email:
+                query = query.filter(User.email.ilike(f"%{user_email}%"))
+
+            rows = query.offset(skip).limit(limit).all()
+
+            return [
+                PaymentOrderWithUserModel(
+                    **PaymentOrderModel.model_validate(order).model_dump(),
+                    user_name=user.name,
+                    user_email=user.email
+                ) for order, user in rows
+            ]
 
 
 # Instantiate tables for import

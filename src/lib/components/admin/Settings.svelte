@@ -401,7 +401,11 @@
 		{:else if selectedTab === 'evaluations'}
 			<Evaluations />
 		{:else if selectedTab === 'tools'}
-			<Tools />
+			<Tools
+				saveSettings={async () => {
+					toast.success($i18n.t('Settings saved successfully!'));
+				}}
+			/>
 		{:else if selectedTab === 'documents'}
 			<Documents
 				on:save={async () => {

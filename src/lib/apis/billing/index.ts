@@ -99,6 +99,34 @@ export const getPaymentOrdersByUserId = async (
 	return await response.json();
 };
 
+// Admin: Get all payment orders across all users
+export const getAllPaymentOrders = async (
+	token: string,
+	skip = 0,
+	limit = 50,
+	status?: string,
+	userEmail?: string
+) => {
+	const params = new URLSearchParams({
+		skip: skip.toString(),
+		limit: limit.toString()
+	});
+
+	if (status) params.append('status', status);
+	if (userEmail) params.append('user_email', userEmail);
+
+	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/admin/orders?${params.toString()}`, {
+		headers: {
+			Authorization: `Bearer ${token}`
+		}
+	});
+
+	if (!response.ok) {
+		throw new Error('Failed to fetch all orders');
+	}
+	return response.json();
+};
+
 export const confirmPaymentOrder = async (token: string, orderId: string) => {
 	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/orders/confirm`, {
 		method: 'POST',
