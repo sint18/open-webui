@@ -121,12 +121,14 @@
 	async function handleDeclineOrder(orderId: string) {
 		try {
 			decliningOrderId = orderId;
+			console.log('Declining order:', orderId);
 			await declinePaymentOrder(localStorage.token, orderId);
 			toast.success('Payment declined successfully');
 			await loadOrders(true); // Refresh the list
 		} catch (error) {
 			console.error('Failed to decline order:', error);
-			toast.error('Failed to decline payment');
+			const errorMessage = error instanceof Error ? error.message : 'Failed to decline payment';
+			toast.error(`Decline failed: ${errorMessage}`);
 		} finally {
 			decliningOrderId = null;
 		}
