@@ -37,6 +37,7 @@ class PlanEnum(enum.Enum):
     starter = "starter"
     pro = "pro"
     studio = "studio"
+    free = "free"
 
 
 class OrderTypeEnum(enum.Enum):
