@@ -315,14 +315,14 @@ async def confirm_order(
     return order
 
 
-@router.get('/orders', response_model=List[PaymentOrderModel])
-async def list_orders(
-        skip: int = 0,
-        limit: int = 50,
-        user=Depends(get_verified_user)
-):
-    """List payment orders for current user"""
-    return PaymentOrders.get_orders_by_user(user.id, skip, limit)
+# @router.get('/orders', response_model=List[PaymentOrderModel])
+# async def list_orders(
+#         skip: int = 0,
+#         limit: int = 50,
+#         user=Depends(get_verified_user)
+# ):
+#     """List payment orders for current user"""
+#     return PaymentOrders.get_orders_by_user(user.id, skip, limit)
 
 
 @router.get('/{user_id}/orders', response_model=List[PaymentOrderModel])
