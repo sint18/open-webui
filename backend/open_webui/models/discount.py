@@ -16,6 +16,9 @@ from sqlalchemy import (
     ForeignKey
 )
 
+# Import User model for joins
+from open_webui.models.users import User
+
 ####################
 # Logger setup
 ####################
@@ -139,6 +142,27 @@ class UserDiscountResponse(BaseModel):
     created_at: int
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_user_discount_model(cls, model: 'UserDiscountModel'):
+        """Create UserDiscountResponse from UserDiscountModel, using applied_at as created_at"""
+        return cls(
+            id=model.id,
+            user_id=model.user_id,
+            discount_code=model.discount_code,
+            applied_at=model.applied_at,
+            created_at=model.applied_at  # Use applied_at as created_at since they represent the same thing
+        )
+
+
+class DiscountUsageResponse(BaseModel):
+    """Response model for discount usage history with user details"""
+    id: str
+    user_id: str
+    discount_code_id: str
+    used_at: int
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
 
 
 
@@ -354,6 +378,27 @@ class UserDiscountsTable:
         with get_db() as db:
             records = db.query(UserDiscount).filter(UserDiscount.discount_code == code).all()
             return [UserDiscountModel.model_validate(record) for record in records]
+
+    def get_discount_usage_with_user_details(self, code: str) -> list[DiscountUsageResponse]:
+        """Get discount usage history with user details for admin usage history view"""
+        with get_db() as db:
+            # Join UserDiscount with User to get user details
+            results = db.query(UserDiscount, User).join(
+                User, UserDiscount.user_id == User.id, isouter=True
+            ).filter(UserDiscount.discount_code == code).all()
+
+            usage_list = []
+            for user_discount, user in results:
+                usage_list.append(DiscountUsageResponse(
+                    id=user_discount.id,
+                    user_id=user_discount.user_id,
+                    discount_code_id=user_discount.discount_code,  # This is the discount code itself
+                    used_at=user_discount.applied_at,
+                    user_name=user.name if user else None,
+                    user_email=user.email if user else None
+                ))
+
+            return usage_list
 
 
 # Instantiate tables for import
