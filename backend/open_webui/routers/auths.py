@@ -55,6 +55,8 @@ from typing import Optional, List
 
 from ssl import CERT_NONE, CERT_REQUIRED, PROTOCOL_TLS
 
+from open_webui.utils.promotion import create_free_signup_credits
+
 if ENABLE_LDAP.value:
     from ldap3 import Server, Connection, NONE, Tls
     from ldap3.utils.conv import escape_filter_chars
@@ -553,6 +555,9 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             if user_count == 0:
                 # Disable signup after the first user is created
                 request.app.state.config.ENABLE_SIGNUP = False
+
+            # Create free signup credits
+            create_free_signup_credits(user.id, "email")
 
             return {
                 "token": token,
