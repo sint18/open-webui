@@ -347,43 +347,60 @@ class PaymentOrdersTable:
             self, order_id: str, form: PaymentCallbackForm
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
-            # Use SELECT FOR UPDATE to prevent race conditions
-            record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).with_for_update().first()
-            if record is None:
-                return None
-            
-            # Guard against double-handling: only allow status changes from 'pending'
-            if record.status != PaymentStatusEnum.pending:
-                # Determine the appropriate error message based on current status
-                if record.status == PaymentStatusEnum.paid:
-                    error_detail = f"Order {order_id} is already confirmed/paid and cannot be modified"
-                elif record.status == PaymentStatusEnum.declined:
-                    error_detail = f"Order {order_id} is already declined and cannot be modified"
-                elif record.status == PaymentStatusEnum.failed:
-                    error_detail = f"Order {order_id} has failed and cannot be modified"
-                else:
-                    error_detail = f"Order {order_id} has status '{record.status.value}' and cannot be modified"
-                
-                log.warning(f"Attempted to modify order {order_id} with status {record.status.value}")
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=error_detail
-                )
-            
-            # Proceed with status update
-            record.status = form.status
-            if form.paid_at:
-                record.paid_at = form.paid_at
-            if record.type == OrderTypeEnum.plan_payment and record.status == PaymentStatusEnum.paid:
-                if record.period_end:
-                    user_rec = db.query(UserCredit).filter(UserCredit.user_id == record.user_id).first()
-                    if user_rec:
-                        user_rec.current_period_end = record.period_end
-                        user_rec.status = StatusEnum.active
-                        user_rec.updated_at = int(time.time())
-            db.commit()
-            db.refresh(record)
-            return PaymentOrderModel.model_validate(record)
+            # Use explicit transaction with SELECT FOR UPDATE to prevent race conditions
+            try:
+                with db.begin():
+                    record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).with_for_update().first()
+                    if record is None:
+                        return None
+
+                    # Guard against double-handling: only allow status changes from 'pending'
+                    if record.status != PaymentStatusEnum.pending:
+                        # Determine the appropriate error message based on current status
+                        if record.status == PaymentStatusEnum.paid:
+                            error_detail = f"Order {order_id} is already confirmed/paid and cannot be modified"
+                        elif record.status == PaymentStatusEnum.declined:
+                            error_detail = f"Order {order_id} is already declined and cannot be modified"
+                        elif record.status == PaymentStatusEnum.failed:
+                            error_detail = f"Order {order_id} has failed and cannot be modified"
+                        else:
+                            error_detail = f"Order {order_id} has status '{record.status.value}' and cannot be modified"
+
+                        log.warning(f"Attempted to modify order {order_id} with status {record.status.value}")
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail=error_detail
+                        )
+
+                    # Proceed with status update
+                    record.status = form.status
+                    if form.paid_at:
+                        record.paid_at = form.paid_at
+                    if record.type == OrderTypeEnum.plan_payment and record.status == PaymentStatusEnum.paid:
+                        if record.period_end:
+                            user_rec = db.query(UserCredit).filter(UserCredit.user_id == record.user_id).first()
+                            if user_rec:
+                                user_rec.current_period_end = record.period_end
+                                user_rec.status = StatusEnum.active
+                                user_rec.updated_at = int(time.time())
+
+                    # Flush changes to ensure they're written to DB within transaction
+                    db.flush()
+                    db.refresh(record)
+
+                    # Log the successful status change
+                    log.info(f"Successfully updated order {order_id} status from pending to {form.status.value}")
+
+                    # Transaction will auto-commit when exiting the with block
+                    return PaymentOrderModel.model_validate(record)
+
+            except HTTPException:
+                # Re-raise HTTP exceptions (like 409 Conflict)
+                raise
+            except Exception as e:
+                log.error(f"Error updating order {order_id} status: {e}")
+                db.rollback()
+                raise
 
     def get_order_by_id(
             self, order_id: str
