@@ -15,7 +15,9 @@ from sqlalchemy import (
     String,
     Text,
     Enum as SAEnum,
-    Date
+    Date,
+    JSON,
+    ForeignKey
 )
 from fastapi import HTTPException, status
 
@@ -102,6 +104,22 @@ class PaymentOrder(Base):
       # URL or local path of uploaded screenshot
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     paid_at = Column(BigInteger, nullable=True)
+
+
+class PaymentOrderAudit(Base):
+    __tablename__ = "payment_order_audit"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey("payment_order.order_id"), nullable=False)
+    action = Column(String, nullable=False)  # 'confirm', 'decline', 'create'
+    actor_id = Column(String, nullable=False)
+    actor_email = Column(String, nullable=True)
+    actor_name = Column(String, nullable=True)
+    previous_status = Column(String, nullable=True)
+    new_status = Column(String, nullable=False)
+    reason = Column(Text, nullable=True)
+    audit_metadata = Column(JSON, nullable=True)  # Additional context like IP, user agent
+    created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
 
 
 ####################
@@ -208,6 +226,34 @@ class PaymentCallbackForm(BaseModel):
     order_id: str
     status: PaymentStatusEnum
     paid_at: Optional[int] = None
+
+
+class PaymentOrderAuditModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    order_id: str
+    action: str
+    actor_id: str
+    actor_email: Optional[str] = None
+    actor_name: Optional[str] = None
+    previous_status: Optional[str] = None
+    new_status: str
+    reason: Optional[str] = None
+    audit_metadata: Optional[dict] = None
+    created_at: int
+
+
+class PaymentOrderAuditForm(BaseModel):
+    order_id: str
+    action: str
+    actor_id: str
+    actor_email: Optional[str] = None
+    actor_name: Optional[str] = None
+    previous_status: Optional[str] = None
+    new_status: str
+    reason: Optional[str] = None
+    audit_metadata: Optional[dict] = None
 
 
 ####################
@@ -344,58 +390,83 @@ class PaymentOrdersTable:
             return PaymentOrderModel.model_validate(record)
 
     def update_payment_order_status(
-            self, order_id: str, form: PaymentCallbackForm
+            self, order_id: str, form: PaymentCallbackForm,
+            audit_form: Optional[PaymentOrderAuditForm] = None
     ) -> Optional[PaymentOrderModel]:
         with get_db() as db:
             # Use explicit transaction with SELECT FOR UPDATE to prevent race conditions
             try:
-                with db.begin():
-                    record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).with_for_update().first()
-                    if record is None:
-                        return None
+                # Start a transaction
+                db.begin()
 
-                    # Guard against double-handling: only allow status changes from 'pending'
-                    if record.status != PaymentStatusEnum.pending:
-                        # Determine the appropriate error message based on current status
-                        if record.status == PaymentStatusEnum.paid:
-                            error_detail = f"Order {order_id} is already confirmed/paid and cannot be modified"
-                        elif record.status == PaymentStatusEnum.declined:
-                            error_detail = f"Order {order_id} is already declined and cannot be modified"
-                        elif record.status == PaymentStatusEnum.failed:
-                            error_detail = f"Order {order_id} has failed and cannot be modified"
-                        else:
-                            error_detail = f"Order {order_id} has status '{record.status.value}' and cannot be modified"
+                record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).with_for_update().first()
+                if record is None:
+                    db.rollback()
+                    return None
 
-                        log.warning(f"Attempted to modify order {order_id} with status {record.status.value}")
-                        raise HTTPException(
-                            status_code=status.HTTP_409_CONFLICT,
-                            detail=error_detail
-                        )
+                # Store previous status for audit
+                previous_status = record.status.value
 
-                    # Proceed with status update
-                    record.status = form.status
-                    if form.paid_at:
-                        record.paid_at = form.paid_at
-                    if record.type == OrderTypeEnum.plan_payment and record.status == PaymentStatusEnum.paid:
-                        if record.period_end:
-                            user_rec = db.query(UserCredit).filter(UserCredit.user_id == record.user_id).first()
-                            if user_rec:
-                                user_rec.current_period_end = record.period_end
-                                user_rec.status = StatusEnum.active
-                                user_rec.updated_at = int(time.time())
+                # Guard against double-handling: only allow status changes from 'pending'
+                if record.status != PaymentStatusEnum.pending:
+                    # Determine the appropriate error message based on current status
+                    if record.status == PaymentStatusEnum.paid:
+                        error_detail = f"Order {order_id} is already confirmed/paid and cannot be modified"
+                    elif record.status == PaymentStatusEnum.declined:
+                        error_detail = f"Order {order_id} is already declined and cannot be modified"
+                    elif record.status == PaymentStatusEnum.failed:
+                        error_detail = f"Order {order_id} has failed and cannot be modified"
+                    else:
+                        error_detail = f"Order {order_id} has status '{record.status.value}' and cannot be modified"
 
-                    # Flush changes to ensure they're written to DB within transaction
-                    db.flush()
-                    db.refresh(record)
+                    log.warning(f"Attempted to modify order {order_id} with status {record.status.value}")
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=error_detail
+                    )
 
-                    # Log the successful status change
-                    log.info(f"Successfully updated order {order_id} status from pending to {form.status.value}")
+                # Proceed with status update
+                record.status = form.status
+                if form.paid_at:
+                    record.paid_at = form.paid_at
+                if record.type == OrderTypeEnum.plan_payment and record.status == PaymentStatusEnum.paid:
+                    if record.period_end:
+                        user_rec = db.query(UserCredit).filter(UserCredit.user_id == record.user_id).first()
+                        if user_rec:
+                            user_rec.current_period_end = record.period_end
+                            user_rec.status = StatusEnum.active
+                            user_rec.updated_at = int(time.time())
 
-                    # Transaction will auto-commit when exiting the with block
-                    return PaymentOrderModel.model_validate(record)
+                # Create audit record if audit_form is provided
+                if audit_form:
+                    audit_record = PaymentOrderAudit(
+                        id=str(uuid.uuid4()),
+                        order_id=order_id,
+                        action=audit_form.action,
+                        actor_id=audit_form.actor_id,
+                        actor_email=audit_form.actor_email,
+                        actor_name=audit_form.actor_name,
+                        previous_status=previous_status,
+                        new_status=form.status.value,
+                        reason=audit_form.reason,
+                        audit_metadata=audit_form.audit_metadata,
+                        created_at=int(time.time())
+                    )
+                    db.add(audit_record)
+
+                # Commit the transaction
+                db.commit()
+                db.refresh(record)
+
+                # Log the successful status change
+                log.info(f"Successfully updated order {order_id} status from {previous_status} to {form.status.value}")
+
+                return PaymentOrderModel.model_validate(record)
 
             except HTTPException:
                 # Re-raise HTTP exceptions (like 409 Conflict)
+                db.rollback()
                 raise
             except Exception as e:
                 log.error(f"Error updating order {order_id} status: {e}")
@@ -455,7 +526,66 @@ class PaymentOrdersTable:
             ]
 
 
+class PaymentOrderAuditTable:
+    def create_audit_record(self, form: PaymentOrderAuditForm) -> Optional[PaymentOrderAuditModel]:
+        """Create an audit record for a payment order action"""
+        with get_db() as db:
+            record = PaymentOrderAudit(
+                id=str(uuid.uuid4()),
+                order_id=form.order_id,
+                action=form.action,
+                actor_id=form.actor_id,
+                actor_email=form.actor_email,
+                actor_name=form.actor_name,
+                previous_status=form.previous_status,
+                new_status=form.new_status,
+                reason=form.reason,
+                audit_metadata=form.audit_metadata,
+                created_at=int(time.time())
+            )
+            db.add(record)
+            db.commit()
+            db.refresh(record)
+            return PaymentOrderAuditModel.model_validate(record) if record else None
+
+    def get_audit_history(self, order_id: str) -> list[PaymentOrderAuditModel]:
+        """Get audit history for a specific order"""
+        with get_db() as db:
+            records = (
+                db.query(PaymentOrderAudit)
+                .filter(PaymentOrderAudit.order_id == order_id)
+                .order_by(PaymentOrderAudit.created_at.desc())
+                .all()
+            )
+            return [PaymentOrderAuditModel.model_validate(record) for record in records]
+
+    def get_audit_by_actor(self, actor_id: str, skip: int = 0, limit: int = 50) -> list[PaymentOrderAuditModel]:
+        """Get audit records by actor (admin)"""
+        with get_db() as db:
+            records = (
+                db.query(PaymentOrderAudit)
+                .filter(PaymentOrderAudit.actor_id == actor_id)
+                .order_by(PaymentOrderAudit.created_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+            return [PaymentOrderAuditModel.model_validate(record) for record in records]
+
+    def get_all_audit_records(self, skip: int = 0, limit: int = 50, action: Optional[str] = None) -> list[PaymentOrderAuditModel]:
+        """Get all audit records with optional action filter"""
+        with get_db() as db:
+            query = db.query(PaymentOrderAudit).order_by(PaymentOrderAudit.created_at.desc())
+
+            if action:
+                query = query.filter(PaymentOrderAudit.action == action)
+
+            records = query.offset(skip).limit(limit).all()
+            return [PaymentOrderAuditModel.model_validate(record) for record in records]
+
+
 # Instantiate tables for import
 UserCredits = UserCreditsTable()
 CreditTransactions = CreditTransactionsTable()
 PaymentOrders = PaymentOrdersTable()
+PaymentOrderAudits = PaymentOrderAuditTable()
