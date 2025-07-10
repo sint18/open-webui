@@ -1,5 +1,6 @@
 import logging
 import requests
+import time
 from typing import Optional, List, Annotated
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body, Form, Query
@@ -13,7 +14,8 @@ from open_webui.utils.auth import get_verified_user, get_admin_user
 from open_webui.models.billing import (
     UserCreditsModel, UserCreditsForm, CreditTransactionModel,
     CreditTransactionForm, PaymentOrderModel, PaymentOrderForm,
-    PaymentCallbackForm, PaymentOrderWithUserModel, UserCredits, CreditTransactions, PaymentOrders
+    PaymentCallbackForm, PaymentOrderWithUserModel, PaymentOrderAuditForm,
+    UserCredits, CreditTransactions, PaymentOrders, PaymentOrderAudits
 )
 
 from open_webui.storage.provider import Storage
@@ -234,16 +236,34 @@ async def create_order(
     return updated
 
 
-@router.post('/orders/confirm', response_model=PaymentOrderModel)
+@router.patch('/admin/orders/{order_id}/confirm', response_model=PaymentOrderModel)
 async def confirm_order(
-        order_id: str = Body(..., embed=True),
+        order_id: str,
         admin=Depends(get_admin_user)
 ):
     """Admin: confirm a payment order after manual verification"""
+    log.info(f"Admin {admin.id} attempting to confirm order {order_id}")
+
+    # Create audit form
+    audit_form = PaymentOrderAuditForm(
+        order_id=order_id,
+        action="confirm",
+        actor_id=admin.id,
+        actor_email=admin.email,
+        actor_name=admin.name,
+        new_status="paid",
+        reason="Order confirmed by admin",
+        audit_metadata={
+            "admin_action": True,
+            "timestamp": int(time.time())
+        }
+    )
+
     # 1. Update order status to 'paid'
     order = PaymentOrders.update_payment_order_status(
         order_id,
-        PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.paid)
+        PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.paid),
+        audit_form=audit_form
     )
 
     if not order:
@@ -313,6 +333,58 @@ async def confirm_order(
         # Log error but don't fail the confirmation
 
     return order
+
+
+@router.patch('/admin/orders/{order_id}/decline', response_model=PaymentOrderModel)
+async def decline_order(
+        order_id: str,
+        admin=Depends(get_admin_user)
+):
+    """Admin: decline a payment order after manual verification"""
+    log.info(f"Admin {admin.id} attempting to decline order {order_id}")
+
+    # Update order status to 'declined' with audit tracking
+    try:
+        # Create audit form
+        audit_form = PaymentOrderAuditForm(
+            order_id=order_id,
+            action="decline",
+            actor_id=admin.id,
+            actor_email=admin.email,
+            actor_name=admin.name,
+            new_status="declined",
+            reason="Order declined by admin",
+            audit_metadata={
+                "admin_action": True,
+                "timestamp": int(time.time())
+            }
+        )
+
+        order = PaymentOrders.update_payment_order_status(
+            order_id,
+            PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.declined),
+            audit_form=audit_form
+        )
+
+        if not order:
+            log.warning(f"Order {order_id} not found for decline request")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ERROR_MESSAGES.DEFAULT()
+            )
+
+        log.info(f"Order {order_id} has been successfully declined by admin {admin.id} ({admin.email})")
+        return order
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 409 Conflict)
+        raise
+    except Exception as e:
+        log.error(f"Unexpected error declining order {order_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while declining the order"
+        )
 
 
 # @router.get('/orders', response_model=List[PaymentOrderModel])
