@@ -7,7 +7,7 @@ export interface DiscountCode {
 	expiry_date?: string | null;
 	usage_limit?: number | null;
 	used_count: number;
-	is_active: boolean;
+	active: boolean;
 	created_at?: number;
 	updated_at?: number;
 }
@@ -17,7 +17,7 @@ export interface CreateDiscountForm {
 	discount_percent: number;
 	expiry_date?: string | null;
 	usage_limit?: number | null;
-	is_active?: boolean;
+	active?: boolean;
 }
 
 export interface UpdateDiscountForm {
@@ -25,7 +25,7 @@ export interface UpdateDiscountForm {
 	discount_percent?: number;
 	expiry_date?: string | null;
 	usage_limit?: number | null;
-	is_active?: boolean;
+	active?: boolean;
 }
 
 export interface DiscountUsage {
