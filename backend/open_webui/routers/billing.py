@@ -315,6 +315,28 @@ async def confirm_order(
     return order
 
 
+@router.post('/orders/decline', response_model=PaymentOrderModel)
+async def decline_order(
+        order_id: str = Body(..., embed=True),
+        admin=Depends(get_admin_user)
+):
+    """Admin: decline a payment order after manual verification"""
+    # Update order status to 'declined'
+    order = PaymentOrders.update_payment_order_status(
+        order_id,
+        PaymentCallbackForm(order_id=order_id, status=PaymentStatusEnum.declined)
+    )
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.DEFAULT()
+        )
+
+    log.info(f"Order {order_id} has been declined by admin")
+    return order
+
+
 # @router.get('/orders', response_model=List[PaymentOrderModel])
 # async def list_orders(
 #         skip: int = 0,
