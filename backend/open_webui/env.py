@@ -566,3 +566,9 @@ EXTERNAL_PWA_MANIFEST_URL = os.environ.get("EXTERNAL_PWA_MANIFEST_URL")
 ####################################
 LITELLM_URL = os.environ.get("LITELLM_URL", "http://localhost:8000")
 LITELLM_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
+
+
+####################################
+# FREEBIES
+####################################
+FREE_SIGNUP_CREDITS = int(os.getenv("FREE_SIGNUP_CREDITS", "100"))

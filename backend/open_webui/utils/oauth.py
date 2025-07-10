@@ -51,6 +51,7 @@ from open_webui.utils.auth import get_password_hash, create_token
 from open_webui.utils.webhook import post_webhook
 
 from open_webui.env import SRC_LOG_LEVELS, GLOBAL_LOG_LEVEL
+from open_webui.utils.promotion import create_free_signup_credits
 
 logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL)
 log = logging.getLogger(__name__)
@@ -488,6 +489,9 @@ class OAuthManager:
                     role=role,
                     oauth_sub=provider_sub,
                 )
+
+                # Give free credits on signup
+                create_free_signup_credits(user_id=user.id, signup_method=provider)
 
                 if auth_manager_config.WEBHOOK_URL:
                     post_webhook(
