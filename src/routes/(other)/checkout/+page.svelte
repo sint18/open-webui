@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
+	import { checkPendingOrders } from '$lib/apis/billing';
 
 	// Get user token from localStorage
 	let token = '';
@@ -35,6 +36,14 @@
 	let screenshotFile: File | null = null;
 	let previewUrl: string | null = null;
 	let submitting = false;
+	let hasPendingOrder = false;
+
+	// Check for pending orders on mount
+	onMount(async () => {
+		if (token) {
+			hasPendingOrder = await checkPendingOrders(token);
+		}
+	});
 
 	function onFileChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
@@ -59,7 +68,6 @@
 			phone: '09777541818'
 		}
 	};
-
 
 	// --- discount validation ---------------------------------------------------
 	async function validateDiscountCode() {
@@ -148,6 +156,14 @@
 			return;
 		}
 
+		// Check for pending orders before submission
+		if (hasPendingOrder) {
+			toast.error(
+				'You already have a pending payment order. Please wait for it to be processed before submitting another.'
+			);
+			return;
+		}
+
 		submitting = true;
 
 		try {
@@ -180,7 +196,7 @@
 				throw new Error(msg || 'Payment submission failed');
 			}
 
-			toast.success('Payment submitted! We\'ll verify shortly.');
+			toast.success("Payment submitted! We'll verify shortly.");
 			goto('/pricing', { replaceState: true });
 		} catch (err) {
 			toast.error(err instanceof Error ? err.message : String(err));
@@ -198,8 +214,35 @@
 			{currentPlan.label} Plan
 		</h1>
 
-		{#if step === 'discount'}
+		{#if hasPendingOrder}
+			<div
+				class="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg"
+			>
+				<div class="flex items-center">
+					<svg
+						class="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-2"
+						fill="currentColor"
+						viewBox="0 0 20 20"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+							clip-rule="evenodd"
+						></path>
+					</svg>
+					<div>
+						<p class="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+							You have a pending payment order
+						</p>
+						<p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+							Please wait for your current order to be processed before submitting another.
+						</p>
+					</div>
+				</div>
+			</div>
+		{/if}
 
+		{#if step === 'discount'}
 			<!-- Discount code step -->
 			<p class="text-center text-gray-600 dark:text-gray-400 mb-8">
 				Original amount: <span class="font-semibold text-gray-900 dark:text-white">
@@ -328,7 +371,9 @@
 
 				<!-- Payment details -->
 				{#if provider}
-					<div class="bg-blue-50 dark:bg-blue-900/20 border border-teal-200 dark:border-teal-900 rounded-lg p-4">
+					<div
+						class="bg-blue-50 dark:bg-blue-900/20 border border-teal-200 dark:border-teal-900 rounded-lg p-4"
+					>
 						<h3 class="text-sm font-medium text-teal-800 dark:text-blue-200 mb-3">
 							Payment Details
 						</h3>
@@ -348,17 +393,21 @@
 											class="p-1 text-teal-600 hover:text-teal-800 dark:text-blue-400 dark:hover:text-teal-200 transition-colors"
 											title="Copy phone number"
 										>
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
-													 stroke="currentColor" stroke-width="2">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
 												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
 												<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
 											</svg>
 										</button>
 										<span>{paymentDetails.kpay.phone}</span>
-
 									</div>
 								</div>
-
 							{:else if provider === 'wavepay'}
 								<div class="flex justify-between">
 									<span class="font-medium">Wave Pay Name:</span>
@@ -373,27 +422,32 @@
 											class="p-1 text-teal-600 hover:text-teal-800 dark:text-blue-400 dark:hover:text-teal-200 transition-colors"
 											title="Copy phone number"
 										>
-											<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
-													 stroke="currentColor" stroke-width="2">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
 												<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
 												<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
 											</svg>
 										</button>
 										<span>{paymentDetails.wavepay.phone}</span>
-
 									</div>
 								</div>
 							{/if}
 						</div>
 						<div
-							class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 rounded-md">
+							class="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 rounded-md"
+						>
 							<p class="text-xs text-yellow-700 dark:text-yellow-300">
 								Please send the payment to the above details and upload the screenshot below.
 							</p>
 						</div>
 					</div>
 				{/if}
-
 
 				<!-- Screenshot upload with drag‑n‑drop feel -->
 				<div>
@@ -439,9 +493,9 @@
 				<button
 					type="submit"
 					class="w-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed text-white transition rounded-xl px-4 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400"
-					disabled={submitting}
+					disabled={submitting || hasPendingOrder}
 				>
-					{submitting ? 'Submitting…' : 'Pay Now'}
+					{submitting ? 'Submitting…' : hasPendingOrder ? 'Order Pending' : 'Pay Now'}
 				</button>
 			</form>
 		{/if}
@@ -449,5 +503,5 @@
 </section>
 
 <style>
-    /* rely on Tailwind for utility classes */
+	/* rely on Tailwind for utility classes */
 </style>
