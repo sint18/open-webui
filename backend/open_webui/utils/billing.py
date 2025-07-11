@@ -7,6 +7,7 @@ from starlette.background import BackgroundTask, BackgroundTasks
 from starlette.responses import StreamingResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from fastapi import Request, HTTPException, status, Response
+from sympy import false
 
 from open_webui.utils.pricing import estimate_cost, affordable, calculate_cost
 from open_webui.models.billing import StatusEnum
@@ -75,7 +76,7 @@ def _parse_response_body(response: Response) -> dict | None:
 
 
 async def process_billing(
-        user_id: str, prompt_tokens: int, completion_tokens: int, model_name: str, request_id: str
+        user_id: str, prompt_tokens: int, completion_tokens: int, model_name: str, request_id: str, fallback: bool = False
 ) -> None:
     """Unmodified billing logic you provided."""
     try:
@@ -89,7 +90,8 @@ async def process_billing(
         if not updated:
             log.error(f"Failed to debit credits for user {user_id}")
             return
-
+        if fallback:
+            model_name = f"{model_name} -> {DEFAULT_FALLBACK_MODEL}"
         CreditTransactions.insert_transaction(
             user_id,
             CreditTransactionForm(
@@ -102,6 +104,7 @@ async def process_billing(
     except Exception as e:
         log.error(f"Error processing billing: {e}")
 
+DEFAULT_FALLBACK_MODEL = 'gpt-4.1-nano'  # Default fallback model
 
 def requires_credits(min_credits: int = 1):
     def decorator(func):
@@ -116,14 +119,26 @@ def requires_credits(min_credits: int = 1):
 
             model_name = kwargs.get('form_data', {}).get('model') or kwargs.get('body', {}).get('model', '')
             message_list = kwargs.get('form_data', {}).get('messages') or kwargs.get('body', {}).get('messages', '')
-            # Check credits before processing
-            balance = await check_balance(user.id, min_credits)
+            fallback = False
+            try:
+                # Check credits before processing
+                balance = await check_balance(user.id, min_credits)
 
-            if not affordable(model_name, message_list, balance):
-                raise HTTPException(
-                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail="Insufficient credits",
-                )
+                if not affordable(model_name, message_list, balance):
+                    log.warning(f"Insufficient credits for user {user.id}, email: {user.email}")
+                    raise HTTPException(
+                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                        detail="Insufficient credits",
+                    )
+            except HTTPException as e:
+                if e.status_code == status.HTTP_402_PAYMENT_REQUIRED:
+                    log.warning(f"Soft limit triggered for user {user.id}: {model_name} -> {DEFAULT_FALLBACK_MODEL}")
+                    fallback = True
+                    # Switch Model
+                    if 'form_data' in kwargs and kwargs.get('form_data'):
+                        kwargs['form_data']['model'] = DEFAULT_FALLBACK_MODEL
+                    if 'body' in kwargs and kwargs.get('body'):
+                        kwargs['body']['model'] = DEFAULT_FALLBACK_MODEL
 
             # Call the original function
             response = await func(*args, **kwargs)
@@ -136,7 +151,7 @@ def requires_credits(min_credits: int = 1):
                     completion_tokens = response_body.get("usage").get("completion_tokens")
 
                     if prompt_tokens and completion_tokens:
-                        await process_billing(user.id, prompt_tokens, completion_tokens, model_name, response_body.get("id"))
+                        await process_billing(user.id, prompt_tokens, completion_tokens, model_name, response_body.get("id"), fallback)
                 return response
 
             # For streaming responses, only bill once after completion
@@ -176,7 +191,7 @@ def requires_credits(min_credits: int = 1):
                     completion_tokens = captured.get("usage").get("completion_tokens")
                     if prompt_tokens and completion_tokens:
                         await process_billing(user.id, prompt_tokens, completion_tokens, model_name,
-                                              captured["id"])
+                                              captured["id"], fallback)
 
                 # ── 3. Chain background tasks properly
             if response.background:

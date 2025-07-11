@@ -4,6 +4,7 @@
 	export let showDetails: boolean = true;
 	export let size: 'sm' | 'md' | 'lg' = 'md';
 
+	let progressColor = 'bg-teal-500 dark:bg-teal-400';
 	// Calculate percentage
 	$: percentage =
 		totalCredits > 0 ? Math.max(0, Math.min(100, (currentCredits / totalCredits) * 100)) : 0;
@@ -24,11 +25,11 @@
 	}[size];
 
 	// Color based on remaining credits
-	$: progressColor = isCritical
-		? 'bg-red-500 dark:bg-red-400'
-		: isLow
-			? 'bg-yellow-500 dark:bg-yellow-400'
-			: 'bg-green-500 dark:bg-green-400';
+	// $: progressColor = isCritical
+	// 	? 'bg-red-500 dark:bg-red-400'
+	// 	: isLow
+	// 		? 'bg-yellow-500 dark:bg-yellow-400'
+	// 		: 'bg-green-500 dark:bg-green-400';
 
 	$: bgColor = 'bg-gray-200 dark:bg-gray-700';
 </script>
@@ -58,11 +59,11 @@
 		</div>
 
 		<!-- Critical warning indicator -->
-		{#if isCritical}
-			<div class="absolute top-0 right-1 {heightClass} flex items-center">
-				<div class="w-1 h-1 bg-red-600 rounded-full animate-pulse"></div>
-			</div>
-		{/if}
+		<!--{#if isCritical}-->
+		<!--	<div class="absolute top-0 right-1 {heightClass} flex items-center">-->
+		<!--		<div class="w-1 h-1 bg-red-600 rounded-full animate-pulse"></div>-->
+		<!--	</div>-->
+		<!--{/if}-->
 	</div>
 
 	{#if showDetails}
