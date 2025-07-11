@@ -348,6 +348,14 @@ class CreditTransactionsTable:
 
 
 class PaymentOrdersTable:
+    def has_pending_order(self, user_id: str) -> bool:
+        """Check if user has any pending payment orders"""
+        with get_db() as db:
+            return db.query(PaymentOrder).filter(
+                PaymentOrder.user_id == user_id,
+                PaymentOrder.status == PaymentStatusEnum.pending
+            ).first() is not None
+
     def create_payment_order(
             self, user_id: str, form: PaymentOrderForm
     ) -> Optional[PaymentOrderModel]:
