@@ -90,15 +90,14 @@ async def process_billing(
         if not updated:
             log.error(f"Failed to debit credits for user {user_id}")
             return
-        if fallback:
-            model_name = f"{model_name} -> {DEFAULT_FALLBACK_MODEL}"
+
         CreditTransactions.insert_transaction(
             user_id,
             CreditTransactionForm(
                 tx_id=request_id,
                 delta=-credits_to_charge,
                 usd_spend=float(cost_usd),
-                model_name=model_name,
+                model_name=f"{model_name} -> {DEFAULT_FALLBACK_MODEL}" if fallback else model_name,
             ),
         )
     except Exception as e:
