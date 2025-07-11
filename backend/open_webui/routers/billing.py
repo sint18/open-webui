@@ -188,6 +188,13 @@ async def create_order(
             # Invalid discount code, but we'll continue with the order
             log.warning(f"Invalid discount code provided: {discount_code}. Reason: {discount_validation.message}")
 
+    # Check for existing pending orders
+    if PaymentOrders.has_pending_order(user.id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You already have a pending payment order. Please wait for it to be processed before submitting another."
+        )
+
     # Create the payment order with the potentially discounted amount
     order = PaymentOrders.create_payment_order(user.id, form)
     if not order:
@@ -387,14 +394,14 @@ async def decline_order(
         )
 
 
-# @router.get('/orders', response_model=List[PaymentOrderModel])
-# async def list_orders(
-#         skip: int = 0,
-#         limit: int = 50,
-#         user=Depends(get_verified_user)
-# ):
-#     """List payment orders for current user"""
-#     return PaymentOrders.get_orders_by_user(user.id, skip, limit)
+@router.get('/orders', response_model=List[PaymentOrderModel])
+async def list_orders(
+        skip: int = 0,
+        limit: int = 50,
+        user=Depends(get_verified_user)
+):
+    """List payment orders for current user"""
+    return PaymentOrders.get_orders_by_user(user.id, skip, limit)
 
 
 @router.get('/{user_id}/orders', response_model=List[PaymentOrderModel])
