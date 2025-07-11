@@ -79,6 +79,16 @@ export const getPaymentOrders = async (token: string, skip = 0, limit = 50) => {
 	return response.json();
 };
 
+export const checkPendingOrders = async (token: string) => {
+	try {
+		const orders = await getPaymentOrders(token, 0, 10); // Get latest 10 orders
+		return orders.some((order: { status: string }) => order.status === 'pending');
+	} catch (error) {
+		console.error('Failed to check pending orders:', error);
+		return false; // Return false if unable to check
+	}
+};
+
 export const getPaymentOrdersByUserId = async (
 	token: string,
 	userId: string,
