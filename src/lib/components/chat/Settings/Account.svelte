@@ -265,10 +265,11 @@
 
 			<!-- Credit Progress Bar -->
 			{#if $userCredits?.credit_balance !== undefined && $userCredits?.monthly_quota !== undefined}
-				<div class="pt-2">
-					<div class="flex flex-col w-full">
-						<div class="mb-1 text-xs font-medium">{$i18n.t('Credits')}</div>
+				<div class="py-2">
+					<div class="flex flex-col w-full gap-2">
+						<div class="mb-1 text-xs font-medium">{$i18n.t('Quota')}</div>
 						<CreditProgressBar
+							showDetails={false}
 							currentCredits={$userCredits.credit_balance}
 							totalCredits={$userCredits.monthly_quota}
 							size="sm"
