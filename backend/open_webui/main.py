@@ -1114,6 +1114,45 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
 
         return filtered_models
 
+    def get_filtered_models_selector(models, user):
+        """
+        Filters a list of models based on user access permissions, ensuring that all
+        models the user is allowed to access are included in the returned list determined by
+        'can_use': boolean. Models can have access control specified directly or retrieved dynamically.
+
+        The function checks if a model has an "arena" attribute. If so, it directly
+        evaluates the user's access to the model using its metadata. Otherwise, access
+        control is retrieved dynamically through a separate model lookup.
+
+        :param models: List of models, where each model is a dictionary potentially
+            containing "arena" and other information used for access control evaluation.
+        :type models: list[dict]
+        :param user: The user object, containing user-specific information such as an ID.
+        :type user: object
+        :return: A list of models filtered by the user's access permissions.
+        :rtype: list[dict]
+        """
+        filtered_models = []
+        for model in models:
+            if model.get("arena"):
+                if has_access(
+                        user.id,
+                        type="read",
+                        access_control=model.get("info", {})
+                                .get("meta", {})
+                                .get("access_control", {}),
+                ):
+                    filtered_models.append(model)
+                continue
+
+            model_info = Models.get_model_by_id(model["id"])
+            if model_info:
+                allowed = has_access(user.id, "read", model_info.access_control)
+                model["can_use"] = allowed
+                filtered_models.append(model)
+
+        return filtered_models
+
     all_models = await get_all_models(request, user=user)
 
     models = []
@@ -1148,7 +1187,7 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
 
     # Filter out models that the user does not have access to
     if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL:
-        models = get_filtered_models(models, user)
+        models = get_filtered_models_selector(models, user)
 
     log.debug(
         f"/api/models returned filtered models accessible to the user: {json.dumps([model['id'] for model in models])}"
