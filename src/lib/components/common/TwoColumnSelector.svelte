@@ -24,6 +24,7 @@
 	import { getCompanyName, getLogoForModel } from '$lib/utils/helper-functions';
 	import { goto } from '$app/navigation';
 	import LockClosed from '$lib/components/icons/LockClosed.svelte';
+	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 
 	dayjs.extend(relativeTime);
 
@@ -58,7 +59,7 @@
 	let selectedVendorIdx = 0;
 	let modelItemEls: HTMLElement[] = [];
 	let hideLockedModels = false;
-
+	let upgradeToastShown = false
 	let ollamaVersion = null;
 
 
@@ -234,11 +235,14 @@
 	}
 
 	const showUpgradeToast = (item: any) => {
+		if (upgradeToastShown) return;
 
-		toast('Unlock • Premium Models', {
-			description: `Upgrade your plan to access ${item.label}.`,
+		upgradeToastShown = true;
+
+		toast($i18n.t('Unlock • Premium Models'), {
+			description: $i18n.t(`Upgrade your plan to access {{model}}.`, {model: item.label}),
 			action: {
-				label: 'Upgrade Now',
+				label: $i18n.t('Upgrade Now'),
 				onClick: () => goto(`/pricing?model=${item.value}`)
 			},
 			duration: 5000,
@@ -247,11 +251,20 @@
 				toast: 'bg-teal-100 text-teal-900 dark:bg-teal-800 dark:text-teal-50 rounded-xl shadow-xl ring-2 ring-teal-300 dark:ring-teal-600 p-4',
 				title: 'font-semibold text-teal-900 dark:text-white text-sm mb-1',
 				description: 'text-teal-800 dark:text-teal-200 text-xs',
-				actionButton: 'mt-2 inline-flex items-center rounded-full bg-teal-600 hover:bg-teal-700 px-3 py-1 text-sm font-semibold text-white transition duration-150 ease-in-out',
+				actionButton: 'mt-4 inline-flex items-center rounded-full bg-teal-600 hover:bg-teal-700 px-3 py-1 text-sm font-semibold text-white transition duration-150 ease-in-out',
 				closeButton: 'absolute top-2 right-2 text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-white'
+			},
+			onDismiss: () => {
+				upgradeToastShown = false;
 			}
 		});
 	};
+
+		// Reset the flag after the toast duration
+	setTimeout(() => {
+		upgradeToastShown = false;
+	}, 5000);
+
 
 	function selectModel(item: any) {
 		if (item.model.can_use === false) {
@@ -398,7 +411,7 @@
 
 	<DropdownMenu.Content
 		class="z-40 w-full lg:w-[40rem] max-w-[calc(100vw-1rem)]
-         justify-start rounded-xl bg-white dark:bg-gray-850 dark:text-white shadow-lg outline-hidden"
+         justify-start rounded-xl bg-white dark:bg-gray-850 dark:text-white shadow-lg border border-gray-50 dark:border-gray-850"
 		transition={flyAndScale}
 		side={$mobile ? 'bottom' : 'bottom-start'}
 		sideOffset={3}
@@ -417,12 +430,23 @@
 					/>
 				</div>
 			{/if}
-			<div class="flex items-center justify-between">
-				<span class="text-sm text-gray-600 dark:text-gray-400">
-					{$i18n.t('Hide locked models')}
-				</span>
-				<Switch bind:state={hideLockedModels} />
-			</div>
+			<div class="flex items-center mt-1">
+					<button
+						class="flex justify-between w-full font-medium line-clamp-1 select-none items-center rounded-button py-2 px-3 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer data-highlighted:bg-muted"
+						on:click={async () => {
+							hideLockedModels = !hideLockedModels
+						}}
+					>
+						<div class="flex gap-2.5 items-center">
+							<EyeSlash className="size-4" strokeWidth="2.5" />
+							{$i18n.t(`Hide locked models`)}
+						</div>
+
+						<div>
+							<Switch state={hideLockedModels} />
+						</div>
+					</button>
+				</div>
 		</div>
 
 		<div class="flex {$mobile ? 'flex-col' : 'flex-row'} min-h-[400px] max-h-[500px]">
