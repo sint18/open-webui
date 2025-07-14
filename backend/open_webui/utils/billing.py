@@ -7,7 +7,6 @@ from starlette.background import BackgroundTask, BackgroundTasks
 from starlette.responses import StreamingResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from fastapi import Request, HTTPException, status, Response
-from sympy import false
 
 from open_webui.utils.pricing import estimate_cost, affordable, calculate_cost
 from open_webui.models.billing import StatusEnum
