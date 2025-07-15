@@ -9,6 +9,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from fastapi import Request, HTTPException, status, Response
 
 from open_webui.utils.pricing import estimate_cost, affordable, calculate_cost
+from open_webui.utils.error_handler import sanitize_error
 from open_webui.models.billing import StatusEnum
 from open_webui.models.billing import UserCredits, CreditTransactions, CreditTransactionForm
 from open_webui.utils.auth import get_current_user, get_http_authorization_cred
@@ -99,8 +100,28 @@ async def process_billing(
                 model_name=f"{model_name} -> {DEFAULT_FALLBACK_MODEL}" if fallback else model_name,
             ),
         )
+    except ValueError as e:
+        # Handle pricing errors specifically
+        if "pricing information not available" in str(e).lower() or "litellm price map" in str(e).lower():
+            sanitized_error = sanitize_error(e)
+            log.error(f"Pricing error for model '{model_name}': {sanitized_error.message}")
+            # You might want to raise this error to be handled by upper layers
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=sanitized_error.message
+            )
+        else:
+            log.error(f"Value error processing billing: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unable to process billing for this request"
+            )
     except Exception as e:
         log.error(f"Error processing billing: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing your request"
+        )
 
 DEFAULT_FALLBACK_MODEL = 'gpt-4.1-nano'  # Default fallback model
 
@@ -129,6 +150,30 @@ def requires_credits(min_credits: int = 1):
                         detail="Insufficient credits",
                     )
             except HTTPException as e:
+                # Re-raise HTTP exceptions as-is
+                raise e
+            except ValueError as e:
+                # Handle pricing errors from the affordable function
+                if "litellm price map" in str(e).lower():
+                    sanitized_error = sanitize_error(e)
+                    log.error(f"Pricing error for model '{model_name}': {sanitized_error.message}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=sanitized_error.message
+                    )
+                else:
+                    log.error(f"Value error in affordability check: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Unable to estimate cost for this request"
+                    )
+            except Exception as e:
+                # Handle other unexpected errors
+                log.error(f"Unexpected error in credit check: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="An error occurred while checking credits"
+                )
                 if e.status_code == status.HTTP_402_PAYMENT_REQUIRED:
                     log.warning(f"Soft limit triggered for user {user.id}: {model_name} -> {DEFAULT_FALLBACK_MODEL}")
                     fallback = True
