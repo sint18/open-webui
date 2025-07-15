@@ -40,10 +40,10 @@ def _load_price_map() -> dict:
         raise ValueError("Unable to load pricing information. Please try again later.")
     except json.JSONDecodeError as e:
         log.error(f"JSON decode error loading price map: {e}")
-        raise ValueError("Unable to load pricing information. Please try again later.")
+        raise ValueError("Service configuration is temporarily unavailable. Please try again later.")
     except Exception as e:
         log.error(f"Unexpected error loading price map: {e}")
-        raise ValueError("Unable to load pricing information. Please try again later.")
+        raise ValueError("Service is temporarily unavailable. Please try again later.")
 
 
 def estimate_cost(
@@ -61,11 +61,11 @@ def estimate_cost(
         price_map = _load_price_map()
     except Exception as e:
         log.error(f"Failed to load price map: {e}")
-        raise ValueError("Unable to load pricing information. Please try again later.")
+        raise ValueError("Service is temporarily unavailable. Please try again later.")
 
     if model not in price_map:
         log.warning(f"Model '{model}' not found in LiteLLM price map")
-        raise ValueError(f"model '{model}' not found in LiteLLM price map @ {PRICE_URL}")
+        raise ValueError("The requested service is currently unavailable. Please try again later.")
 
     meta = price_map[model]
     try:
@@ -73,7 +73,7 @@ def estimate_cost(
         out_rate = Decimal(str(meta["output_cost_per_token"]))
     except KeyError as e:
         log.error(f"Price map missing expected key for model '{model}': {e}")
-        raise ValueError(f"Pricing information incomplete for model '{model}'")
+        raise ValueError("Service configuration is incomplete. Please try again later.")
 
     prompt_cost = Decimal(prompt_tokens) * in_rate
     completion_cost = Decimal(completion_tokens) * out_rate
@@ -228,23 +228,24 @@ def affordable(model: str, messages: list[dict], user_credit: int, buffer: float
     Main function to check if the user can afford an LLM request.
     """
     try:
-        print("Checking if user can afford an LLM request.")
+        # Don't log actual model names in production
+        log.debug("Checking if user can afford request")
         prompt_text = extract_prompt_text(messages)
         prompt_tokens = estimate_prompt_tokens(prompt_text, model)
         completion_tokens = estimate_completion_tokens(model, prompt_tokens)
 
         estimated_cost = estimate_cost(model, prompt_tokens, completion_tokens)
         total_cost_usd = estimated_cost * Decimal(str(buffer))
-        print(f"Estimate cost usd: {total_cost_usd}")
-        print(f"Estimate cost: {estimated_cost}")
+        log.debug(f"Estimate cost usd: {total_cost_usd}")
+        log.debug(f"Estimate cost: {estimated_cost}")
         total_cost_credit = calculate_cost(float(total_cost_usd))
-        print(f"Estimate cost total: {total_cost_credit}")
+        log.debug(f"Estimate cost total: {total_cost_credit}")
 
         return total_cost_credit <= user_credit
 
     except ValueError as e:
+        # Don't log actual model name in error - only log internally
         log.error(f"Cost estimation failed for model '{model}': {e}")
-        # If we can't estimate cost, assume it's not affordable to be safe
         # Re-raise the error so it can be handled by the error handler
         raise e
     except Exception as e:
