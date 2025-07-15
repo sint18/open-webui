@@ -410,7 +410,7 @@
 	</DropdownMenu.Trigger>
 
 	<DropdownMenu.Content
-		class="z-40 w-full lg:w-[40rem] max-w-[calc(100vw-1rem)]
+		class="z-40 w-full md:w-[40rem] max-w-[calc(100vw-1rem)]
          justify-start rounded-xl bg-white dark:bg-gray-850 dark:text-white shadow-lg border border-gray-50 dark:border-gray-850"
 		transition={flyAndScale}
 		side={$mobile ? 'bottom' : 'bottom-start'}
