@@ -139,6 +139,7 @@ def requires_credits(min_credits: int = 1):
             model_name = kwargs.get('form_data', {}).get('model') or kwargs.get('body', {}).get('model', '')
             message_list = kwargs.get('form_data', {}).get('messages') or kwargs.get('body', {}).get('messages', '')
             fallback = False
+
             try:
                 # Check credits before processing
                 balance = await check_balance(user.id, min_credits)
@@ -150,13 +151,23 @@ def requires_credits(min_credits: int = 1):
                         detail="Insufficient credits",
                     )
             except HTTPException as e:
-                # Re-raise HTTP exceptions as-is
-                raise e
+                # Handle HTTP exceptions - including soft cap logic
+                if e.status_code == status.HTTP_402_PAYMENT_REQUIRED:
+                    log.warning(f"Soft limit triggered for user {user.id}: {model_name} -> {DEFAULT_FALLBACK_MODEL}")
+                    fallback = True
+                    # Switch Model
+                    if 'form_data' in kwargs and kwargs.get('form_data'):
+                        kwargs['form_data']['model'] = DEFAULT_FALLBACK_MODEL
+                    if 'body' in kwargs and kwargs.get('body'):
+                        kwargs['body']['model'] = DEFAULT_FALLBACK_MODEL
+                else:
+                    # Re-raise other HTTP exceptions (like 401 Unauthorized)
+                    raise e
             except ValueError as e:
                 # Handle pricing errors from the affordable function
                 if "litellm price map" in str(e).lower():
                     sanitized_error = sanitize_error(e)
-                    log.error(f"Pricing error for model '{model_name}': {sanitized_error.message}")
+                    log.error(f"Pricing error: {sanitized_error.message}")
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=sanitized_error.message
@@ -174,14 +185,6 @@ def requires_credits(min_credits: int = 1):
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="An error occurred while checking credits"
                 )
-                if e.status_code == status.HTTP_402_PAYMENT_REQUIRED:
-                    log.warning(f"Soft limit triggered for user {user.id}: {model_name} -> {DEFAULT_FALLBACK_MODEL}")
-                    fallback = True
-                    # Switch Model
-                    if 'form_data' in kwargs and kwargs.get('form_data'):
-                        kwargs['form_data']['model'] = DEFAULT_FALLBACK_MODEL
-                    if 'body' in kwargs and kwargs.get('body'):
-                        kwargs['body']['model'] = DEFAULT_FALLBACK_MODEL
 
             # Call the original function
             response = await func(*args, **kwargs)
