@@ -170,10 +170,6 @@ def requires_credits(min_credits: int = 1):
             except Exception as e:
                 # Handle other unexpected errors
                 log.error(f"Unexpected error in credit check: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="An error occurred while checking credits"
-                )
                 if e.status_code == status.HTTP_402_PAYMENT_REQUIRED:
                     log.warning(f"Soft limit triggered for user {user.id}: {model_name} -> {DEFAULT_FALLBACK_MODEL}")
                     fallback = True
@@ -182,6 +178,11 @@ def requires_credits(min_credits: int = 1):
                         kwargs['form_data']['model'] = DEFAULT_FALLBACK_MODEL
                     if 'body' in kwargs and kwargs.get('body'):
                         kwargs['body']['model'] = DEFAULT_FALLBACK_MODEL
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="An error occurred while checking credits"
+                )
+
 
             # Call the original function
             response = await func(*args, **kwargs)
