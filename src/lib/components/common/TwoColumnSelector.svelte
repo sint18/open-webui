@@ -11,16 +11,20 @@
 	import Search from '$lib/components/icons/Search.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Check from '$lib/components/icons/Check.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import { toast } from 'svelte-sonner';
 
 	import { getOllamaVersion } from '$lib/apis/ollama';
 
-	import { models, mobile, settings, config, type Model, temporaryChatEnabled } from '$lib/stores';
+	import { models, mobile, settings, config, type Model, temporaryChatEnabled, user } from '$lib/stores';
 	import { getModels } from '$lib/apis';
 
 	import dayjs from '$lib/dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { getCompanyName, getLogoForModel } from '$lib/utils/helper-functions';
 	import { goto } from '$app/navigation';
+	import LockClosed from '$lib/components/icons/LockClosed.svelte';
+	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 
 	dayjs.extend(relativeTime);
 
@@ -54,23 +58,48 @@
 	let selectedModelIdx = 0;
 	let selectedVendorIdx = 0;
 	let modelItemEls: HTMLElement[] = [];
-
+	let hideLockedModels = false;
+	let upgradeToastShown = false
 	let ollamaVersion = null;
 
-	// Group models by vendor
+
+	$: selectedVendor = vendors[selectedVendorIdx] || vendors[0];
+
+	$: filteredModels = (() => {
+		let baseModels = selectedVendor?.models || [];
+
+		// Apply search filter first
+		if (searchValue) {
+			baseModels = fuse
+				.search(searchValue)
+				.map((e) => e.item)
+				.filter((item) => baseModels.some((model) => model.value === item.value));
+		}
+
+		return baseModels;
+	})();
+
 	$: vendors = (() => {
 		const vendorMap = new Map();
+
+		// Filter items based on hideLockedModels setting
+		const availableItems = hideLockedModels
+			? items.filter((item) => $user?.role === "admin" || item.model.can_use !== false)
+			: items;
 
 		// Add "All Models" vendor first
 		vendorMap.set('All Models', {
 			name: 'All Models',
 			icon: '📋',
-			models: items,
-			count: items.length
+			models: availableItems,
+			count: availableItems.length
 		});
 
-		// Get recent models (last 5 used models from localStorage or based on some criteria)
-		const recentModels = getRecentModels();
+		// Get recent models and filter them if needed
+		const allRecentModels = getRecentModels();
+		const recentModels = hideLockedModels
+			? allRecentModels.filter((item) => $user?.role === "admin" || item.model.can_use !== false)
+			: allRecentModels;
 
 		// Add "Recent" vendor if there are recent models
 		if (recentModels.length > 0) {
@@ -83,9 +112,7 @@
 		}
 
 		// Group remaining models by vendor
-		items.forEach((item) => {
-			// if (recentModels.some(recent => recent.value === item.value)) return; // Skip if already in recent
-
+		availableItems.forEach((item) => {
 			const vendor = getCompanyName(item.model);
 			if (!vendorMap.has(vendor)) {
 				vendorMap.set(vendor, {
@@ -101,14 +128,6 @@
 
 		return Array.from(vendorMap.values());
 	})();
-
-	$: selectedVendor = vendors[selectedVendorIdx] || vendors[0];
-	$: filteredModels = searchValue
-		? fuse
-			.search(searchValue)
-			.map((e) => e.item)
-			.filter((item) => selectedVendor.models.some((model) => model.value === item.value))
-		: selectedVendor?.models || [];
 
 	const fuse = new Fuse(items, {
 		keys: ['value', 'label', 'model.name'],
@@ -211,12 +230,48 @@
 		return { tag: 'General-purpose', description: 'Good for most day-to-day tasks' };
 	}
 
-
 	function formatModelName(modelName: string): string {
 		return modelName.split('/').pop() || modelName;
 	}
 
+	const showUpgradeToast = (item: any) => {
+		if (upgradeToastShown) return;
+
+		upgradeToastShown = true;
+
+		toast($i18n.t('Unlock • Premium Models'), {
+			description: $i18n.t(`Upgrade your plan to access {{model}}.`, {model: item.label}),
+			action: {
+				label: $i18n.t('Upgrade Now'),
+				onClick: () => goto(`/pricing?model=${item.value}`)
+			},
+			duration: 5000,
+			unstyled: true,
+			classes: {
+				toast: 'bg-teal-100 text-teal-900 dark:bg-teal-800 dark:text-teal-50 rounded-xl shadow-xl ring-2 ring-teal-300 dark:ring-teal-600 p-4',
+				title: 'font-semibold text-teal-900 dark:text-white text-sm mb-1',
+				description: 'text-teal-800 dark:text-teal-200 text-xs',
+				actionButton: 'mt-4 inline-flex items-center rounded-full bg-teal-600 hover:bg-teal-700 px-3 py-1 text-sm font-semibold text-white transition duration-150 ease-in-out',
+				closeButton: 'absolute top-2 right-2 text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-white'
+			},
+			onDismiss: () => {
+				upgradeToastShown = false;
+			}
+		});
+	};
+
+		// Reset the flag after the toast duration
+	setTimeout(() => {
+		upgradeToastShown = false;
+	}, 5000);
+
+
 	function selectModel(item: any) {
+		if (item.model.can_use === false) {
+			showUpgradeToast(item);
+			return;
+		}
+
 		value = item.value;
 
 		// Update recent models
@@ -226,6 +281,7 @@
 
 		show = false;
 	}
+
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (!show) return;
@@ -254,6 +310,9 @@
 			case 'Enter':
 				e.preventDefault();
 				if (filteredModels[selectedModelIdx]) {
+					if (filteredModels[selectedModelIdx].model.can_use === false) {
+						return;
+					}
 					selectModel(filteredModels[selectedModelIdx]);
 				}
 				break;
@@ -266,7 +325,7 @@
 
 	/* ───────────────── Swipe to change vendor ───────────────── */
 	let touchStartX: number | null = null;
-	const SWIPE_PX = 50;				// adjust to taste
+	const SWIPE_PX = 50; // adjust to taste
 
 	function handleTouchStart(e: TouchEvent) {
 		touchStartX = e.touches[0].clientX;
@@ -286,7 +345,6 @@
 		}
 		touchStartX = null;
 	}
-
 
 	onMount(async () => {
 		ollamaVersion = await getOllamaVersion(localStorage.token).catch(() => false);
@@ -352,15 +410,14 @@
 	</DropdownMenu.Trigger>
 
 	<DropdownMenu.Content
-		class="z-40 {$mobile
-			? 'w-full'
-			: className} max-w-[calc(100vw-1rem)] justify-start rounded-xl bg-white dark:bg-gray-850 dark:text-white shadow-lg outline-hidden"
+		class="z-40 w-full lg:w-[40rem] max-w-[calc(100vw-1rem)]
+         justify-start rounded-xl bg-white dark:bg-gray-850 dark:text-white shadow-lg border border-gray-50 dark:border-gray-850"
 		transition={flyAndScale}
 		side={$mobile ? 'bottom' : 'bottom-start'}
 		sideOffset={3}
 	>
 		<!-- Header with shortcut and search -->
-		<div class="border-b border-gray-200 dark:border-gray-700 p-4">
+		<div class="border-b border-gray-200 dark:border-gray-700 p-4 space-y-2">
 			{#if searchEnabled}
 				<div class="flex items-center gap-2.5">
 					<Search className="size-4 text-gray-400" strokeWidth="2.5" />
@@ -373,36 +430,66 @@
 					/>
 				</div>
 			{/if}
+			<div class="flex items-center mt-1">
+					<button
+						class="flex justify-between w-full font-medium line-clamp-1 select-none items-center rounded-button py-2 px-3 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer data-highlighted:bg-muted"
+						on:click={async () => {
+							hideLockedModels = !hideLockedModels
+						}}
+					>
+						<div class="flex gap-2.5 items-center">
+							<EyeSlash className="size-4" strokeWidth="2.5" />
+							{$i18n.t(`Hide locked models`)}
+						</div>
+
+						<div>
+							<Switch state={hideLockedModels} />
+						</div>
+					</button>
+				</div>
 		</div>
 
 		<div class="flex {$mobile ? 'flex-col' : 'flex-row'} min-h-[400px] max-h-[500px]">
-
 			{#if $mobile}
 				<!-- H-scrollable vendor bar (top) -->
-				<div class="shrink-0 bg-white dark:bg-gray-850
+				<div
+					class="shrink-0 bg-white dark:bg-gray-850
 	            flex overflow-x-auto no-scrollbar
-	            snap-x snap-mandatory border-b border-gray-200 dark:border-gray-700">
+	            snap-x snap-mandatory border-b border-gray-200 dark:border-gray-700"
+				>
 					{#each vendors as vendor, index}
 						<button
 							class="shrink-0 px-4 py-3 flex flex-col items-center gap-1
 				       transition-colors
 				       {index === selectedVendorIdx
-						? 'text-teal-500 dark:text-teal-400 border-b-2 border-teal-500'
-						: 'text-gray-400 dark:text-gray-500'}"
-							on:click={() => { selectedVendorIdx = index; selectedModelIdx = 0; }}
+								? 'text-teal-500 dark:text-teal-400 border-b-2 border-teal-500'
+								: 'text-gray-400 dark:text-gray-500'}"
+							on:click={() => {
+								selectedVendorIdx = index;
+								selectedModelIdx = 0;
+							}}
 						>
 							<span class="text-lg">{vendor.icon}</span>
 							<span class="text-xs font-medium truncate max-w-[5rem]">
-					{vendor.name.replace('★ ', '')}
-				</span>
+								{vendor.name.replace('★ ', '')}
+							</span>
+							<div
+								class="text-xs {index === selectedVendorIdx
+									? 'text-teal-600 dark:text-teal-400'
+									: 'text-gray-500 dark:text-gray-500'}"
+							>
+								({vendor.count})
+							</div>
 						</button>
 					{/each}
 				</div>
 			{/if}
 
-
 			<!-- Left sidebar - Vendor tabs -->
-			<div class="{!$mobile && 'w-32 md:w-36'} hidden sm:block border-r border-gray-200 dark:border-gray-700 py-2">
+			<div
+				class="{!$mobile &&
+					'w-32 md:w-36'} hidden sm:block border-r border-gray-200 dark:border-gray-700 py-2"
+			>
 				{#each vendors as vendor, index}
 					<button
 						class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {index ===
@@ -433,9 +520,10 @@
 			</div>
 
 			<!-- Right panel - Models list -->
-			<div class="flex-1 py-2 overflow-y-auto"
-					 on:touchstart|passive={handleTouchStart}
-					 on:touchend|passive={handleTouchEnd}
+			<div
+				class="flex-1 py-2 overflow-y-auto"
+				on:touchstart|passive={handleTouchStart}
+				on:touchend|passive={handleTouchEnd}
 			>
 				{#if selectedVendor}
 					<div class="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
@@ -444,48 +532,66 @@
 
 					{#each filteredModels as item, index}
 						{@const isSelected = value === item.value}
-						<button
-							id={"model-item-" + index}
-							class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors {index ===
-							selectedModelIdx
-								? 'bg-teal-50 dark:bg-teal-900/20'
-								: ''} {isSelected ? 'bg-teal-50 dark:bg-teal-900/20' : ''}"
-							on:click={() => selectModel(item)}
-							use:collect={index}
-						>
-							<div class="flex-col lg:flex-row items-center justify-between">
-								<div class="flex items-center justify-between gap-3 min-w-0 flex-1">
-									<div class="flex items-center gap-2 min-w-0 flex-1">
-										<div class="flex items-center gap-2">
-											<!--{#if isSelected}-->
-											<!--	<div class="w-2 h-2 bg-teal-500 rounded-full"></div>-->
-											<!--{/if}-->
-											<img
-												src={getLogoForModel(getCompanyName(item.model))}
-												alt="Logo for {item.model.name}"
-												class="rounded-full size-5 mr-2"
-											/>
-										</div>
-										<div>
-											<div
-												class="font-medium text-gray-900 dark:text-white truncate">{formatModelName(item.label)}</div>
+						{@const canUse = $user?.role === "admin" || item.model.can_use === true}
 
-											<!-- Model specs (right-aligned) -->
-											{#if getModelSpeciality(item.model)}
-												{@const specs = getModelSpeciality(item.model)}
-												<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-													{specs.tag} — {specs.description}
-												</div>
+						<Tooltip content={!canUse ? 'Upgrade your plan to use this model' : ''}>
+							<button
+								id={'model-item-' + index}
+								class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors {index ===
+								selectedModelIdx
+									? 'bg-teal-50 dark:bg-teal-900/20'
+									: ''} {isSelected ? 'bg-teal-50 dark:bg-teal-900/20' : ''}"
+								class:locked={!canUse}
+								tabindex={canUse ? 0 : -1}
+								on:click={() => selectModel(item)}
+								use:collect={index}
+							>
+								<div class="flex-col lg:flex-row items-center justify-between">
+									<div class="flex items-center justify-between gap-3 min-w-0 flex-1">
+										<div class="flex items-center gap-2 min-w-0 flex-1">
+											<div class="flex items-center gap-2">
+												<!--{#if isSelected}-->
+												<!--	<div class="w-2 h-2 bg-teal-500 rounded-full"></div>-->
+												<!--{/if}-->
+												<img
+													src={getLogoForModel(getCompanyName(item.model))}
+													alt="Logo for {item.model.name}"
+													class="rounded-full size-5 mr-2"
+												/>
+											</div>
+											{#if !canUse}
+												<LockClosed className="size-4 text-gray-400" strokeWidth="2" />
 											{/if}
-										</div>
-									</div>
-									{#if isSelected}
-										<Check className="size-4 text-teal-500 flex-shrink-0" strokeWidth="2" />
-									{/if}
+											<div>
+												<div class="font-medium text-gray-900 dark:text-white truncate">
+													{formatModelName(item.label)}
+												</div>
 
+												<!-- Model specs (right-aligned) -->
+												{#if getModelSpeciality(item.model)}
+													{@const specs = getModelSpeciality(item.model)}
+													<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+														{specs.tag} — {specs.description}
+													</div>
+												{/if}
+											</div>
+										</div>
+										{#if !canUse}
+											<span
+												class="ml-auto inline-flex items-center rounded-full bg-teal-600/20
+										 px-2 py-0.5 text-xs font-semibold dark:text-teal-300 text-teal-500
+										 group-hover:bg-teal-600/30 motion-safe:animate-pulse"
+											>
+												Unlock
+											</span>
+										{/if}
+										{#if isSelected && canUse}
+											<Check className="size-4 text-teal-500 flex-shrink-0" strokeWidth="2" />
+										{/if}
+									</div>
 								</div>
-							</div>
-						</button>
+							</button>
+						</Tooltip>
 					{:else}
 						<div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
 							{searchValue ? 'No matching models found' : 'No models available'}
@@ -538,12 +644,8 @@
 				<!-- NEW: swipe tip -->
 				<div class="px-2">← → Swipe sideways to change vendor</div>
 			{:else}
-				<div class="px-2">
-					← → switch vendor • ↑↓ within list • ↵ select • Esc close
-				</div>
+				<div class="px-2">← → switch vendor • ↑↓ within list • ↵ select • Esc close</div>
 			{/if}
-
-
 		</div>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
@@ -559,4 +661,7 @@
         scrollbar-width: none;
     }
 
+    .locked {
+        @apply opacity-50;
+    }
 </style>

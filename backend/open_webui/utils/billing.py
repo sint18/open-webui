@@ -7,7 +7,6 @@ from starlette.background import BackgroundTask, BackgroundTasks
 from starlette.responses import StreamingResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 from fastapi import Request, HTTPException, status, Response
-from sympy import false
 
 from open_webui.utils.pricing import estimate_cost, affordable, calculate_cost
 from open_webui.utils.error_handler import sanitize_error
@@ -91,15 +90,14 @@ async def process_billing(
         if not updated:
             log.error(f"Failed to debit credits for user {user_id}")
             return
-        if fallback:
-            model_name = f"{model_name} -> {DEFAULT_FALLBACK_MODEL}"
+
         CreditTransactions.insert_transaction(
             user_id,
             CreditTransactionForm(
                 tx_id=request_id,
                 delta=-credits_to_charge,
                 usd_spend=float(cost_usd),
-                model_name=model_name,
+                model_name=f"{model_name} -> {DEFAULT_FALLBACK_MODEL}" if fallback else model_name,
             ),
         )
     except ValueError as e:
