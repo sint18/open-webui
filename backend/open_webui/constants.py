@@ -20,9 +20,9 @@ class ERROR_MESSAGES(str, Enum):
     def __str__(self) -> str:
         return super().__str__()
 
-    DEFAULT = (
-        lambda err="": f'{"Something went wrong :/" if err == "" else "[ERROR: " + str(err) + "]"}'
-    )
+    DEFAULT = "Something went wrong. Please try again."
+
+    # Generic error messages (no service-specific references)
     ENV_VAR_NOT_FOUND = "Required environment variable not found. Terminating now."
     CREATE_USER_ERROR = "Oops! Something went wrong while creating your account. Please try again later. If the issue persists, contact support for assistance."
     DELETE_USER_ERROR = "Oops! Something went wrong. We encountered an issue while trying to delete the user. Please give it another shot."
@@ -49,7 +49,7 @@ class ERROR_MESSAGES(str, Enum):
     )
     INVALID_TRUSTED_HEADER = "Your provider has not provided a trusted header. Please contact your administrator for assistance."
 
-    EXISTING_USERS = "You can't turn off authentication because there are existing users. If you want to disable WEBUI_AUTH, make sure your web interface doesn't have any existing users and is a fresh installation."
+    EXISTING_USERS = "You can't turn off authentication because there are existing users. If you want to disable authentication, make sure your web interface doesn't have any existing users and is a fresh installation."
 
     UNAUTHORIZED = "401 Unauthorized"
     ACCESS_PROHIBITED = "You do not have permission to access this resource. Please contact your administrator for assistance."
@@ -71,11 +71,12 @@ class ERROR_MESSAGES(str, Enum):
     INCORRECT_FORMAT = (
         lambda err="": f"Invalid format. Please use the correct format{err}"
     )
-    RATE_LIMIT_EXCEEDED = "API rate limit exceeded"
+    RATE_LIMIT_EXCEEDED = "Service is currently busy. Please try again later."
 
+    # Generic AI service error messages (no specific service names)
     MODEL_NOT_FOUND = lambda name="": f"Model '{name}' was not found"
-    OPENAI_NOT_FOUND = lambda name="": "OpenAI API was not found"
-    OLLAMA_NOT_FOUND = "WebUI could not connect to Ollama"
+    AI_SERVICE_UNAVAILABLE = "AI service is currently unavailable. Please try again later."
+    AI_SERVICE_CONNECTION_ERROR = "Unable to connect to AI service. Please check your connection and try again."
     CREATE_API_KEY_ERROR = "Oops! Something went wrong while creating your API key. Please try again later. If the issue persists, contact support for assistance."
     API_KEY_CREATION_NOT_ALLOWED = "API key creation is not allowed in the environment."
 
@@ -88,11 +89,11 @@ class ERROR_MESSAGES(str, Enum):
     )
 
     WEB_SEARCH_ERROR = (
-        lambda err="": f"{err if err else 'Oops! Something went wrong while searching the web.'}"
+        lambda err="": f"Oops! Something went wrong while searching the web."
     )
 
-    OLLAMA_API_DISABLED = (
-        "The Ollama API is disabled. Please enable it to use this feature."
+    AI_API_DISABLED = (
+        "The AI API is disabled. Please enable it to use this feature."
     )
 
     FILE_TOO_LARGE = (
