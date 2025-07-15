@@ -2,10 +2,13 @@
 from __future__ import annotations
 import json, httpx, functools, decimal
 import math
+import logging
 from decimal import Decimal
 from typing import Tuple
 import tiktoken
 import re
+
+log = logging.getLogger(__name__)
 
 PRICE_URL = (
     "https://raw.githubusercontent.com/"
@@ -23,10 +26,24 @@ def calculate_cost(cost_usd: float) -> int:
 @functools.lru_cache(maxsize=1)
 def _load_price_map() -> dict:
     """Download and cache LiteLLM's live price sheet."""
-    resp = httpx.get(PRICE_URL, timeout=10)
-    resp.raise_for_status()
-    data = json.loads(resp.text)
-    return data  # top level is a dict keyed by model-name
+    try:
+        resp = httpx.get(PRICE_URL, timeout=10)
+        resp.raise_for_status()
+        data = json.loads(resp.text)
+        log.info(f"Successfully loaded pricing data for {len(data)} models")
+        return data  # top level is a dict keyed by model-name
+    except httpx.TimeoutException as e:
+        log.error(f"Timeout loading price map from {PRICE_URL}: {e}")
+        raise ValueError("Unable to load pricing information due to timeout. Please try again later.")
+    except httpx.HTTPError as e:
+        log.error(f"HTTP error loading price map from {PRICE_URL}: {e}")
+        raise ValueError("Unable to load pricing information. Please try again later.")
+    except json.JSONDecodeError as e:
+        log.error(f"JSON decode error loading price map: {e}")
+        raise ValueError("Unable to load pricing information. Please try again later.")
+    except Exception as e:
+        log.error(f"Unexpected error loading price map: {e}")
+        raise ValueError("Unable to load pricing information. Please try again later.")
 
 
 def estimate_cost(
@@ -39,19 +56,24 @@ def estimate_cost(
     Uses LiteLLM's public price map; caches the JSON in-process.
     """
     model = model.lower().strip()
-    price_map = _load_price_map()
+
+    try:
+        price_map = _load_price_map()
+    except Exception as e:
+        log.error(f"Failed to load price map: {e}")
+        raise ValueError("Unable to load pricing information. Please try again later.")
 
     if model not in price_map:
-        raise ValueError(
-            f"model '{model}' not found in LiteLLM price map @ {PRICE_URL}"
-        )
+        log.warning(f"Model '{model}' not found in LiteLLM price map")
+        raise ValueError(f"model '{model}' not found in LiteLLM price map @ {PRICE_URL}")
 
     meta = price_map[model]
     try:
         in_rate = Decimal(str(meta["input_cost_per_token"]))
         out_rate = Decimal(str(meta["output_cost_per_token"]))
     except KeyError as e:
-        raise KeyError(f"price map missing expected key: {e}") from None
+        log.error(f"Price map missing expected key for model '{model}': {e}")
+        raise ValueError(f"Pricing information incomplete for model '{model}'")
 
     prompt_cost = Decimal(prompt_tokens) * in_rate
     completion_cost = Decimal(completion_tokens) * out_rate
@@ -205,16 +227,27 @@ def affordable(model: str, messages: list[dict], user_credit: int, buffer: float
     """
     Main function to check if the user can afford an LLM request.
     """
-    print("Checking if user can afford an LLM request.")
-    prompt_text = extract_prompt_text(messages)
-    prompt_tokens = estimate_prompt_tokens(prompt_text, model)
-    completion_tokens = estimate_completion_tokens(model, prompt_tokens)
+    try:
+        print("Checking if user can afford an LLM request.")
+        prompt_text = extract_prompt_text(messages)
+        prompt_tokens = estimate_prompt_tokens(prompt_text, model)
+        completion_tokens = estimate_completion_tokens(model, prompt_tokens)
 
-    estimated_cost = estimate_cost(model, prompt_tokens, completion_tokens)
-    total_cost_usd = estimated_cost * Decimal(str(buffer))
-    print(f"Estimate cost usd: {total_cost_usd}")
-    print(f"Estimate cost: {estimated_cost}")
-    total_cost_credit = calculate_cost(float(total_cost_usd))
-    print(f"Estimate cost total: {total_cost_credit}")
+        estimated_cost = estimate_cost(model, prompt_tokens, completion_tokens)
+        total_cost_usd = estimated_cost * Decimal(str(buffer))
+        print(f"Estimate cost usd: {total_cost_usd}")
+        print(f"Estimate cost: {estimated_cost}")
+        total_cost_credit = calculate_cost(float(total_cost_usd))
+        print(f"Estimate cost total: {total_cost_credit}")
 
-    return total_cost_credit <= user_credit
+        return total_cost_credit <= user_credit
+
+    except ValueError as e:
+        log.error(f"Cost estimation failed for model '{model}': {e}")
+        # If we can't estimate cost, assume it's not affordable to be safe
+        # Re-raise the error so it can be handled by the error handler
+        raise e
+    except Exception as e:
+        log.error(f"Unexpected error in affordability check: {e}")
+        # Re-raise the error so it can be handled by the error handler
+        raise e

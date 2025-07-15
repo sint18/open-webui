@@ -12,6 +12,7 @@ class ErrorCategory(Enum):
     RATE_LIMIT = "rate_limit"
     INVALID_REQUEST = "invalid_request"
     MODEL_ERROR = "model_error"
+    PRICING_ERROR = "pricing_error"
     SYSTEM_ERROR = "system_error"
     UNKNOWN = "unknown"
 
@@ -23,9 +24,56 @@ class SanitizedError(Exception):
         self.original_error = original_error
         super().__init__(self.message)
 
+def sanitize_pricing_error(error: Exception) -> SanitizedError:
+    """
+    Handle pricing-related errors from the pricing module
+
+    Args:
+        error: The pricing exception
+
+    Returns:
+        SanitizedError with sanitized message
+    """
+    error_str = str(error).lower()
+
+    # Log the original pricing error for debugging
+    log.error(f"Pricing error: {error}")
+
+    if "not found in litellm price map" in error_str:
+        return SanitizedError(
+            message="The selected model is not available right now. Please try a different model or contact support.",
+            category=ErrorCategory.PRICING_ERROR,
+            original_error=error
+        )
+
+    if "pricing information not available" in error_str:
+        return SanitizedError(
+            message="Pricing information is temporarily unavailable. Please try again later.",
+            category=ErrorCategory.PRICING_ERROR,
+            original_error=error
+        )
+
+    if "unable to load pricing information" in error_str:
+        return SanitizedError(
+            message="Unable to load pricing information. Please check your internet connection and try again.",
+            category=ErrorCategory.PRICING_ERROR,
+            original_error=error
+        )
+
+    # Default pricing error message
+    return SanitizedError(
+        message="Unable to calculate cost for this request. Please try again or contact support.",
+        category=ErrorCategory.PRICING_ERROR,
+        original_error=error
+    )
+
 def categorize_error(error_str: str) -> ErrorCategory:
     """Categorize error based on content"""
     error_lower = error_str.lower()
+
+    # Pricing errors (check first to catch specific pricing issues)
+    if any(keyword in error_lower for keyword in ['litellm price map', 'pricing information not available', 'unable to load pricing']):
+        return ErrorCategory.PRICING_ERROR
 
     # Network/connection errors
     if any(keyword in error_lower for keyword in ['connection', 'network', 'timeout', 'unreachable', 'dns', 'failed to connect']):
@@ -93,6 +141,7 @@ def get_user_friendly_message(category: ErrorCategory, original_error: str = "")
         ErrorCategory.RATE_LIMIT: "Service is currently busy due to high demand. Please wait a moment and try again.",
         ErrorCategory.INVALID_REQUEST: "Invalid request format. Please check your input and try again.",
         ErrorCategory.MODEL_ERROR: "The AI model encountered an issue processing your request. Please try again or use a different model.",
+        ErrorCategory.PRICING_ERROR: "There was an issue with the pricing information. Please try again or contact support.",
         ErrorCategory.SYSTEM_ERROR: "A system error occurred. Please try again later.",
         ErrorCategory.UNKNOWN: "An unexpected error occurred. Please try again."
     }
@@ -113,6 +162,10 @@ def sanitize_error(error: Exception, user_facing: bool = True) -> SanitizedError
 
     # Log the original error for debugging
     log.error(f"Original error: {type(error).__name__}: {str(error)}")
+
+    # Check for pricing errors first
+    if "litellm price map" in str(error).lower() or "pricing information not available" in str(error).lower():
+        return sanitize_pricing_error(error)
 
     if not user_facing:
         # For internal use, return sanitized but more detailed error
