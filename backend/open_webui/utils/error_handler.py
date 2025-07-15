@@ -36,33 +36,30 @@ def sanitize_pricing_error(error: Exception) -> SanitizedError:
     """
     error_str = str(error).lower()
 
-    # Log the original pricing error for debugging
+    # Log the original pricing error for debugging (but don't expose it)
     log.error(f"Pricing error: {error}")
 
-    if "not found in litellm price map" in error_str:
+    # All pricing-related errors get completely generic messages
+    # No model names, service names, or internal details exposed
+    if any(term in error_str for term in [
+        "not found in litellm price map",
+        "pricing information not available", 
+        "pricing information incomplete",
+        "unable to load pricing information",
+        "service is temporarily unavailable",
+        "service configuration is incomplete",
+        "service configuration is temporarily unavailable",
+        "the requested service is currently unavailable"
+    ]):
         return SanitizedError(
-            message="The selected model is not available right now. Please try a different model or contact support.",
+            message="This service is temporarily unavailable. Please try again later.",
             category=ErrorCategory.PRICING_ERROR,
             original_error=error
         )
 
-    if "pricing information not available" in error_str:
-        return SanitizedError(
-            message="Pricing information is temporarily unavailable. Please try again later.",
-            category=ErrorCategory.PRICING_ERROR,
-            original_error=error
-        )
-
-    if "unable to load pricing information" in error_str:
-        return SanitizedError(
-            message="Unable to load pricing information. Please check your internet connection and try again.",
-            category=ErrorCategory.PRICING_ERROR,
-            original_error=error
-        )
-
-    # Default pricing error message
+    # Generic fallback for any other pricing errors
     return SanitizedError(
-        message="Unable to calculate cost for this request. Please try again or contact support.",
+        message="Unable to process your request at this time. Please try again later.",
         category=ErrorCategory.PRICING_ERROR,
         original_error=error
     )
@@ -72,7 +69,11 @@ def categorize_error(error_str: str) -> ErrorCategory:
     error_lower = error_str.lower()
 
     # Pricing errors (check first to catch specific pricing issues)
-    if any(keyword in error_lower for keyword in ['litellm price map', 'pricing information not available', 'unable to load pricing']):
+    if any(keyword in error_lower for keyword in [
+        'litellm price map', 'pricing information not available', 'unable to load pricing',
+        'service is temporarily unavailable', 'service configuration is incomplete',
+        'the requested service is currently unavailable'
+    ]):
         return ErrorCategory.PRICING_ERROR
 
     # Network/connection errors
@@ -91,7 +92,7 @@ def categorize_error(error_str: str) -> ErrorCategory:
     if any(keyword in error_lower for keyword in ['invalid', 'bad request', 'validation', 'missing', 'malformed']):
         return ErrorCategory.INVALID_REQUEST
 
-    # Model-specific errors (including "model not found")
+    # Model-specific errors (including "model not found") - now returns generic system error
     if any(keyword in error_lower for keyword in ['model not found', 'model', 'completion', 'generation', 'inference']):
         return ErrorCategory.MODEL_ERROR
 
@@ -102,24 +103,72 @@ def categorize_error(error_str: str) -> ErrorCategory:
     return ErrorCategory.UNKNOWN
 
 def remove_sensitive_info(error_message: str) -> str:
-    """Remove sensitive service names and internal details"""
+    """Remove sensitive service names, model names, and internal details"""
 
-    # Patterns to remove/replace
+    # Patterns to remove/replace - comprehensive model name and service sanitization
     sensitive_patterns = [
-        (r'litellm[.\w]*', 'AI service'),
-        (r'openai[.\w]*', 'AI service'),
-        (r'ollama[.\w]*', 'AI service'),
+        # Service names
+        (r'litellm[.\w]*', 'service'),
+        (r'openai[.\w]*', 'service'),
+        (r'ollama[.\w]*', 'service'),
         (r'open[_\s-]?webui[.\w]*', 'system'),
+        (r'anthropic[.\w]*', 'service'),
+        (r'google[.\w]*', 'service'),
+        (r'mistral[.\w]*', 'service'),
+        
+        # Model names - be very aggressive about hiding these
+        (r'gpt-[0-9a-z.-]+', 'AI model'),
+        (r'claude-[0-9a-z.-]+', 'AI model'),
+        (r'gemini-[0-9a-z.-]+', 'AI model'),
+        (r'llama[0-9a-z.-]*', 'AI model'),
+        (r'mistral[0-9a-z.-]*', 'AI model'),
+        (r'qwen[0-9a-z.-]*', 'AI model'),
+        (r'deepseek[0-9a-z.-]*', 'AI model'),
+        (r'mixtral[0-9a-z.-]*', 'AI model'),
+        (r'phi[0-9a-z.-]*', 'AI model'),
+        (r'codellama[0-9a-z.-]*', 'AI model'),
+        (r'vicuna[0-9a-z.-]*', 'AI model'),
+        (r'alpaca[0-9a-z.-]*', 'AI model'),
+        (r'palm[0-9a-z.-]*', 'AI model'),
+        (r'bard[0-9a-z.-]*', 'AI model'),
+        
+        # Generic model patterns
+        (r'model\s+[\'"`][^\'"`]+[\'"`]', 'requested service'),
+        (r'model\s+[\'"]\w+[\'"]\s+not\s+found', 'requested service not found'),
+        (r'[\'"]\w*gpt\w*[\'"]', 'AI model'),
+        (r'[\'"]\w*claude\w*[\'"]', 'AI model'),
+        (r'[\'"]\w*llama\w*[\'"]', 'AI model'),
+        
+        # URLs and endpoints
         (r'api[_\s-]?key[.\w]*', 'credentials'),
         (r'bearer[_\s-]?token[.\w]*', 'credentials'),
         (r'localhost:\d+', 'service'),
         (r'127\.0\.0\.1:\d+', 'service'),
         (r'http[s]?://[^\s]+', 'service endpoint'),
+        (r'github\.com[^\s]*', 'external service'),
+        (r'raw\.githubusercontent\.com[^\s]*', 'external service'),
+        (r'huggingface\.co[^\s]*', 'external service'),
+        
+        # Credentials and tokens - remove actual values
+        (r'api[_\s-]?key[_\s-]+[a-zA-Z0-9]{3,}', 'credentials'),
+        (r'bearer[_\s-]?token[_\s-]+[a-zA-Z0-9]{3,}', 'credentials'),
+        (r'token[_\s-]+[a-zA-Z0-9]{3,}', 'credentials'),
+        (r'key[_\s-]+[a-zA-Z0-9]{3,}', 'credentials'),
+        (r'for\s+API\s+key\s+[a-zA-Z0-9]+', 'for credentials'),
+        (r'API\s+key\s+[a-zA-Z0-9]+', 'credentials'),
+        (r'credentials\s+[a-zA-Z0-9]+', 'credentials'),  # Remove any remaining tokens after "credentials"
+        (r'\b[a-zA-Z0-9]{20,}\b', 'credentials'),  # Long alphanumeric strings (likely tokens)
+        
+        # System internals
         (r'traceback[^\n]*', ''),
         (r'file\s+"[^"]*"[^\n]*', ''),
         (r'line\s+\d+[^\n]*', ''),
         (r'\.py:\d+', ''),
         (r'in\s+\w+\s*\([^)]*\)', ''),
+        
+        # Price map specific
+        (r'price\s+map', 'service configuration'),
+        (r'pricing\s+information', 'service information'),
     ]
 
     cleaned_message = error_message
@@ -136,12 +185,12 @@ def get_user_friendly_message(category: ErrorCategory, original_error: str = "")
     """Get user-friendly message based on error category"""
 
     messages = {
-        ErrorCategory.NETWORK: "Unable to connect to the AI service. Please check your internet connection and try again.",
-        ErrorCategory.AUTHENTICATION: "Authentication failed. Please check your credentials and try again.",
+        ErrorCategory.NETWORK: "Unable to connect to the service. Please check your internet connection and try again.",
+        ErrorCategory.AUTHENTICATION: "Authentication failed. Please contact support.",
         ErrorCategory.RATE_LIMIT: "Service is currently busy due to high demand. Please wait a moment and try again.",
         ErrorCategory.INVALID_REQUEST: "Invalid request format. Please check your input and try again.",
-        ErrorCategory.MODEL_ERROR: "The AI model encountered an issue processing your request. Please try again or use a different model.",
-        ErrorCategory.PRICING_ERROR: "There was an issue with the pricing information. Please try again or contact support.",
+        ErrorCategory.MODEL_ERROR: "The requested service is currently unavailable. Please try again later.",
+        ErrorCategory.PRICING_ERROR: "This service is temporarily unavailable. Please try again later.",
         ErrorCategory.SYSTEM_ERROR: "A system error occurred. Please try again later.",
         ErrorCategory.UNKNOWN: "An unexpected error occurred. Please try again."
     }
@@ -163,8 +212,14 @@ def sanitize_error(error: Exception, user_facing: bool = True) -> SanitizedError
     # Log the original error for debugging
     log.error(f"Original error: {type(error).__name__}: {str(error)}")
 
-    # Check for pricing errors first
-    if "litellm price map" in str(error).lower() or "pricing information not available" in str(error).lower():
+    # Check for pricing errors first - expanded pattern matching
+    error_str_lower = str(error).lower()
+    if any(term in error_str_lower for term in [
+        "litellm price map", "pricing information not available", "pricing information incomplete",
+        "unable to load pricing information", "service is temporarily unavailable",
+        "service configuration is incomplete", "service configuration is temporarily unavailable",
+        "the requested service is currently unavailable"
+    ]):
         return sanitize_pricing_error(error)
 
     if not user_facing:
@@ -217,7 +272,7 @@ def handle_model_not_found_error(model_id: str = "") -> SanitizedError:
         log.error("Model not found (no ID provided)")
 
     return SanitizedError(
-        message="The requested model is not available. Please try selecting a different model.",
+        message="The requested service is currently unavailable. Please try again later.",
         category=ErrorCategory.MODEL_ERROR,
         original_error=None
     )
@@ -229,51 +284,51 @@ def is_model_not_found_error(error: Exception) -> bool:
 
 def sanitize_litellm_error(error: Exception) -> SanitizedError:
     """
-    Specifically handle LiteLLM errors to remove service references
+    Specifically handle service errors to remove all references to services and models
 
     Args:
-        error: The LiteLLM exception
+        error: The service exception
 
     Returns:
         SanitizedError with sanitized message
     """
     error_str = str(error).lower()
 
-    # Log the original LiteLLM error for debugging
-    log.error(f"LiteLLM error: {error}")
+    # Log the original service error for debugging (but don't expose it)
+    log.error(f"Service error: {error}")
 
-    # Check for specific LiteLLM error patterns
-    if "api" in error_str and ("key" in error_str or "token" in error_str):
+    # All service errors get completely generic messages
+    if any(term in error_str for term in ["api", "key", "token", "auth"]):
         return SanitizedError(
-            message="Authentication failed. Please check your API configuration.",
+            message="Authentication failed. Please contact support.",
             category=ErrorCategory.AUTHENTICATION,
             original_error=error
         )
 
-    if "rate limit" in error_str or "quota" in error_str:
+    if any(term in error_str for term in ["rate limit", "quota", "throttl"]):
         return SanitizedError(
-            message="Service is currently busy due to high demand. Please wait a moment and try again.",
+            message="Service is currently busy. Please wait a moment and try again.",
             category=ErrorCategory.RATE_LIMIT,
             original_error=error
         )
 
-    if "timeout" in error_str or "connection" in error_str:
+    if any(term in error_str for term in ["timeout", "connection"]):
         return SanitizedError(
-            message="Unable to connect to the AI service. Please check your internet connection and try again.",
+            message="Service is temporarily unavailable. Please try again later.",
             category=ErrorCategory.NETWORK,
             original_error=error
         )
 
-    if "model" in error_str and ("not found" in error_str or "not available" in error_str):
+    if any(term in error_str for term in ["model", "not found", "not available"]):
         return SanitizedError(
-            message="The requested model is not available. Please try selecting a different model.",
+            message="The requested service is currently unavailable. Please try again later.",
             category=ErrorCategory.MODEL_ERROR,
             original_error=error
         )
 
-    # Default generic message for other LiteLLM errors
+    # Default generic message for other service errors
     return SanitizedError(
-        message="An unexpected error occurred while processing your request. Please try again.",
+        message="Service is temporarily unavailable. Please try again later.",
         category=ErrorCategory.UNKNOWN,
         original_error=error
     )
