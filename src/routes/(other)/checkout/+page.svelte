@@ -171,7 +171,7 @@
 			const formData = new FormData();
 			formData.append('type', 'plan_payment');
 			formData.append('plan_id', planId);
-			formData.append('amount_mmk', finalAmount.toString());
+			formData.append('amount_mmk', currentPlan.amount_mmk.toString());
 			formData.append('credits', currentPlan.credits.toString());
 			formData.append('provider', provider);
 			formData.append('screenshot', screenshotFile);
