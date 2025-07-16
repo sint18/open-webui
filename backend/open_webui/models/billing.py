@@ -295,13 +295,16 @@ class UserCreditsTable:
             db.refresh(record)
             return UserCreditsModel.model_validate(record)
 
-    def update_subscription(self, user_id: str, new_end: datetime.date) -> Optional[UserCreditsModel]:
+    def update_subscription(self, user_id: str, new_plan: PlanEnum, monthly_quota: int, new_end: datetime.date, new_status: Optional[StatusEnum]=None) -> Optional[UserCreditsModel]:
         with get_db() as db:
             record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             if not record:
                 return None
+            record.plan_id = new_plan
+            record.monthly_quota = monthly_quota
             record.current_period_end = new_end
-            record.status = StatusEnum.active
+            record.credit_balance = record.credit_balance + monthly_quota
+            record.status = new_status if new_status else StatusEnum.active
             record.updated_at = int(time.time())
             db.commit()
             db.refresh(record)
