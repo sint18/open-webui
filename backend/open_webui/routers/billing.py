@@ -141,7 +141,6 @@ async def create_order(
     Optional discount_code parameter can be provided to apply discounts.
     """
     from open_webui.models.discount import UserDiscounts, DiscountCodes
-    from decimal import Decimal
 
     if not screenshot.filename:
         raise HTTPException(
@@ -287,10 +286,35 @@ async def confirm_order(
 
             if existing_credits:
                 # User has existing credits - add to their balance
-                updated_credits = UserCredits.update_credits(order.user_id, order.credits)
+                updated_credits = None
+                if order.type == OrderTypeEnum.plan_payment:
+                    updated_credits = UserCredits.update_subscription(user_id=order.user_id, new_plan=order.plan_id,
+                                                                      monthly_quota=order.credits,
+                                                                      new_end=order.period_end)
+                elif order.type == OrderTypeEnum.credit:
+                    updated_credits = UserCredits.update_credits(order.user_id, order.credits)
+                elif order.type == OrderTypeEnum.upgrade:
+                    updated_credits = UserCredits.update_subscription(user_id=order.user_id, new_plan=order.plan_target,
+                                                                      monthly_quota=order.credits,
+                                                                      new_end=order.period_end)
+
                 if updated_credits:
                     log.info(
                         f"Added {order.credits} credits to existing wallet for user {order.user_id}. New balance: {updated_credits.credit_balance}")
+                    try:
+                        from open_webui.models.groups import Groups
+                        group_name = str(order.plan_id.value).capitalize()
+                        log.info(f"Assigning group {group_name} to user {order.user_id}")
+                        result = Groups.sync_user_groups_by_group_names(order.user_id, [group_name])
+
+                        if result:
+                            log.info(f"Successfully assigned user {order.user_id} to {group_name} group")
+                        else:
+                            log.warning(f"Failed to assign user {order.user_id} to {group_name} group - group may not exist")
+
+                    except Exception as e:
+                        log.error(f"Exception assigning user {order.user_id} to free group: {e}")
+                        return False
                 else:
                     log.error(f"Failed to update credits for existing user {order.user_id}")
             else:
@@ -333,7 +357,7 @@ async def confirm_order(
 
     # 3. Register with LiteLLM (existing functionality)
     try:
-        await register_litellm_customer(order.user_id, order.plan_id)
+        await register_litellm_customer(order.user_id, order.plan_id.value)
         log.info(f"Successfully registered user {order.user_id} with LiteLLM for plan {order.plan_id}")
     except Exception as litellm_error:
         log.error(f"Failed to register user {order.user_id} with LiteLLM: {litellm_error}")
