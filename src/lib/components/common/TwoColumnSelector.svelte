@@ -16,8 +16,17 @@
 
 	import { getOllamaVersion } from '$lib/apis/ollama';
 
-	import { models, mobile, settings, config, type Model, temporaryChatEnabled, user } from '$lib/stores';
+	import {
+		models,
+		mobile,
+		settings,
+		config,
+		type Model,
+		temporaryChatEnabled,
+		user
+	} from '$lib/stores';
 	import { getModels } from '$lib/apis';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	import dayjs from '$lib/dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
@@ -59,9 +68,8 @@
 	let selectedVendorIdx = 0;
 	let modelItemEls: HTMLElement[] = [];
 	let hideLockedModels = false;
-	let upgradeToastShown = false
+	let upgradeToastShown = false;
 	let ollamaVersion = null;
-
 
 	$: selectedVendor = vendors[selectedVendorIdx] || vendors[0];
 
@@ -84,7 +92,7 @@
 
 		// Filter items based on hideLockedModels setting
 		const availableItems = hideLockedModels
-			? items.filter((item) => $user?.role === "admin" || item.model.can_use !== false)
+			? items.filter((item) => $user?.role === 'admin' || item.model.can_use !== false)
 			: items;
 
 		// Add "All Models" vendor first
@@ -98,7 +106,7 @@
 		// Get recent models and filter them if needed
 		const allRecentModels = getRecentModels();
 		const recentModels = hideLockedModels
-			? allRecentModels.filter((item) => $user?.role === "admin" || item.model.can_use !== false)
+			? allRecentModels.filter((item) => $user?.role === 'admin' || item.model.can_use !== false)
 			: allRecentModels;
 
 		// Add "Recent" vendor if there are recent models
@@ -246,7 +254,7 @@
 		upgradeToastShown = true;
 
 		toast($i18n.t('Unlock • Premium Models'), {
-			description: $i18n.t(`Upgrade your plan to access {{model}}.`, {model: item.label}),
+			description: $i18n.t(`Upgrade your plan to access {{model}}.`, { model: item.label }),
 			action: {
 				label: $i18n.t('Upgrade Now'),
 				onClick: () => goto(`/pricing?model=${item.value}`)
@@ -254,11 +262,14 @@
 			duration: 5000,
 			unstyled: true,
 			classes: {
-				toast: 'bg-teal-100 text-teal-900 dark:bg-teal-800 dark:text-teal-50 rounded-xl shadow-xl ring-2 ring-teal-300 dark:ring-teal-600 p-4',
+				toast:
+					'bg-teal-100 text-teal-900 dark:bg-teal-800 dark:text-teal-50 rounded-xl shadow-xl ring-2 ring-teal-300 dark:ring-teal-600 p-4',
 				title: 'font-semibold text-teal-900 dark:text-white text-sm mb-1',
 				description: 'text-teal-800 dark:text-teal-200 text-xs',
-				actionButton: 'mt-4 inline-flex items-center rounded-full bg-teal-600 hover:bg-teal-700 px-3 py-1 text-sm font-semibold text-white transition duration-150 ease-in-out',
-				closeButton: 'absolute top-2 right-2 text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-white'
+				actionButton:
+					'mt-4 inline-flex items-center rounded-full bg-teal-600 hover:bg-teal-700 px-3 py-1 text-sm font-semibold text-white transition duration-150 ease-in-out',
+				closeButton:
+					'absolute top-2 right-2 text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-white'
 			},
 			onDismiss: () => {
 				upgradeToastShown = false;
@@ -266,11 +277,10 @@
 		});
 	};
 
-		// Reset the flag after the toast duration
+	// Reset the flag after the toast duration
 	setTimeout(() => {
 		upgradeToastShown = false;
 	}, 5000);
-
 
 	function selectModel(item: any) {
 		if (item.model.can_use === false) {
@@ -278,7 +288,18 @@
 			return;
 		}
 
+		const previousModel = value;
 		value = item.value;
+
+		// Track model selection
+		trackEvent(ANALYTICS_EVENTS.MODEL_SELECTOR_CLICKED, {
+			user_id: $user?.id,
+			selected_model: item.value,
+			selected_model_name: item.label,
+			previous_model: previousModel,
+			context: 'model_selected',
+			vendor: getCompanyName(item.model)
+		});
 
 		// Update recent models
 		const recent = JSON.parse(localStorage.getItem('recentModels') || '[]');
@@ -287,7 +308,6 @@
 
 		show = false;
 	}
-
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (!show) return;
@@ -386,6 +406,16 @@
 		searchValue = '';
 		window.setTimeout(() => document.getElementById('model-search-input')?.focus(), 0);
 		resetView();
+
+		// Track model selector click when opened
+		if (show) {
+			trackEvent(ANALYTICS_EVENTS.MODEL_SELECTOR_CLICKED, {
+				user_id: $user?.id,
+				current_model: selectedModel?.valueOf || null,
+				available_models_count: items.length,
+				context: 'dropdown_open'
+			});
+		}
 	}}
 	closeFocus={false}
 >
@@ -437,22 +467,22 @@
 				</div>
 			{/if}
 			<div class="flex items-center mt-1">
-					<button
-						class="flex justify-between w-full font-medium line-clamp-1 select-none items-center rounded-button py-2 px-3 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer data-highlighted:bg-muted"
-						on:click={async () => {
-							hideLockedModels = !hideLockedModels
-						}}
-					>
-						<div class="flex gap-2.5 items-center">
-							<EyeSlash className="size-4" strokeWidth="2.5" />
-							{$i18n.t(`Hide locked models`)}
-						</div>
+				<button
+					class="flex justify-between w-full font-medium line-clamp-1 select-none items-center rounded-button py-2 px-3 text-sm text-gray-700 dark:text-gray-100 outline-hidden transition-all duration-75 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer data-highlighted:bg-muted"
+					on:click={async () => {
+						hideLockedModels = !hideLockedModels;
+					}}
+				>
+					<div class="flex gap-2.5 items-center">
+						<EyeSlash className="size-4" strokeWidth="2.5" />
+						{$i18n.t(`Hide locked models`)}
+					</div>
 
-						<div>
-							<Switch state={hideLockedModels} />
-						</div>
-					</button>
-				</div>
+					<div>
+						<Switch state={hideLockedModels} />
+					</div>
+				</button>
+			</div>
 		</div>
 
 		<div class="flex {$mobile ? 'flex-col' : 'flex-row'} min-h-[400px] max-h-[500px]">
@@ -538,7 +568,7 @@
 
 					{#each filteredModels as item, index}
 						{@const isSelected = value === item.value}
-						{@const canUse = $user?.role === "admin" || item.model.can_use === true}
+						{@const canUse = $user?.role === 'admin' || item.model.can_use === true}
 
 						<Tooltip content={!canUse ? 'Upgrade your plan to use this model' : ''}>
 							<button
@@ -657,17 +687,17 @@
 </DropdownMenu.Root>
 
 <style>
-    /* global.css or <style> block */
-    .no-scrollbar::-webkit-scrollbar {
-        display: none;
-    }
+	/* global.css or <style> block */
+	.no-scrollbar::-webkit-scrollbar {
+		display: none;
+	}
 
-    .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-    }
+	.no-scrollbar {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
 
-    .locked {
-        @apply opacity-50;
-    }
+	.locked {
+		@apply opacity-50;
+	}
 </style>
