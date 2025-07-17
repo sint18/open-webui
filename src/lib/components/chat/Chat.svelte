@@ -5,6 +5,7 @@
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
 	import { getContext, onDestroy, onMount, tick } from 'svelte';
+
 	const i18n: Writable<i18nType> = getContext('i18n');
 
 	import { goto } from '$app/navigation';
@@ -93,6 +94,12 @@
 	import LowCreditToast from './LowCreditToast.svelte';
 	import Spinner from '../common/Spinner.svelte';
 	import { fade } from 'svelte/transition';
+	import OverlayModelSelector from '$lib/components/common/OverlayModelSelector.svelte';
+	import {
+		shouldShowChatbotOverlay,
+		prepareOverlayItems,
+		type ChatbotItem
+	} from '$lib/utils/overlay-model-selector-helper-functions';
 
 	export let chatIdProp = '';
 
@@ -131,6 +138,9 @@
 
 	let chat = null;
 	let tags = [];
+	let showChatbotOverlay = false;
+	let chatbotOverlayItems: ChatbotItem[] = [];
+
 
 	let history = {
 		messages: {},
@@ -171,7 +181,8 @@
 						imageGenerationEnabled = input.imageGenerationEnabled;
 						codeInterpreterEnabled = input.codeInterpreterEnabled;
 					}
-				} catch (e) {}
+				} catch (e) {
+				}
 			}
 
 			if (chatIdProp && (await loadChat())) {
@@ -441,6 +452,12 @@
 		window.addEventListener('message', onMessageHandler);
 		$socket?.on('chat-events', chatEventHandler);
 
+		if (!chatIdProp && !$chatId && shouldShowChatbotOverlay() && $models.length > 0) {
+			chatbotOverlayItems = prepareOverlayItems($models);
+			showChatbotOverlay = true;
+		}
+
+
 		if (!$chatId) {
 			chatIdUnsubscriber = chatId.subscribe(async (value) => {
 				if (!value) {
@@ -477,7 +494,8 @@
 					imageGenerationEnabled = input.imageGenerationEnabled;
 					codeInterpreterEnabled = input.codeInterpreterEnabled;
 				}
-			} catch (e) {}
+			} catch (e) {
+			}
 		}
 
 		if (!chatIdProp) {
@@ -508,7 +526,8 @@
 		const chatInput = document.getElementById('chat-input');
 		chatInput?.focus();
 
-		chats.subscribe(() => {});
+		chats.subscribe(() => {
+		});
 	});
 
 	onDestroy(() => {
@@ -516,6 +535,27 @@
 		window.removeEventListener('message', onMessageHandler);
 		$socket?.off('chat-events', chatEventHandler);
 	});
+
+	// Handler for when user selects a model from the overlay
+	function handleChatbotSelect(event: CustomEvent) {
+		const selectedModel = event.detail;
+
+		// Set the selected model for the new chat
+		if (selectedModel?.value) {
+			selectedModels = [selectedModel.value];
+			sessionStorage.setItem('selectedModel', selectedModel.value);
+		}
+
+		// Continue with normal chat initialization
+		showChatbotOverlay = false;
+	}
+
+	// Handler for when user skips the overlay
+	function handleChatbotSkip() {
+		showChatbotOverlay = false;
+		// Continue with default behavior
+	}
+
 
 	// File upload functions
 
@@ -1601,18 +1641,18 @@
 		let messages = [
 			params?.system || $settings.system
 				? {
-						role: 'system',
-						content: `${promptTemplate(
-							params?.system ?? $settings?.system ?? '',
-							$user?.name,
-							$settings?.userLocation
-								? await getAndUpdateUserLocation(localStorage.token).catch((err) => {
-										console.error(err);
-										return undefined;
-									})
-								: undefined
-						)}`
-					}
+					role: 'system',
+					content: `${promptTemplate(
+						params?.system ?? $settings?.system ?? '',
+						$user?.name,
+						$settings?.userLocation
+							? await getAndUpdateUserLocation(localStorage.token).catch((err) => {
+								console.error(err);
+								return undefined;
+							})
+							: undefined
+					)}`
+				}
 				: undefined,
 			...createMessagesList(_history, responseMessageId).map((message) => ({
 				...message,
@@ -1626,24 +1666,24 @@
 				...((message.files?.filter((file) => file.type === 'image').length > 0 ?? false) &&
 				message.role === 'user'
 					? {
-							content: [
-								{
-									type: 'text',
-									text: message?.merged?.content ?? message.content
-								},
-								...message.files
-									.filter((file) => file.type === 'image')
-									.map((file) => ({
-										type: 'image_url',
-										image_url: {
-											url: file.url
-										}
-									}))
-							]
-						}
+						content: [
+							{
+								type: 'text',
+								text: message?.merged?.content ?? message.content
+							},
+							...message.files
+								.filter((file) => file.type === 'image')
+								.map((file) => ({
+									type: 'image_url',
+									image_url: {
+										url: file.url
+									}
+								}))
+						]
+					}
 					: {
-							content: message?.merged?.content ?? message.content
-						})
+						content: message?.merged?.content ?? message.content
+					})
 			}))
 			.filter((message) => message?.role === 'user' || message?.content?.trim());
 
@@ -1662,8 +1702,8 @@
 					stop:
 						(params?.stop ?? $settings?.params?.stop ?? undefined)
 							? (params?.stop.split(',').map((token) => token.trim()) ?? $settings.params.stop).map(
-									(str) => decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
-								)
+								(str) => decodeURIComponent(JSON.parse('"' + str.replace(/\"/g, '\\"') + '"'))
+							)
 							: undefined
 				},
 
@@ -1696,9 +1736,9 @@
 						$user?.name,
 						$settings?.userLocation
 							? await getAndUpdateUserLocation(localStorage.token).catch((err) => {
-									console.error(err);
-									return undefined;
-								})
+								console.error(err);
+								return undefined;
+							})
 							: undefined
 					)
 				},
@@ -1715,19 +1755,19 @@
 						messages.at(1)?.role === 'user')) &&
 				(selectedModels[0] === model.id || atSelectedModel !== undefined)
 					? {
-							background_tasks: {
-								title_generation: $settings?.title?.auto ?? true,
-								tags_generation: $settings?.autoTags ?? true
-							}
+						background_tasks: {
+							title_generation: $settings?.title?.auto ?? true,
+							tags_generation: $settings?.autoTags ?? true
 						}
+					}
 					: {}),
 
 				...(stream && (model.info?.meta?.capabilities?.usage ?? false)
 					? {
-							stream_options: {
-								include_usage: true
-							}
+						stream_options: {
+							include_usage: true
 						}
+					}
 					: {})
 			},
 			`${WEBUI_BASE_URL}/api`
@@ -2008,6 +2048,13 @@
 </svelte:head>
 
 <audio id="audioElement" src="" style="display: none;" />
+
+<OverlayModelSelector
+	bind:show={showChatbotOverlay}
+	items={chatbotOverlayItems}
+	on:select={handleChatbotSelect}
+	on:skip={handleChatbotSkip}
+/>
 
 <EventConfirmDialog
 	bind:show={showEventConfirmation}

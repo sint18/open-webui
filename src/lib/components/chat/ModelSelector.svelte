@@ -7,7 +7,7 @@
 	import TwoColumnSelector from '../common/TwoColumnSelector.svelte';
 
 	import { updateUserSettings } from '$lib/apis/users';
-	import { formatModelName, getCompanyName, getLogoForModel } from '$lib/utils/helper-functions';
+	import { prepareOverlayItems } from '$lib/utils/overlay-model-selector-helper-functions';
 	const i18n = getContext('i18n');
 
 	export let selectedModels = [''];
@@ -67,14 +67,7 @@ $: if (selectedModels.length > 0 && $models.length > 0) {
 					<TwoColumnSelector
 											id={`${selectedModelIdx}`}
 						placeholder={$i18n.t('Select a model')}
-						items={$models.map((model) => {
-						return {
-							value: model.id,
-							label: model.name,
-							model: model,
-						}
-
-						})}
+						items={prepareOverlayItems($models)}
 						showTemporaryChatControl={$user?.role === 'user'
 							? ($user?.permissions?.chat?.temporary ?? true) &&
 								!($user?.permissions?.chat?.temporary_enforced ?? false)

@@ -16,20 +16,29 @@
 	// https://www.w3.org/WAI/WCAG21/Understanding/keyboard.html
 	let focusTrap: FocusTrap.FocusTrap | null = null;
 
-	const sizeToWidth = (size) => {
-		if (size === 'full') {
-			return 'w-full';
-		}
-		if (size === 'xs') {
-			return 'w-[16rem]';
-		} else if (size === 'sm') {
-			return 'w-[30rem]';
-		} else if (size === 'md') {
-			return 'w-[42rem]';
-		} else {
-			return 'w-[56rem]';
-		}
-	};
+const sizeToWidth = (size: string): string => {
+  switch (size) {
+    case 'full':
+      return 'w-full';
+    case 'xs':
+      return 'w-[16rem]';
+    case 'sm':
+      return 'w-[30rem]';
+    case 'md':
+      return 'w-[42rem]';
+    case 'lg':
+      return 'w-[56rem]';
+    case 'xl':
+      return 'w-[72rem]';
+    case '2xl':
+      return 'w-[84rem]';
+    case '3xl':
+      return 'w-[96rem]';
+    default:
+      return 'w-[56rem]';
+  }
+};
+
 
 	const handleKeyDown = (event: KeyboardEvent) => {
 		if (event.key === 'Escape' && isTopModal()) {

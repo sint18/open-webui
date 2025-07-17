@@ -1491,6 +1491,9 @@ export interface ModelMeta {
 	description?: string;
 	capabilities?: object;
 	profile_image_url?: string;
+	tags: {
+		name: string
+	}[]
 }
 
 export interface ModelParams {}

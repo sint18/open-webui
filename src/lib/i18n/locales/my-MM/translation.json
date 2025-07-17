@@ -1396,5 +1396,10 @@
 	"Why choose Laby AI": "Laby AI ကို ဘာကြောင့် ရွေးချယ်သင့်သလဲ",
 	"Unlock • Premium Models": "Chatbot အမိုက်စားတွေ ယူမယ်",
 	"Upgrade your plan to access {{model}}.": "{{model}} သုံးဖို့ Plan ဝယ်မယ်",
-	"Upgrade Now": "အခု Plan ဝယ်မယ်"
+	"Upgrade Now": "အခု Plan ဝယ်မယ်",
+	"Upgrade your plan to access locked chatbots and models.": "Plan အသစ် Upgrade ပြီး Chatbot အသစ်တွေ ရယူလိုက်ပါ",
+	"No matching chatbots found": "Chatbots ရှာမတွေ့ပါ",
+	"No chatbots available": "Chatbots မရှိပါ",
+	"Choose a Chatbot": "Chatbot တစ်ခု ရွေးပါ",
+	"Select a model to start your conversation": "AI နဲ့ စကားပြောရန် Chatbot တစ်ခုရွေးပါ"
 }

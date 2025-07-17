@@ -30,7 +30,13 @@
 
 	import dayjs from '$lib/dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
-	import { getCompanyName, getLogoForModel } from '$lib/utils/helper-functions';
+	import {
+		getCompanyName,
+		getLogoForModel,
+		getModelSpeciality,
+		getVendorIcon,
+		formatModelName
+	} from '$lib/utils/helper-functions';
 	import { goto } from '$app/navigation';
 	import LockClosed from '$lib/components/icons/LockClosed.svelte';
 	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
@@ -139,7 +145,6 @@
 			vendor.models.sort((a: any, b: any) => a.label.localeCompare(b.label));
 		});
 
-
 		return Array.from(vendorMap.values());
 	})();
 
@@ -152,38 +157,6 @@
 		// Get recent models from localStorage or some other logic
 		const recent = JSON.parse(localStorage.getItem('recentModels') || '[]');
 		return items.filter((item) => recent.includes(item.value)).slice(0, 5);
-	}
-
-	// function getVendorName(model: Model): string {
-	// 	if (model.owned_by === 'ollama') return 'Ollama';
-	// 	if (model.owned_by === 'openai' || model.name?.toLowerCase().includes('gpt')) return 'OpenAI';
-	// 	if (model.name?.toLowerCase().includes('claude')) return 'Anthropic';
-	// 	if (model.name?.toLowerCase().includes('gemini') || model.name?.toLowerCase().includes('palm')) return 'Google';
-	// 	if (model.name?.toLowerCase().includes('llama')) return 'Meta';
-	// 	if (model.name?.toLowerCase().includes('mistral')) return 'Mistral';
-	// 	if (model.name?.toLowerCase().includes('deepseek')) return 'DeepSeek';
-	// 	return model.owned_by || 'Other';
-	// }
-
-	function getVendorIcon(vendor: string): string {
-		switch (vendor.toLowerCase()) {
-			case 'openai':
-				return '⚡';
-			case 'anthropic':
-				return '🎭';
-			case 'google':
-				return '🔍';
-			case 'meta':
-				return '📘';
-			case 'mistral':
-				return '🌪️';
-			case 'deepseek':
-				return '🔬';
-			case 'ollama':
-				return '🦙';
-			default:
-				return '🤖';
-		}
 	}
 
 	async function scrollSelectedIntoView() {
@@ -207,45 +180,6 @@
 				modelItemEls[index] = undefined;
 			}
 		};
-	}
-
-	/**
-	 * Returns a single “speciality” object – { tag, description } – for a model.
-	 * Order matters: the first rule that matches wins.
-	 */
-	function getModelSpeciality(model: Model): { tag: string; description: string } {
-		const n = model.name?.toLowerCase() ?? '';
-
-		/* CODE-FOCUSED ------------------------------------------------------- */
-		if (n.includes('coder') || n.includes('code'))
-			return { tag: 'Coding assistant', description: 'Fine-tuned for code generation & debugging' };
-
-		/* SOTA REASONING ----------------------------------------------------- */
-		if (/claude-4|claude-opus|gpt-4\.5|gpt-o3/.test(n))
-			return { tag: 'Advanced reasoning', description: 'Highest-level analytical & logic skills' };
-
-		/* LONG CONTEXT / GIANT MODELS --------------------------------------- */
-		if (/72b|235b|large|medium|opus|200k|long|r1/.test(n))
-			return { tag: 'Long-context', description: 'Handles very large documents & chats' };
-
-		/* LOW-LATENCY SKUs --------------------------------------------------- */
-		if (n.includes('flash') || n.includes('fast') || n.includes('mini') || n.includes('nano'))
-			return { tag: 'Fast inference', description: 'Optimised for low-latency responses' };
-
-		/* MULTIMODAL --------------------------------------------------------- */
-		if (n.includes('vision') || n.includes('gpt-4o'))
-			return { tag: 'Multimodal', description: 'Understands images as well as text' };
-
-		/* PRICE SENSITIVE ---------------------------------------------------- */
-		if (n.includes('turbo') || n.includes('cheap') || n.includes('small'))
-			return { tag: 'Budget-friendly', description: 'Lowest cost per 1 K tokens' };
-
-		/* FALLBACK ----------------------------------------------------------- */
-		return { tag: 'General-purpose', description: 'Good for most day-to-day tasks' };
-	}
-
-	function formatModelName(modelName: string): string {
-		return modelName.split('/').pop() || modelName;
 	}
 
 	const showUpgradeToast = (item: any) => {
@@ -604,10 +538,26 @@
 												</div>
 
 												<!-- Model specs (right-aligned) -->
-												{#if getModelSpeciality(item.model)}
-													{@const specs = getModelSpeciality(item.model)}
+												<!--{#if getModelSpeciality(item.model)}-->
+												<!--	<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">-->
+												<!--		{specs.tag} — {specs.description}-->
+												<!--	</div>-->
+												<!--{/if}-->
+
+												{#if item.tags && item.tags.length > 0}
+													<div class="flex items-center gap-2 my-1">
+														{#each item.tags as tag}
+															<span
+																class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+															>
+																{tag.name}
+															</span>
+														{/each}
+													</div>
+												{/if}
+												{#if item.description}
 													<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-														{specs.tag} — {specs.description}
+														{item.description}
 													</div>
 												{/if}
 											</div>
@@ -622,7 +572,7 @@
 											</span>
 										{/if}
 										{#if isSelected && canUse}
-											<Check className="size-4 text-teal-500 flex-shrink-0" strokeWidth="2" />
+											<Check className="size-5 text-teal-500 flex-shrink-0" strokeWidth="2" />
 										{/if}
 									</div>
 								</div>
@@ -687,17 +637,17 @@
 </DropdownMenu.Root>
 
 <style>
-	/* global.css or <style> block */
-	.no-scrollbar::-webkit-scrollbar {
-		display: none;
-	}
+    /* global.css or <style> block */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
 
-	.no-scrollbar {
-		-ms-overflow-style: none;
-		scrollbar-width: none;
-	}
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 
-	.locked {
-		@apply opacity-50;
-	}
+    .locked {
+        @apply opacity-50;
+    }
 </style>
