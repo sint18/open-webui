@@ -27,11 +27,13 @@
 		toast.success($i18n.t('Default model updated'));
 	};
 
-	$: if (selectedModels.length > 0 && $models.length > 0) {
-		selectedModels = selectedModels.map((model) =>
-			$models.map((m) => m.id).includes(model) ? model : ''
-		);
-	}
+$: if (selectedModels.length > 0 && $models.length > 0) {
+    selectedModels = selectedModels.map((model) => {
+        const foundModel = $models.find((m) => m.id === model);
+        // Only keep the model if it exists AND the user can use it
+        return foundModel && ($user?.role === 'admin' || foundModel.can_use !== false) ? model : '';
+    });
+}
 </script>
 
 <div class="flex flex-col w-full items-start">

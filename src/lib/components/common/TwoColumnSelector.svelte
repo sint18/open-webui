@@ -126,6 +126,12 @@
 			vendorMap.get(vendor).count++;
 		});
 
+		// Sort models within each vendor
+		vendorMap.forEach((vendor) => {
+			vendor.models.sort((a: any, b: any) => a.label.localeCompare(b.label));
+		});
+
+
 		return Array.from(vendorMap.values());
 	})();
 
