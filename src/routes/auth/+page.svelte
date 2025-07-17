@@ -12,6 +12,7 @@
 	import { WEBUI_NAME, config, user, socket } from '$lib/stores';
 
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import OnBoarding from '$lib/components/OnBoarding.svelte';
@@ -46,6 +47,12 @@
 			await user.set(sessionUser);
 			await fetchUserCredits(sessionUser.token);
 			await config.set(await getBackendConfig());
+
+			// Track auth success event
+			trackEvent(ANALYTICS_EVENTS.AUTH_SUCCESS, {
+				method: mode, // 'signin', 'signup', or 'ldap'
+				user_id: sessionUser.id
+			});
 
 			const redirectPath = querystringValue('redirect') || '/';
 			goto(redirectPath);
@@ -111,6 +118,8 @@
 			return;
 		}
 		localStorage.token = token;
+		// Set mode to 'oauth' for tracking
+		mode = 'oauth';
 		await setSessionUser(sessionUser);
 	};
 
@@ -150,6 +159,7 @@
 		setLogoImage();
 
 		if (($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false) {
+			mode = 'trusted_header';
 			await signInHandler();
 		} else {
 			onboarding = $config?.onboarding ?? false;

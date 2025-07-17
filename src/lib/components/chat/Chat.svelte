@@ -39,6 +39,7 @@
 		toolServers
 	} from '$lib/stores';
 	import { updateCreditUsage } from '$lib/stores/credits';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 	import {
 		convertMessagesToHistory,
 		copyToClipboard,
@@ -1444,6 +1445,21 @@
 
 		let _chatId = JSON.parse(JSON.stringify($chatId));
 		_history = JSON.parse(JSON.stringify(_history));
+
+		// Track first prompt sent event for new chats
+		if (newChat) {
+			// Check if this is the user's first prompt globally
+			const hasSeenFirstPrompt = localStorage.getItem('has_sent_first_prompt');
+			if (!hasSeenFirstPrompt) {
+				trackEvent(ANALYTICS_EVENTS.FIRST_PROMPT_SENT, {
+					chat_id: _chatId,
+					user_id: $user?.id,
+					model_count: selectedModels.length,
+					has_files: files && files.length > 0
+				});
+				localStorage.setItem('has_sent_first_prompt', 'true');
+			}
+		}
 
 		const responseMessageIds: Record<PropertyKey, string> = {};
 		// If modelId is provided, use it, else use selected model

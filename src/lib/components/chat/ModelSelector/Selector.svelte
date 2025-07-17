@@ -19,11 +19,13 @@
 		mobile,
 		temporaryChatEnabled,
 		settings,
-		config, type Model
+		config,
+		type Model
 	} from '$lib/stores';
 	import { toast } from 'svelte-sonner';
 	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream } from '$lib/utils';
 	import { getModels } from '$lib/apis';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
@@ -340,6 +342,16 @@
 		window.setTimeout(() => document.getElementById('model-search-input')?.focus(), 0);
 
 		resetView();
+
+		// Track model selector click when opened
+		if (show) {
+			trackEvent(ANALYTICS_EVENTS.MODEL_SELECTOR_CLICKED, {
+				user_id: $user?.id,
+				current_model: selectedModel?.value || null,
+				available_models_count: items.length,
+				context: 'dropdown_open'
+			});
+		}
 	}}
 	closeFocus={false}
 >
@@ -390,7 +402,20 @@
 						autocomplete="off"
 						on:keydown={(e) => {
 							if (e.code === 'Enter' && filteredItems.length > 0) {
-								value = filteredItems[selectedModelIdx].value;
+								const previousModel = value;
+								const selectedItem = filteredItems[selectedModelIdx];
+								value = selectedItem.value;
+
+								// Track keyboard model selection
+								trackEvent(ANALYTICS_EVENTS.MODEL_SELECTOR_CLICKED, {
+									user_id: $user?.id,
+									selected_model: selectedItem.value,
+									selected_model_name: selectedItem.label,
+									previous_model: previousModel,
+									context: 'keyboard_select',
+									model_type: selectedItem.model?.owned_by || 'unknown'
+								});
+
 								show = false;
 								return; // dont need to scroll on selection
 							} else if (e.code === 'ArrowDown') {
@@ -504,8 +529,19 @@
 						data-arrow-selected={index === selectedModelIdx}
 						data-value={item.value}
 						on:click={() => {
+							const previousModel = value;
 							value = item.value;
 							selectedModelIdx = index;
+
+							// Track model selection
+							trackEvent(ANALYTICS_EVENTS.MODEL_SELECTOR_CLICKED, {
+								user_id: $user?.id,
+								selected_model: item.value,
+								selected_model_name: item.label,
+								previous_model: previousModel,
+								context: 'model_selected',
+								model_type: item.model?.owned_by || 'unknown'
+							});
 
 							show = false;
 						}}
@@ -530,13 +566,15 @@
 												content={$user?.role === 'admin' ? (item?.value ?? '') : ''}
 												placement="top-start"
 											>
-												<ModelImage selectedModel={item.model} class="rounded-full size-5 flex items-center mr-2">
-												</ModelImage>
-<!--												<img-->
-<!--													src={item.model?.info?.meta?.profile_image_url == "/static/favicon.png" ? item.icon : item.model?.info?.meta?.profile_image_url}-->
-<!--													alt="{item.model.name} logo"-->
-<!--													class="rounded-full size-5 flex items-center mr-2"-->
-<!--												/>-->
+												<ModelImage
+													selectedModel={item.model}
+													class="rounded-full size-5 flex items-center mr-2"
+												></ModelImage>
+												<!--												<img-->
+												<!--													src={item.model?.info?.meta?.profile_image_url == "/static/favicon.png" ? item.icon : item.model?.info?.meta?.profile_image_url}-->
+												<!--													alt="{item.model.name} logo"-->
+												<!--													class="rounded-full size-5 flex items-center mr-2"-->
+												<!--												/>-->
 
 												<div class="flex items-center line-clamp-1">
 													<div class="line-clamp-1">
