@@ -13,6 +13,7 @@ export const getCompanyName = (model: {
 	/* ---------- 1. Easy string-contains matches on id / name ---------- */
 
 	if (id.includes('gpt') || name.includes('gpt')) return 'OpenAI';
+	if (id.includes('grok') || name.includes('grok')) return 'xAI';
 	if (id.includes('claude') || name.includes('claude')) return 'Anthropic';
 	if (id.includes('gemini') || name.includes('gemini')) return 'Google';
 	if (id.includes('command') || name.includes('command')) return 'Cohere';
@@ -63,7 +64,8 @@ const modelLogoMap: Record<string, string> = {
 	vicuna: '/assets/vicuna.png',
 	alibaba: '/assets/qwen.png',
 	microsoft: '/assets/phi.png',
-	falcon: '/assets/falcon.png'
+	falcon: '/assets/falcon.png',
+	xai: '/assets/grok.png'
 };
 
 export function getLogoForModel(company: string) {
