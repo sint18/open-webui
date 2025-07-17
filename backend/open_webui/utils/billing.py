@@ -13,6 +13,7 @@ from open_webui.utils.error_handler import sanitize_error
 from open_webui.models.billing import StatusEnum
 from open_webui.models.billing import UserCredits, CreditTransactions, CreditTransactionForm
 from open_webui.utils.auth import get_current_user, get_http_authorization_cred
+from open_webui.models.models import Models
 import logging
 import json
 from typing import Optional, Dict, Any, List
@@ -140,11 +141,17 @@ def requires_credits(min_credits: int = 1):
             message_list = kwargs.get('form_data', {}).get('messages') or kwargs.get('body', {}).get('messages', '')
             fallback = False
 
+            # Resolve model_name for pricing
+            model_item = Models.get_model_by_id(model_name)
+            pricing_model_name = model_name
+            if model_item and model_item.base_model_id:
+                pricing_model_name = model_item.base_model_id
+
             try:
                 # Check credits before processing
                 balance = await check_balance(user.id, min_credits)
 
-                if not affordable(model_name, message_list, balance):
+                if not affordable(pricing_model_name, message_list, balance):
                     log.warning(f"Insufficient credits for user {user.id}, email: {user.email}")
                     raise HTTPException(
                         status_code=status.HTTP_402_PAYMENT_REQUIRED,
@@ -197,7 +204,7 @@ def requires_credits(min_credits: int = 1):
                     completion_tokens = response_body.get("usage").get("completion_tokens")
 
                     if prompt_tokens and completion_tokens:
-                        await process_billing(user.id, prompt_tokens, completion_tokens, model_name, response_body.get("id"), fallback)
+                        await process_billing(user.id, prompt_tokens, completion_tokens, pricing_model_name, response_body.get("id"), fallback)
                 return response
 
             # For streaming responses, only bill once after completion
@@ -236,10 +243,10 @@ def requires_credits(min_credits: int = 1):
                     prompt_tokens = captured["usage"].get("prompt_tokens")
                     completion_tokens = captured.get("usage").get("completion_tokens")
                     if prompt_tokens and completion_tokens:
-                        await process_billing(user.id, prompt_tokens, completion_tokens, model_name,
+                        await process_billing(user.id, prompt_tokens, completion_tokens, pricing_model_name,
                                               captured["id"], fallback)
 
-                # ── 3. Chain background tasks properly
+            # ── 3. Chain background tasks properly
             if response.background:
                 tasks = BackgroundTasks()
                 # put the original task(s) in
