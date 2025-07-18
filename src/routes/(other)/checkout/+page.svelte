@@ -5,6 +5,7 @@
 	import { toast } from 'svelte-sonner';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import { checkPendingOrders } from '$lib/apis/billing';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	// Get user token from localStorage
 	let token = '';
@@ -38,8 +39,24 @@
 	let submitting = false;
 	let hasPendingOrder = false;
 
+	// Track payment provider selection
+	$: if (provider) {
+		trackEvent(ANALYTICS_EVENTS.CHECKOUT_PAYMENT_PROVIDER_SELECTED, {
+			provider: provider,
+			plan_id: planId,
+			plan_amount: finalAmount
+		});
+	}
+
 	// Check for pending orders on mount
 	onMount(async () => {
+		// Track checkout page visit
+		trackEvent(ANALYTICS_EVENTS.CHECKOUT_PAGE_VISITED, {
+			plan_id: planId,
+			plan_amount: finalAmount,
+			referrer: document.referrer
+		});
+
 		if (token) {
 			hasPendingOrder = await checkPendingOrders(token);
 		}
@@ -106,6 +123,16 @@
 				const discountAmount = (currentPlan.amount_mmk * appliedDiscount.percent) / 100;
 				finalAmount = currentPlan.amount_mmk - discountAmount;
 
+				// Track discount code application
+				trackEvent(ANALYTICS_EVENTS.CHECKOUT_DISCOUNT_APPLIED, {
+					discount_code: discountCode,
+					discount_percent: validationResult.discount_percent,
+					plan_id: planId,
+					original_amount: currentPlan.amount_mmk,
+					final_amount: finalAmount,
+					savings: discountAmount
+				});
+
 				toast.success(`Discount code applied: ${appliedDiscount.percent}% off`);
 			} else {
 				throw new Error(validationResult.message || 'Invalid discount code');
@@ -167,6 +194,16 @@
 		submitting = true;
 
 		try {
+			// Track payment submission
+			trackEvent(ANALYTICS_EVENTS.CHECKOUT_PAYMENT_SUBMITTED, {
+				plan_id: planId,
+				plan_amount: finalAmount,
+				provider: provider,
+				has_discount: !!appliedDiscount,
+				discount_code: appliedDiscount?.code || null,
+				discount_percent: appliedDiscount?.percent || null
+			});
+
 			// Create FormData for the file and form fields
 			const formData = new FormData();
 			formData.append('type', 'plan_payment');
@@ -196,9 +233,30 @@
 				throw new Error(msg || 'Payment submission failed');
 			}
 
+			// Track successful payment submission
+			trackEvent(ANALYTICS_EVENTS.CHECKOUT_PAYMENT_SUCCESS, {
+				plan_id: planId,
+				plan_amount: finalAmount,
+				provider: provider,
+				has_discount: !!appliedDiscount,
+				discount_code: appliedDiscount?.code || null,
+				discount_percent: appliedDiscount?.percent || null
+			});
+
 			toast.success("Payment submitted! We'll verify shortly.");
 			goto('/pricing', { replaceState: true });
 		} catch (err) {
+			// Track failed payment submission
+			trackEvent(ANALYTICS_EVENTS.CHECKOUT_PAYMENT_FAILED, {
+				plan_id: planId,
+				plan_amount: finalAmount,
+				provider: provider,
+				has_discount: !!appliedDiscount,
+				discount_code: appliedDiscount?.code || null,
+				discount_percent: appliedDiscount?.percent || null,
+				error: err instanceof Error ? err.message : String(err)
+			});
+
 			toast.error(err instanceof Error ? err.message : String(err));
 			console.error('Payment submission error:', err);
 		} finally {

@@ -187,11 +187,28 @@
 
 		upgradeToastShown = true;
 
+		// Track insufficient credits interaction
+		trackEvent(ANALYTICS_EVENTS.PRICING_LINK_CLICKED, {
+			source: 'model_locked_toast',
+			current_page: window.location.pathname,
+			model_attempted: item.value,
+			model_name: item.label
+		});
+
 		toast($i18n.t('Unlock • Premium Models'), {
 			description: $i18n.t(`Upgrade your plan to access {{model}}.`, { model: item.label }),
 			action: {
 				label: $i18n.t('Upgrade Now'),
-				onClick: () => goto(`/pricing?model=${item.value}`)
+				onClick: () => {
+					// Track the actual click to pricing
+					trackEvent(ANALYTICS_EVENTS.PRICING_LINK_CLICKED, {
+						source: 'insufficient_credits_toast',
+						current_page: window.location.pathname,
+						model_attempted: item.value,
+						model_name: item.label
+					});
+					goto(`/pricing?model=${item.value}`);
+				}
 			},
 			duration: 5000,
 			unstyled: true,

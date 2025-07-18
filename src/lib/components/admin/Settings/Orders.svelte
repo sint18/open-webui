@@ -9,6 +9,7 @@
 	import dayjs from '$lib/dayjs';
 	import ImagePreview from '$lib/components/common/ImagePreview.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	const i18n: any = getContext('i18n');
 
@@ -23,6 +24,8 @@
 		status: string;
 		created_at: number;
 		screenshot_path?: string;
+		plan_id?: string;
+		provider?: string;
 	}
 
 	// Data and state
@@ -107,7 +110,28 @@
 	async function handleConfirmOrder(orderId: string) {
 		try {
 			confirmingOrderId = orderId;
+
+			// Find the order details for tracking
+			const order = orders.find((o) => o.order_id === orderId);
+
 			await confirmPaymentOrder(localStorage.token, orderId);
+
+			// Track subscription completion
+			if (order) {
+				trackEvent(ANALYTICS_EVENTS.SUBSCRIPTION_COMPLETED, {
+					order_id: orderId,
+					user_id: order.user_id,
+					user_email: order.user_email,
+					plan_id: order.plan_id || 'unknown',
+					amount_mmk: order.amount_mmk,
+					credits: order.credits,
+					provider: order.provider || 'unknown',
+					admin_confirmed: true,
+					admin_user_id: $user?.id,
+					admin_email: $user?.email
+				});
+			}
+
 			toast.success('Payment confirmed successfully');
 			await loadOrders(true); // Refresh the list
 		} catch (error) {

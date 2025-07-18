@@ -15,7 +15,7 @@
 		temporaryChatEnabled,
 		user
 	} from '$lib/stores';
-	import {userCredits} from '$lib/stores/credits';
+	import { userCredits } from '$lib/stores/credits';
 
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/stores';
@@ -31,6 +31,7 @@
 	import PencilSquare from '../icons/PencilSquare.svelte';
 	import Banner from '../common/Banner.svelte';
 	import Bolt from '../icons/Bolt.svelte';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	const i18n = getContext('i18n');
 
@@ -147,6 +148,12 @@
 								href="/pricing"
 								class=" flex cursor-pointer px-3 py-2 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-850 transition"
 								aria-label="Pricing"
+								on:click={() => {
+									trackEvent(ANALYTICS_EVENTS.PRICING_LINK_CLICKED, {
+										source: 'chat_navbar',
+										current_page: window.location.pathname
+									});
+								}}
 							>
 								<div class=" m-auto self-center flex items-center gap-1">
 									<Bolt className=" size-5" strokeWidth="1.5" />

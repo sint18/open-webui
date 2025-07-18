@@ -14,6 +14,7 @@
 	import Keyboard from '$lib/components/icons/Keyboard.svelte';
 	import ShortcutsModal from '$lib/components/chat/ShortcutsModal.svelte';
 	import Bolt from '$lib/components/icons/Bolt.svelte';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	const i18n = getContext('i18n');
 
@@ -207,6 +208,10 @@
 			<DropdownMenu.Item
 				class="flex gap-2 items-center py-1.5 px-3 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
 				on:click={() => {
+					trackEvent(ANALYTICS_EVENTS.PRICING_LINK_CLICKED, {
+						source: 'user_menu',
+						current_page: window.location.pathname
+					});
 					goto('/pricing');
 					show = false;
 				}}
