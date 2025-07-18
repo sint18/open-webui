@@ -82,12 +82,12 @@
 	$: filteredModels = (() => {
 		let baseModels = selectedVendor?.models || [];
 
-		// Apply search filter first
 		if (searchValue) {
-			baseModels = fuse
-				.search(searchValue)
-				.map((e) => e.item)
-				.filter((item) => baseModels.some((model) => model.value === item.value));
+			const fuse = new Fuse(baseModels, {
+				keys: ['value', 'label', 'model.name'],
+				threshold: 0.3
+			});
+			baseModels = fuse.search(searchValue).map((e) => e.item);
 		}
 
 		return baseModels;

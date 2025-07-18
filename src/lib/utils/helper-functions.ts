@@ -45,13 +45,9 @@ export const getCompanyName = (model: {
 	if (src.includes('groq')) return 'Groq';
 	if (src.includes('cohere')) return 'Cohere';
 
-	/* ---------- 4. Legacy fallback ---------- */
-	if (typeof model.owned_by === 'string' && model.owned_by.length) {
-		return model.owned_by.charAt(0).toUpperCase() + model.owned_by.slice(1);
-	}
 
 	/* ---------- 5. Give up gracefully ---------- */
-	return 'Unknown';
+	return 'LabyAI';
 };
 
 const modelLogoMap: Record<string, string> = {

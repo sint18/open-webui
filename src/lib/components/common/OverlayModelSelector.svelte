@@ -70,7 +70,9 @@
 
 		// Separate featured items
 		const featuredItems = filteredItems.filter((item) => item.featured);
-		const regularItems = filteredItems.filter((item) => !item.featured);
+
+		// Regular Items do not include Custom Models as they are handled sepeartely
+		const regularItems = filteredItems.filter((item) => !item.featured && !item.model?.info?.base_model_id);
 
 		// Add featured group if there are featured items
 		if (featuredItems.length > 0) {
@@ -86,7 +88,7 @@
     const custom = filteredItems.filter(i => i.model?.info?.base_model_id);
     if (custom.length) {
       groups.set('Chatbots', {
-        name: 'Chatbots',
+        name: 'ChatBots powered by LabyAI',
         icon: getVendorIcon('Chatbots'),
         items: custom.sort((a, b) => a.label.localeCompare(b.label)),
         priority: 1
@@ -101,7 +103,7 @@
 					name: vendor,
 					icon: getVendorIcon(vendor),
 					items: [],
-					priority: vendor === 'Chatbots' ? 1 : 2
+					priority: vendor === 'LabyAI' ? 2 : 1
 				});
 			}
 			groups.get(vendor).items.push(item);
