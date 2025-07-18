@@ -82,6 +82,17 @@
 			});
 		}
 
+		// Custom Models (separate from vendor groups)
+    const custom = filteredItems.filter(i => i.model?.info?.base_model_id);
+    if (custom.length) {
+      groups.set('Chatbots', {
+        name: 'Chatbots',
+        icon: getVendorIcon('Chatbots'),
+        items: custom.sort((a, b) => a.label.localeCompare(b.label)),
+        priority: 1
+      });
+    }
+
 		// Group regular items by vendor
 		regularItems.forEach((item) => {
 			const vendor = getCompanyName(item.model);
@@ -90,7 +101,7 @@
 					name: vendor,
 					icon: getVendorIcon(vendor),
 					items: [],
-					priority: vendor === 'Custom Bots' ? 1 : 2
+					priority: vendor === 'Chatbots' ? 1 : 2
 				});
 			}
 			groups.get(vendor).items.push(item);
@@ -238,7 +249,7 @@
 					<div class="text-sm text-gray-500 dark:text-gray-400">({group.items.length})</div>
 				</div>
 
-				<div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+				<div class="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
 					{#each group.items as item}
 						{@const canUse = $user?.role === 'admin' || item.model.can_use !== false}
 						{@const profile_image = item.model?.info?.meta?.profile_image_url !== "/static/favicon.png" ? item.model?.info?.meta?.profile_image_url : getLogoForModel(getCompanyName(item.model)) }
@@ -266,7 +277,7 @@
 									<img
 										src={profile_image}
 										alt="Logo for {item.model.name}"
-										class="rounded-full size-20"
+										class="rounded-full size-12 sm:size-20"
 									/>
 								</div>
 

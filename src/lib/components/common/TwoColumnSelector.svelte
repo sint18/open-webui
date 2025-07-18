@@ -125,8 +125,20 @@
 			});
 		}
 
+				// Custom Models (separate from vendor groups)
+    const custom = availableItems.filter(i => i.model?.info?.base_model_id);
+		console.log(custom);
+    if (custom.length > 0) {
+      vendorMap.set('Chatbots', {
+        name: 'Chatbots',
+        icon: getVendorIcon('Chatbots'),
+        models: custom.sort((a, b) => a.label.localeCompare(b.label)),
+        count: custom.length
+      });
+    }
+
 		// Group remaining models by vendor
-		availableItems.forEach((item) => {
+		availableItems.filter((item) => !item.model?.info?.base_model_id).forEach((item) => {
 			const vendor = getCompanyName(item.model);
 			if (!vendorMap.has(vendor)) {
 				vendorMap.set(vendor, {
@@ -226,12 +238,12 @@
 				upgradeToastShown = false;
 			}
 		});
-	};
 
-	// Reset the flag after the toast duration
-	setTimeout(() => {
-		upgradeToastShown = false;
-	}, 5000);
+		// Reset the flag after the toast duration
+		setTimeout(() => {
+			upgradeToastShown = false;
+		}, 5000);
+	};
 
 	function selectModel(item: any) {
 		if (item.model.can_use === false) {
@@ -475,7 +487,7 @@
 			<!-- Left sidebar - Vendor tabs -->
 			<div
 				class="{!$mobile &&
-					'w-32 md:w-36'} hidden sm:block border-r border-gray-200 dark:border-gray-700 py-2"
+					'w-32 md:w-36'} hidden sm:block border-r border-gray-200 dark:border-gray-700 py-2 overflow-y-auto"
 			>
 				{#each vendors as vendor, index}
 					<button
@@ -520,7 +532,8 @@
 					{#each filteredModels as item, index}
 						{@const isSelected = value === item.value}
 						{@const canUse = $user?.role === 'admin' || item.model.can_use === true}
-						{@const profile_image = item.model?.info?.meta?.profile_image_url !== "/static/favicon.png" ? item.model?.info?.meta?.profile_image_url : getLogoForModel(getCompanyName(item.model)) }
+						{@const
+							profile_image = item.model?.info?.meta?.profile_image_url !== "/static/favicon.png" ? item.model?.info?.meta?.profile_image_url : getLogoForModel(getCompanyName(item.model)) }
 
 						<Tooltip content={!canUse ? 'Upgrade your plan to use this model' : ''}>
 							<button
