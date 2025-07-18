@@ -503,6 +503,7 @@
 					{#each filteredModels as item, index}
 						{@const isSelected = value === item.value}
 						{@const canUse = $user?.role === 'admin' || item.model.can_use === true}
+						{@const profile_image = item.model?.info?.meta?.profile_image_url !== "/static/favicon.png" ? item.model?.info?.meta?.profile_image_url : getLogoForModel(getCompanyName(item.model)) }
 
 						<Tooltip content={!canUse ? 'Upgrade your plan to use this model' : ''}>
 							<button
@@ -524,9 +525,9 @@
 												<!--	<div class="w-2 h-2 bg-teal-500 rounded-full"></div>-->
 												<!--{/if}-->
 												<img
-													src={getLogoForModel(getCompanyName(item.model))}
+													src={profile_image}
 													alt="Logo for {item.model.name}"
-													class="rounded-full size-5 mr-2"
+													class="rounded-full size-10 mr-2"
 												/>
 											</div>
 											{#if !canUse}

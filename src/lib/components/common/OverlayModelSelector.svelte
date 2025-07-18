@@ -241,6 +241,7 @@
 				<div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
 					{#each group.items as item}
 						{@const canUse = $user?.role === 'admin' || item.model.can_use !== false}
+						{@const profile_image = item.model?.info?.meta?.profile_image_url !== "/static/favicon.png" ? item.model?.info?.meta?.profile_image_url : getLogoForModel(getCompanyName(item.model)) }
 
 						<button
 							class="group relative bg-gray-50 dark:bg-gray-800 rounded-xl p-4 text-left transition-all duration-200 border border-gray-200 dark:border-gray-700 hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md
@@ -263,9 +264,9 @@
 							<div class="flex items-start gap-3">
 								<div class="flex-shrink-0">
 									<img
-										src={getLogoForModel(getCompanyName(item.model))}
+										src={profile_image}
 										alt="Logo for {item.model.name}"
-										class="rounded-full size-10"
+										class="rounded-full size-20"
 									/>
 								</div>
 
