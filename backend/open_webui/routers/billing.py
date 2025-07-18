@@ -36,7 +36,13 @@ async def create_credits(
         user=Depends(get_admin_user)
 ):
     """Admin: initialize a user's credit wallet"""
-    return UserCredits.insert_new_user_credits(form.user_id, form)
+    result = UserCredits.insert_new_user_credits(form.user_id, form)
+
+    # Track manual credit creation
+    if result:
+        log.info(f"Manual credit creation: admin {user.id} ({user.email}) created {form.credit_balance} credits for user {form.user_id}, plan {form.plan_id}")
+
+    return result
 
 
 @router.get('/credits', response_model=UserCreditsModel)
@@ -362,6 +368,9 @@ async def confirm_order(
     except Exception as litellm_error:
         log.error(f"Failed to register user {order.user_id} with LiteLLM: {litellm_error}")
         # Log error but don't fail the confirmation
+
+    # 4. Track subscription completion analytics
+    log.info(f"Subscription completed for user {order.user_id}, order {order_id}, plan {order.plan_id}, credits {order.credits}")
 
     return order
 

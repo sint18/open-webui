@@ -2,6 +2,7 @@
 	import { getContext, onMount } from 'svelte';
 	import CheckCircle from '$lib/components/icons/Check.svelte'; // adjust path if necessary
 	import { fetchUserCredits, userCredits } from '$lib/stores/credits';
+	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
 
 	const i18n = getContext('i18n');
 
@@ -67,6 +68,31 @@
 			]
 		}
 	];
+
+	onMount(async () => {
+		// Fetch user credits if not already loaded
+		try {
+			await fetchUserCredits();
+		} catch (error) {
+			console.log('No user credits found - user not logged in');
+		}
+
+		// Track pricing page visit
+		trackEvent(ANALYTICS_EVENTS.PRICING_PAGE_VISITED, {
+			referrer: document.referrer,
+			user_logged_in: !!$userCredits?.plan_id
+		});
+	});
+
+	// Function to track plan click
+	const handlePlanClick = (planName: string, planPrice: number) => {
+		trackEvent(ANALYTICS_EVENTS.PRICING_PLAN_CLICKED, {
+			plan_name: planName,
+			plan_price: planPrice,
+			current_plan: $userCredits?.plan_id || 'none',
+			user_logged_in: !!$userCredits?.plan_id
+		});
+	};
 </script>
 
 <section class="w-full">
@@ -128,7 +154,7 @@
 					<a
 						href="/checkout?plan={plan.name.toLowerCase()}"
 						class="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-700 focus-visible:ring-2 focus-visible:ring-primary-500"
-						>{plan.cta}</a
+						on:click={() => handlePlanClick(plan.name, plan.price)}>{plan.cta}</a
 					>
 
 					<ul class="mt-8 space-y-3 text-sm">
