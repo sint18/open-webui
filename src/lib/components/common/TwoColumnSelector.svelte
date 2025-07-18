@@ -127,7 +127,6 @@
 
 				// Custom Models (separate from vendor groups)
     const custom = availableItems.filter(i => i.model?.info?.base_model_id);
-		console.log(custom);
     if (custom.length > 0) {
       vendorMap.set('Chatbots', {
         name: 'Chatbots',
