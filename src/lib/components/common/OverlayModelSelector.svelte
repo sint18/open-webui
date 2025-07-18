@@ -60,9 +60,6 @@
 	// how many items to show initially (and per “load more”)
 	let visibleCount = 20;
 
-	// slice the filtered list before grouping
-	$: paginatedItems = filteredItems.slice(0, visibleCount);
-
 	// bump visibleCount by 20 when clicking “Load more”
 	function loadMore() {
 		visibleCount += 20;
@@ -72,8 +69,8 @@
 		const groups = new Map();
 
 		// Separate featured items
-		const featuredItems = paginatedItems.filter((item) => item.featured);
-		const regularItems = paginatedItems.filter((item) => !item.featured);
+		const featuredItems = filteredItems.filter((item) => item.featured);
+		const regularItems = filteredItems.filter((item) => !item.featured);
 
 		// Add featured group if there are featured items
 		if (featuredItems.length > 0) {
@@ -107,6 +104,21 @@
 		// Convert to array and sort by priority
 		return Array.from(groups.values()).sort((a, b) => a.priority - b.priority);
 	})();
+
+	$: paginatedGroups = (() => {
+    const out = [];
+    let count = 0;
+    for (const group of groupedItems) {
+      if (count >= visibleCount) break;
+      out.push(group);
+      count += group.items.length;
+    }
+    return out;
+  })();
+
+  // total number of items (for "has more?" check)
+  $: totalItemCount = groupedItems.reduce((sum, g) => sum + g.items.length, 0);
+
 
 	function selectChatbot(item: any) {
 
@@ -218,7 +230,7 @@
 
 	<!-- Content -->
 	<div class="overflow-y-auto h-[60vh] p-6">
-		{#each groupedItems as group}
+		{#each paginatedGroups as group}
 			<div class="mb-8">
 				<div class="flex items-center gap-2 mb-4">
 					<span class="text-lg">{group.icon}</span>
@@ -317,7 +329,7 @@
 			</div>
 		{/each}
 		<!-- inside your scrollable content, after the {#each groupedItems …} block -->
-		{#if filteredItems.length > visibleCount}
+		{#if totalItemCount > visibleCount}
 			<div class="flex justify-center mt-4">
 				<button
 					class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full text-sm font-medium transition"
