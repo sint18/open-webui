@@ -3,7 +3,13 @@
 	import { onMount, getContext } from 'svelte';
 
 	import { user, config, settings } from '$lib/stores';
-	import { updateUserProfile, createAPIKey, getAPIKey, getSessionUser } from '$lib/apis/auths';
+	import {
+		updateUserProfile,
+		createAPIKey,
+		getAPIKey,
+		getSessionUser
+	} from '$lib/apis/auths';
+	import { getTelegramOnboardingToken, checkTelegramConnected } from '$lib/apis/users';
 	import { userCredits, fetchUserCredits } from '$lib/stores/credits';
 
 	import UpdatePassword from './Account/UpdatePassword.svelte';
@@ -31,6 +37,8 @@
 	let APIKey = '';
 	let APIKeyCopied = false;
 	let profileImageInputElement: HTMLInputElement;
+
+	let telegramConnected: boolean = false;
 
 	const submitHandler = async () => {
 		if (name !== $user?.name) {
@@ -88,6 +96,12 @@
 
 		// Fetch user credits when visiting the account page
 		await fetchUserCredits(localStorage.token);
+
+		// Check Telegram connection status
+		telegramConnected = await checkTelegramConnected(localStorage.token).catch((error) => {
+			console.error('Failed to check Telegram connection status:', error);
+			return false;
+		});
 	});
 </script>
 
@@ -255,7 +269,8 @@
 				<div class="pt-2">
 					<div class="flex flex-col">
 						<div class="mb-1 text-xs font-medium">{$i18n.t('Current Plan')}</div>
-						<span class="inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-md bg-[#21706d]/10 text-[#21706d] dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize">
+						<span
+							class="inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-md bg-[#21706d]/10 text-[#21706d] dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize">
                 {$userCredits?.plan_id}
             </span>
 
@@ -300,8 +315,45 @@
 		<hr class="border-gray-50 dark:border-gray-850 my-2" />
 
 		<div class="my-2">
-			<UpdatePassword />
+			<div class=" text-sm font-medium mb-2">{$i18n.t('Telegram')}</div>
+			<div class="flex flex-col gap-2">
+				<div class="flex justify-between items-center">
+					<div class="text-xs text-gray-500">
+						{$i18n.t('Connect your Telegram account to receive notifications.')}
+					</div>
+				</div>
+				<div class="flex">
+
+					<button
+						class="flex gap-1.5 items-center font-medium px-3.5 py-1.5 rounded-lg bg-gray-100/70 disabled:cursor-not-allowed hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-850 transition"
+						disabled={telegramConnected}
+						on:click={async () => {
+								const token = await getTelegramOnboardingToken(localStorage.token);
+								if (token) {
+									const url = `https://t.me/LabyAIBot?start=${token.token}`;
+									await copyToClipboard(url);
+									window.open(url, "_blank");
+
+									toast.success('Onboarding link copied to clipboard. Paste it to your Telegram bot.');
+								} else {
+									toast.error('Failed to generate onboarding link.');
+								}
+							}}
+					>
+						{#if telegramConnected}
+							{$i18n.t('Connected')}
+						{:else}
+							<Plus strokeWidth="2" className=" size-3.5" />
+							{$i18n.t('Connect Telegram')}
+						{/if}
+
+					</button>
+
+				</div>
+			</div>
 		</div>
+
+		<hr class="border-gray-50 dark:border-gray-850 my-2" />
 
 		{#if ($config?.features?.enable_api_key ?? true) || $user?.role === 'admin'}
 			<div class="flex justify-between items-center text-sm mb-2">

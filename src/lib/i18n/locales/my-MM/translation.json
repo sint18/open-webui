@@ -1401,5 +1401,9 @@
 	"No matching chatbots found": "Chatbots ရှာမတွေ့ပါ",
 	"No chatbots available": "Chatbots မရှိပါ",
 	"Choose a Chatbot": "Chatbot တစ်ခု ရွေးပါ",
-	"Select a model to start your conversation": "AI နဲ့ စကားပြောရန် Chatbot တစ်ခုရွေးပါ"
+	"Select a model to start your conversation": "AI နဲ့ စကားပြောရန် Chatbot တစ်ခုရွေးပါ",
+	"\uD83D\uDD17 Connect with Telegram": "Telegram မှာ ဆက်လုပ်မယ်",
+	"To complete your payment submission and receive confirmation, you must connect with our Telegram bot.": "ငွေပေးချေမှု ပြီးမြောက်ဖို့နဲ့ Payment ကို အတည်ပြုပေးဖို့ ကျနော်တို့ Laby AI Telegram Bot လေးနဲ့ ချိတ်ထားဖို့လိုပါမယ်။",
+	"\uD83D\uDD10 This keeps your notifications secure and instant.": "\uD83D\uDD10 ဒီလိုချိတ်ထားမှ notification တွေက လုံခြုံပြီး ချက်ချင်းရောက်မှာပါ။",
+	"\uD83D\uDCF2 Final Step: Confirm via Telegram": "\uD83D\uDCF2 နောက်ဆုံးအဆင့် အနေနဲ့ Telegram မှာ အတည်ပြုပေးပါ"
 }

@@ -306,6 +306,14 @@ async def get_telegram_onboarding_token(user=Depends(get_verified_user)):
         )
 
 
+@router.get("/user/telegram/connected", response_model=dict)
+async def check_telegram_connected(user=Depends(get_verified_user)):
+    user_data = Users.get_user_by_id(user.id)
+    if user_data and user_data.telegram_chat_id:
+        return {"connected": True}
+    return {"connected": False}
+
+
 ############################
 # GetUserById
 ############################
