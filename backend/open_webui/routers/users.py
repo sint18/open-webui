@@ -277,6 +277,36 @@ async def update_user_info_by_session_user(
 
 
 ############################
+# Telegram Onboarding
+############################
+
+
+@router.get("/user/telegram/onboarding", response_model=dict)
+async def get_telegram_onboarding_token(user=Depends(get_verified_user)):
+    import secrets
+    import time
+
+    token = secrets.token_hex(32)
+    expires_at = int(time.time()) + 3600  # Token expires in 1 hour
+
+    updated_user = Users.update_user_by_id(
+        user.id,
+        {
+            "telegram_onboarding_token": token,
+            "telegram_onboarding_token_expires_at": expires_at,
+        },
+    )
+
+    if updated_user:
+        return {"token": token}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate Telegram onboarding token.",
+        )
+
+
+############################
 # GetUserById
 ############################
 

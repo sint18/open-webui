@@ -245,6 +245,32 @@ async def create_order(
             log.error(f"Failed to record discount code usage: {e}")
 
     # Return the order, now including `screenshot_path`
+    # Notify admins via Telegram
+    try:
+        from open_webui.telegram_bot import notify_admins
+        from open_webui.config import WEBUI_URL
+        from datetime import datetime
+        order_creation_date = datetime.fromtimestamp(order.created_at).strftime("%d %b %Y %H:%M")
+
+        user_info = f"👤 User: {user.name} ({user.email}, ID: {user.id})"
+        order_details = (
+            f"🧾 Order ID: {order.order_id}\n"
+            f"💰 Amount: {order.amount_mmk:,} MMK\n"
+            f"📦 Plan: {str(order.plan_id.value).capitalize()}\n"
+            f"📆 Order Date: {order_creation_date}\n"
+        )
+        message = (
+            f"💳 *New Payment Submitted!*\n\n"
+            f"{user_info}\n\n"
+            f"{order_details}\n\n"
+            f"🔍 Please verify at:\n{WEBUI_URL.value}/admin/billing"
+        )
+
+        import asyncio
+        asyncio.create_task(notify_admins(message))
+    except Exception as e:
+        log.error(f"Failed to send Telegram notification for new order {order.order_id}: {e}")
+
     return updated
 
 
@@ -371,6 +397,28 @@ async def confirm_order(
 
     # 4. Track subscription completion analytics
     log.info(f"Subscription completed for user {order.user_id}, order {order_id}, plan {order.plan_id}, credits {order.credits}")
+
+    # 5. Notify user via Telegram
+    try:
+        from open_webui.telegram_bot import send_telegram_message
+        from open_webui.models.users import Users
+        from datetime import datetime
+
+        # We need the user's telegram_chat_id
+        user_to_notify = Users.get_user_by_id(order.user_id)
+        if user_to_notify and user_to_notify.telegram_chat_id:
+            period_end_str = datetime.fromtimestamp(order.period_end).strftime("%d %b %Y")
+            message = (
+                f"✅ Payment Confirmed!\n\n"
+                f"📦 Plan: {str(order.plan_id.value).capitalize()}\n"
+                f"📆 Valid Until: {period_end_str}\n\n"
+                f"🙏 Thank you for your purchase!"
+            )
+
+            import asyncio
+            asyncio.create_task(send_telegram_message(user_to_notify.telegram_chat_id, message))
+    except Exception as e:
+        log.error(f"Failed to send Telegram notification for confirmed order {order_id}: {e}")
 
     return order
 
