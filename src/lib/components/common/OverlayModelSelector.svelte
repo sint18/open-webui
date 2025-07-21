@@ -185,8 +185,8 @@
 
 <Modal
 	bind:show
-	size="2xl"
-	containerClassName="p-4 h-[80vh] fixed inset-0 z-50 bg-black/60 backdrop-blur-sm backdrop-saturate-150 flex items-center justify-center transition-opacity duration-300 opacity-100"
+	size={$mobile ? 'full' : '2xl'}
+	containerClassName="md:p-4 h-[80dvh] fixed inset-0 z-50 bg-black/60 backdrop-blur-sm backdrop-saturate-150 flex items-center justify-center transition-opacity duration-300 opacity-100"
 	className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden"
 >
 	<!-- Header -->
