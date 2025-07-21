@@ -125,16 +125,16 @@
 			});
 		}
 
-				// Custom Models (separate from vendor groups)
-    const custom = availableItems.filter(i => i.model?.info?.base_model_id);
-    if (custom.length > 0) {
-      vendorMap.set('Chatbots', {
-        name: 'Chatbots',
-        icon: getVendorIcon('Chatbots'),
-        models: custom.sort((a, b) => a.label.localeCompare(b.label)),
-        count: custom.length
-      });
-    }
+		// Custom Models (separate from vendor groups)
+		const custom = availableItems.filter(i => i.model?.info?.base_model_id);
+		if (custom.length > 0) {
+			vendorMap.set('Chatbots', {
+				name: 'Chatbots',
+				icon: getVendorIcon('Chatbots'),
+				models: custom.sort((a, b) => a.label.localeCompare(b.label)),
+				count: custom.length
+			});
+		}
 
 		// Group remaining models by vendor
 		availableItems.filter((item) => !item.model?.info?.base_model_id).forEach((item) => {
@@ -553,46 +553,51 @@
 												<!--{#if isSelected}-->
 												<!--	<div class="w-2 h-2 bg-teal-500 rounded-full"></div>-->
 												<!--{/if}-->
-												<img
-													src={profile_image}
-													alt="Logo for {item.model.name}"
-													class="rounded-full size-10 mr-2"
-												/>
-											</div>
-											{#if !canUse}
-												<LockClosed className="size-4 text-gray-400" strokeWidth="2" />
-											{/if}
-											<div>
-												<div class="font-medium text-gray-900 dark:text-white truncate">
-													{formatModelName(item.label)}
+												<div class="relative flex-shrink-0 size-10 sm:size-14">
+													<img
+														src={profile_image}
+														alt="Logo for {item.model.name}"
+														class="rounded-full size-10 sm:size-14 object-cover"
+													/>
+
+													{#if !canUse}
+														<!-- dark overlay with white lock in center -->
+														<div class="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+															<LockClosed className="size-6 text-white" strokeWidth="2" />
+														</div>
+													{/if}
 												</div>
+												<div>
+													<div class="font-medium text-gray-900 dark:text-white truncate">
+														{formatModelName(item.label)}
+													</div>
 
-												<!-- Model specs (right-aligned) -->
-												<!--{#if getModelSpeciality(item.model)}-->
-												<!--	<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">-->
-												<!--		{specs.tag} — {specs.description}-->
-												<!--	</div>-->
-												<!--{/if}-->
+													<!-- Model specs (right-aligned) -->
+													<!--{#if getModelSpeciality(item.model)}-->
+													<!--	<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">-->
+													<!--		{specs.tag} — {specs.description}-->
+													<!--	</div>-->
+													<!--{/if}-->
 
-												{#if item.tags && item.tags.length > 0}
-													<div class="flex items-center gap-2 my-1">
-														{#each item.tags as tag}
+													{#if item.tags && item.tags.length > 0}
+														<div class="flex items-center gap-2 my-1">
+															{#each item.tags as tag}
 															<span
 																class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
 															>
 																{tag.name}
 															</span>
-														{/each}
-													</div>
-												{/if}
-												{#if item.description}
-													<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-														{item.description}
-													</div>
-												{/if}
+															{/each}
+														</div>
+													{/if}
+													{#if item.description}
+														<div class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+															{item.description}
+														</div>
+													{/if}
+												</div>
 											</div>
-										</div>
-										{#if !canUse}
+											{#if !canUse}
 											<span
 												class="ml-auto inline-flex items-center rounded-full bg-teal-600/20
 										 px-2 py-0.5 text-xs font-semibold dark:text-teal-300 text-teal-500
@@ -600,12 +605,12 @@
 											>
 												Unlock
 											</span>
-										{/if}
-										{#if isSelected && canUse}
-											<Check className="size-5 text-teal-500 flex-shrink-0" strokeWidth="2" />
-										{/if}
+											{/if}
+											{#if isSelected && canUse}
+												<Check className="size-5 text-teal-500 flex-shrink-0" strokeWidth="2" />
+											{/if}
+										</div>
 									</div>
-								</div>
 							</button>
 						</Tooltip>
 					{:else}
