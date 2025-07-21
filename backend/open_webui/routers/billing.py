@@ -15,7 +15,8 @@ from open_webui.models.billing import (
     UserCreditsModel, UserCreditsForm, CreditTransactionModel,
     CreditTransactionForm, PaymentOrderModel, PaymentOrderForm,
     PaymentCallbackForm, PaymentOrderWithUserModel, PaymentOrderAuditForm,
-    UserCredits, CreditTransactions, PaymentOrders, PaymentOrderAudits
+    UserCredits, CreditTransactions, PaymentOrders, PaymentOrderAudits,
+    AdminPaymentOrderForm
 )
 
 from open_webui.storage.provider import Storage
@@ -127,6 +128,71 @@ async def list_all_orders(
 ):
     """Admin: Get all payment orders across all users with filtering"""
     return PaymentOrders.get_all_orders(skip, limit, status, user_email)
+
+
+@router.post("/admin/orders", response_model=PaymentOrderModel)
+async def create_manual_order(
+        form: AdminPaymentOrderForm,
+        admin=Depends(get_admin_user)
+):
+    """Admin: Create a manual payment order for a user."""
+    order = PaymentOrders.create_manual_payment_order(form.user_id, form)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=ERROR_MESSAGES.DEFAULT()
+        )
+
+    # Create an audit record for the manual creation
+    audit_form = PaymentOrderAuditForm(
+        order_id=order.order_id,
+        action="create_manual",
+        actor_id=admin.id,
+        actor_email=admin.email,
+        actor_name=admin.name,
+        new_status=order.status.value,
+        reason=f"Manual order created by admin: {form.notes}",
+        audit_metadata={
+            "admin_action": True,
+            "form_data": form.model_dump_json()
+        }
+    )
+    PaymentOrderAudits.create_audit_record(audit_form)
+
+    return order
+
+
+@router.put("/admin/orders/{order_id}", response_model=PaymentOrderModel)
+async def update_payment_order(
+        order_id: str,
+        form: AdminPaymentOrderForm,
+        admin=Depends(get_admin_user)
+):
+    """Admin: Update a manual payment order for a user."""
+    order = PaymentOrders.update_payment_order(order_id, form)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND
+        )
+
+    # Create an audit record for the manual update
+    audit_form = PaymentOrderAuditForm(
+        order_id=order.order_id,
+        action="update_manual",
+        actor_id=admin.id,
+        actor_email=admin.email,
+        actor_name=admin.name,
+        new_status=order.status.value,
+        reason=f"Manual order updated by admin: {form.notes}",
+        audit_metadata={
+            "admin_action": True,
+            "form_data": form.model_dump_json()
+        }
+    )
+    PaymentOrderAudits.create_audit_record(audit_form)
+
+    return order
 
 @router.post("/orders", response_model=PaymentOrderModel)
 async def create_order(
@@ -319,7 +385,7 @@ async def confirm_order(
             if existing_credits:
                 # User has existing credits - add to their balance
                 updated_credits = None
-                if order.type == OrderTypeEnum.plan_payment:
+                if order.type == OrderTypeEnum.plan_payment or order.type == OrderTypeEnum.manual:
                     updated_credits = UserCredits.update_subscription(user_id=order.user_id, new_plan=order.plan_id,
                                                                       monthly_quota=order.credits,
                                                                       new_end=order.period_end)
