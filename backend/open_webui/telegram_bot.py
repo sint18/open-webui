@@ -43,19 +43,26 @@ async def start(update: Update, context: CallbackContext):
                         },
                     )
                     await update.message.reply_text(
-                        "Your Telegram account has been successfully linked to your Open WebUI account."
+                        "Your Telegram account has been successfully linked to your Laby AI account."
                     )
                     log.info(f"Successfully linked chat_id {update.message.chat_id} to user {user.id}")
                 else:
                     log.warning(f"Onboarding token has expired for user {user.id}.")
-                    await update.message.reply_text("The onboarding token has expired.")
+                    await update.message.reply_text("""
+                    The onboarding token has expired. Please try again.\n\n
+                    1. Go to https://chat.labyai.app on your browser\n
+                    2. Go to Settings > Account > Connect Telegram\n
+                    """)
             else:
                 log.warning(f"No user found for token: {token}")
-                await update.message.reply_text("Invalid onboarding token.")
+                await update.message.reply_text("Invalid onboarding token. Please try again.")
         else:
             log.info("Received /start command without a token.")
             await update.message.reply_text(
-                "Welcome to the Open WebUI bot! Please use the link provided in your user profile to connect your account."
+                """
+                Welcome to the Laby AI bot!\n\n
+                Please use the link provided in your user profile under Settings > Account > Connect Telegram to connect your account.
+                """
             )
     except Exception as e:
         log.error(f"Error in /start command handler: {e}", exc_info=True)
