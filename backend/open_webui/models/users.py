@@ -26,6 +26,9 @@ class User(Base):
     email = Column(String)
     role = Column(String)
     profile_image_url = Column(Text)
+    telegram_chat_id = Column(String, nullable=True, unique=True)
+    telegram_onboarding_token = Column(String, nullable=True, unique=True)
+    telegram_onboarding_token_expires_at = Column(BigInteger, nullable=True)
 
     last_active_at = Column(BigInteger)
     updated_at = Column(BigInteger)
@@ -50,6 +53,9 @@ class UserModel(BaseModel):
     email: str
     role: str = "pending"
     profile_image_url: str
+    telegram_chat_id: Optional[str] = None
+    telegram_onboarding_token: Optional[str] = None
+    telegram_onboarding_token_expires_at: Optional[int] = None
 
     last_active_at: int  # timestamp in epoch
     updated_at: int  # timestamp in epoch
@@ -80,6 +86,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     profile_image_url: str
+    telegram_chat_id: Optional[str] = None
 
 
 class UserNameResponse(BaseModel):
@@ -162,6 +169,20 @@ class UsersTable:
         try:
             with get_db() as db:
                 user = db.query(User).filter_by(oauth_sub=sub).first()
+                return UserModel.model_validate(user)
+        except Exception:
+            return None
+
+    def get_user_by_telegram_onboarding_token(
+        self, token: str
+    ) -> Optional[UserModel]:
+        try:
+            with get_db() as db:
+                user = (
+                    db.query(User)
+                    .filter_by(telegram_onboarding_token=token)
+                    .first()
+                )
                 return UserModel.model_validate(user)
         except Exception:
             return None
@@ -398,6 +419,11 @@ class UsersTable:
                 return UserModel.model_validate(user)
             else:
                 return None
+
+    def get_admin_users(self) -> list[UserModel]:
+        with get_db() as db:
+            users = db.query(User).filter_by(role="admin").all()
+            return [UserModel.model_validate(user) for user in users]
 
 
 Users = UsersTable()

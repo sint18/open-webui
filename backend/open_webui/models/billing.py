@@ -44,6 +44,7 @@ class OrderTypeEnum(enum.Enum):
     credit = "credit"
     upgrade = "upgrade"
     plan_payment = "plan_payment"
+    manual = "manual"
 
 
 class StatusEnum(enum.Enum):
@@ -105,6 +106,7 @@ class PaymentOrder(Base):
       # URL or local path of uploaded screenshot
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     paid_at = Column(BigInteger, nullable=True)
+    notes = Column(Text, nullable=True)
 
 
 class PaymentOrderAudit(Base):
@@ -206,6 +208,7 @@ class PaymentOrderModel(BaseModel):
     created_at: int
     paid_at: Optional[int] = None
     screenshot_path: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class PaymentOrderWithUserModel(PaymentOrderModel):
@@ -221,6 +224,19 @@ class PaymentOrderForm(BaseModel):
     credits: Optional[int] = None
     amount_mmk: float
     provider: str
+
+
+class AdminPaymentOrderForm(BaseModel):
+    user_id: str
+    type: OrderTypeEnum
+    plan_target: Optional[str] = None
+    plan_id: Optional[PlanEnum] = None
+    credits: Optional[int] = None
+    amount_mmk: float
+    provider: str
+    notes: Optional[str] = None
+
+
 
 
 class PaymentCallbackForm(BaseModel):
@@ -387,6 +403,52 @@ class PaymentOrdersTable:
             db.commit()
             db.refresh(record)
             return PaymentOrderModel.model_validate(record) if record else None
+
+    def create_manual_payment_order(
+            self, user_id: str, form: AdminPaymentOrderForm
+    ) -> Optional[PaymentOrderModel]:
+        with get_db() as db:
+            now_ts = int(time.time())
+            period_end_ts = now_ts + int(datetime.timedelta(days=30).total_seconds())
+            order_id = str(uuid.uuid4())
+            record = PaymentOrder(
+                order_id=order_id,
+                user_id=user_id,
+                type=form.type,
+                plan_target=form.plan_target,
+                plan_id=form.plan_id,
+                credits=form.credits,
+                amount_mmk=form.amount_mmk,
+                provider=form.provider,
+                status=PaymentStatusEnum.pending,
+                period_start=now_ts,
+                period_end=period_end_ts,
+                notes=form.notes,
+                created_at=now_ts,
+            )
+            db.add(record)
+            db.commit()
+            db.refresh(record)
+            return PaymentOrderModel.model_validate(record) if record else None
+
+    def update_payment_order(
+            self, order_id: str, form: AdminPaymentOrderForm
+    ) -> Optional[PaymentOrderModel]:
+        with get_db() as db:
+            record = db.query(PaymentOrder).filter(PaymentOrder.order_id == order_id).first()
+            if record:
+                record.user_id = form.user_id
+                record.type = form.type
+                record.plan_target = form.plan_target
+                record.plan_id = form.plan_id
+                record.credits = form.credits
+                record.amount_mmk = form.amount_mmk
+                record.provider = form.provider
+                record.notes = form.notes
+                db.commit()
+                db.refresh(record)
+                return PaymentOrderModel.model_validate(record)
+            return None
 
     def save_screenshot_path(
             self, order_id: str, path: str

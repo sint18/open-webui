@@ -1008,6 +1008,21 @@ RESPONSE_WATERMARK = PersistentConfig(
     os.environ.get("RESPONSE_WATERMARK", ""),
 )
 
+####################################
+# TELEGRAM
+####################################
+
+TELEGRAM_ENABLED = PersistentConfig(
+    "TELEGRAM_ENABLED",
+    "telegram.enabled",
+    os.environ.get("TELEGRAM_ENABLED", "False").lower() == "true",
+)
+
+TELEGRAM_BOT_TOKEN = PersistentConfig(
+    "TELEGRAM_BOT_TOKEN",
+    "telegram.bot_token",
+    os.environ.get("TELEGRAM_BOT_TOKEN", ""),
+)
 
 USER_PERMISSIONS_WORKSPACE_MODELS_ACCESS = (
     os.environ.get("USER_PERMISSIONS_WORKSPACE_MODELS_ACCESS", "False").lower()

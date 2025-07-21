@@ -10,6 +10,7 @@
 	import ImagePreview from '$lib/components/common/ImagePreview.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import { trackEvent, ANALYTICS_EVENTS } from '$lib/utils/analytics';
+	import PaymentOrderModal from '../Users/PaymentOrder/PaymentOrderModal.svelte';
 
 	const i18n: any = getContext('i18n');
 
@@ -43,6 +44,8 @@
 	// Decline dialog state
 	let showDeclineDialog = false;
 	let selectedOrderForDecline: PaymentOrder | null = null;
+	let showPaymentOrderModal = false;
+	let selectedOrderForEdit: PaymentOrder | null = null;
 
 	// Pagination
 	let skip = 0;
@@ -230,6 +233,15 @@
 				{$i18n.t('Manage and review all payment orders across all users')}
 			</p>
 		</div>
+		<button
+			class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+			on:click={() => {
+				selectedOrderForEdit = null;
+				showPaymentOrderModal = true;
+			}}
+		>
+			{$i18n.t('Create Order')}
+		</button>
 	</div>
 
 	<!-- Filters -->
@@ -285,72 +297,72 @@
 			<div class="overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 					<thead class="bg-gray-50 dark:bg-gray-800">
-						<tr>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('Order ID')}
-							</th>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('User')}
-							</th>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('Amount')}
-							</th>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('Credits')}
-							</th>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('Status')}
-							</th>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('Date')}
-							</th>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('Screenshot')}
-							</th>
-							<th
-								class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-							>
-								{$i18n.t('Actions')}
-							</th>
-						</tr>
+					<tr>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('Order ID')}
+						</th>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('User')}
+						</th>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('Amount')}
+						</th>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('Credits')}
+						</th>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('Status')}
+						</th>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('Date')}
+						</th>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('Screenshot')}
+						</th>
+						<th
+							class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+						>
+							{$i18n.t('Actions')}
+						</th>
+					</tr>
 					</thead>
 					<tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-						{#each orders as order}
-							<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
-								<td
-									class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white"
-								>
-									{order.order_id.substring(0, 8)}...
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap">
-									<div class="text-sm text-gray-900 dark:text-white">
-										{order.user_name || 'Unknown'}
-									</div>
-									<div class="text-sm text-gray-500 dark:text-gray-400">
-										{order.user_email || order.user_id}
-									</div>
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-									{formatAmount(order.amount_mmk)} MMK
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-									{order.credits || '-'}
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap">
+					{#each orders as order}
+						<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+							<td
+								class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white"
+							>
+								{order.order_id.substring(0, 8)}...
+							</td>
+							<td class="px-6 py-4 whitespace-nowrap">
+								<div class="text-sm text-gray-900 dark:text-white">
+									{order.user_name || 'Unknown'}
+								</div>
+								<div class="text-sm text-gray-500 dark:text-gray-400">
+									{order.user_email || order.user_id}
+								</div>
+							</td>
+							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+								{formatAmount(order.amount_mmk)} MMK
+							</td>
+							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+								{order.credits || '-'}
+							</td>
+							<td class="px-6 py-4 whitespace-nowrap">
 									<span
 										class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {getStatusBadgeClass(
 											order.status
@@ -358,96 +370,105 @@
 									>
 										{order.status}
 									</span>
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-									{dayjs(order.created_at * 1000).format('MMM D, YYYY HH:mm')}
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm">
-									{#if order.screenshot_path}
-										<button
-											on:click={() => viewScreenshot(order.screenshot_path)}
-											class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-										>
-											{$i18n.t('View')}
-										</button>
-									{:else}
-										<span class="text-gray-400">-</span>
-									{/if}
-								</td>
-								<td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-									{#if order.status === 'pending'}
-										<button
-											on:click={() => showConfirmationDialog(order)}
-											disabled={confirmingOrderId === order.order_id}
-											class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-										>
-											{#if confirmingOrderId === order.order_id}
-												<svg
-													class="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
-													xmlns="http://www.w3.org/2000/svg"
-													fill="none"
-													viewBox="0 0 24 24"
-												>
-													<circle
-														class="opacity-25"
-														cx="12"
-														cy="12"
-														r="10"
-														stroke="currentColor"
-														stroke-width="4"
-													></circle>
-													<path
-														class="opacity-75"
-														fill="currentColor"
-														d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-													></path>
-												</svg>
-												{$i18n.t('Confirming...')}
-											{:else}
-												{$i18n.t('Confirm')}
-											{/if}
-										</button>
-										<button
-											on:click={() => showDeclineConfirmationDialog(order)}
-											disabled={decliningOrderId === order.order_id}
-											class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
-										>
-											{#if decliningOrderId === order.order_id}
-												<svg
-													class="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
-													xmlns="http://www.w3.org/2000/svg"
-													fill="none"
-													viewBox="0 0 24 24"
-												>
-													<circle
-														class="opacity-25"
-														cx="12"
-														cy="12"
-														r="10"
-														stroke="currentColor"
-														stroke-width="4"
-													></circle>
-													<path
-														class="opacity-75"
-														fill="currentColor"
-														d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-													></path>
-												</svg>
-												{$i18n.t('Declining...')}
-											{:else}
-												{$i18n.t('Decline')}
-											{/if}
-										</button>
-									{/if}
+							</td>
+							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+								{dayjs(order.created_at * 1000).format('MMM D, YYYY HH:mm')}
+							</td>
+							<td class="px-6 py-4 whitespace-nowrap text-sm">
+								{#if order.screenshot_path}
 									<button
-										on:click={() => viewUserDetails(order.user_id)}
-										class="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+										on:click={() => viewScreenshot(order.screenshot_path)}
+										class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
 									>
-										{$i18n.t('View User')}
+										{$i18n.t('View')}
 									</button>
-								</td>
-							</tr>
-						{/each}
+								{:else}
+									<span class="text-gray-400">-</span>
+								{/if}
+							</td>
+							<td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+								{#if order.status === 'pending'}
+									<button
+										on:click={() => showConfirmationDialog(order)}
+										disabled={confirmingOrderId === order.order_id}
+										class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+									>
+										{#if confirmingOrderId === order.order_id}
+											<svg
+												class="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+											>
+												<circle
+													class="opacity-25"
+													cx="12"
+													cy="12"
+													r="10"
+													stroke="currentColor"
+													stroke-width="4"
+												></circle>
+												<path
+													class="opacity-75"
+													fill="currentColor"
+													d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+												></path>
+											</svg>
+											{$i18n.t('Confirming...')}
+										{:else}
+											{$i18n.t('Confirm')}
+										{/if}
+									</button>
+									<button
+										on:click={() => showDeclineConfirmationDialog(order)}
+										disabled={decliningOrderId === order.order_id}
+										class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+									>
+										{#if decliningOrderId === order.order_id}
+											<svg
+												class="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+											>
+												<circle
+													class="opacity-25"
+													cx="12"
+													cy="12"
+													r="10"
+													stroke="currentColor"
+													stroke-width="4"
+												></circle>
+												<path
+													class="opacity-75"
+													fill="currentColor"
+													d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+												></path>
+											</svg>
+											{$i18n.t('Declining...')}
+										{:else}
+											{$i18n.t('Decline')}
+										{/if}
+									</button>
+								{/if}
+								<button
+									on:click={() => viewUserDetails(order.user_id)}
+									class="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+								>
+									{$i18n.t('View User')}
+								</button>
+								<button
+									on:click={() => {
+											selectedOrderForEdit = order;
+											showPaymentOrderModal = true;
+										}}
+									class="inline-flex items-center px-3 py-1 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+								>
+									{$i18n.t('Edit')}
+								</button>
+							</td>
+						</tr>
+					{/each}
 					</tbody>
 				</table>
 			</div>
@@ -526,5 +547,17 @@
 	}}
 	on:cancel={() => {
 		selectedOrderForDecline = null;
+	}}
+/>
+
+<PaymentOrderModal
+	bind:show={showPaymentOrderModal}
+	order={selectedOrderForEdit}
+	on:close={() => {
+		showPaymentOrderModal = false;
+		selectedOrderForEdit = null;
+	}}
+	on:save={() => {
+		loadOrders(true);
 	}}
 />

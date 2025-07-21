@@ -244,7 +244,7 @@
 			});
 
 			toast.success("Payment submitted! We'll verify shortly.");
-			goto('/pricing', { replaceState: true });
+			goto('/checkout/success', { replaceState: true });
 		} catch (err) {
 			// Track failed payment submission
 			trackEvent(ANALYTICS_EVENTS.CHECKOUT_PAYMENT_FAILED, {

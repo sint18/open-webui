@@ -85,15 +85,15 @@
 		}
 
 		// Custom Models (separate from vendor groups)
-    const custom = filteredItems.filter(i => i.model?.info?.base_model_id);
-    if (custom.length) {
-      groups.set('Chatbots', {
-        name: 'ChatBots powered by LabyAI',
-        icon: getVendorIcon('Chatbots'),
-        items: custom.sort((a, b) => a.label.localeCompare(b.label)),
-        priority: 1
-      });
-    }
+		const custom = filteredItems.filter(i => i.model?.info?.base_model_id);
+		if (custom.length) {
+			groups.set('Chatbots', {
+				name: 'ChatBots powered by LabyAI',
+				icon: getVendorIcon('Chatbots'),
+				items: custom.sort((a, b) => a.label.localeCompare(b.label)),
+				priority: 1
+			});
+		}
 
 		// Group regular items by vendor
 		regularItems.forEach((item) => {
@@ -119,18 +119,18 @@
 	})();
 
 	$: paginatedGroups = (() => {
-    const out = [];
-    let count = 0;
-    for (const group of groupedItems) {
-      if (count >= visibleCount) break;
-      out.push(group);
-      count += group.items.length;
-    }
-    return out;
-  })();
+		const out = [];
+		let count = 0;
+		for (const group of groupedItems) {
+			if (count >= visibleCount) break;
+			out.push(group);
+			count += group.items.length;
+		}
+		return out;
+	})();
 
-  // total number of items (for "has more?" check)
-  $: totalItemCount = groupedItems.reduce((sum, g) => sum + g.items.length, 0);
+	// total number of items (for "has more?" check)
+	$: totalItemCount = groupedItems.reduce((sum, g) => sum + g.items.length, 0);
 
 
 	function selectChatbot(item: any) {
@@ -185,8 +185,8 @@
 
 <Modal
 	bind:show
-	size="2xl"
-	containerClassName="p-4 h-[80vh] fixed inset-0 z-50 bg-black/60 backdrop-blur-sm backdrop-saturate-150 flex items-center justify-center transition-opacity duration-300 opacity-100"
+	size={$mobile ? 'full' : '2xl'}
+	containerClassName="md:p-4 h-[80dvh] fixed inset-0 z-50 bg-black/60 backdrop-blur-sm backdrop-saturate-150 flex items-center justify-center transition-opacity duration-300 opacity-100"
 	className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden"
 >
 	<!-- Header -->
@@ -254,7 +254,8 @@
 				<div class="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
 					{#each group.items as item}
 						{@const canUse = $user?.role === 'admin' || item.model.can_use !== false}
-						{@const profile_image = item.model?.info?.meta?.profile_image_url !== "/static/favicon.png" ? item.model?.info?.meta?.profile_image_url : getLogoForModel(getCompanyName(item.model)) }
+						{@const
+							profile_image = item.model?.info?.meta?.profile_image_url !== "/static/favicon.png" ? item.model?.info?.meta?.profile_image_url : getLogoForModel(getCompanyName(item.model)) }
 
 						<button
 							class="group relative bg-gray-50 dark:bg-gray-800 rounded-xl p-4 text-left transition-all duration-200 border border-gray-200 dark:border-gray-700 hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md
@@ -275,13 +276,21 @@
 							{/if}
 
 							<div class="flex items-start gap-3">
-								<div class="flex-shrink-0">
+								<div class="relative flex-shrink-0 w-12 h-12 sm:w-20 sm:h-20">
 									<img
 										src={profile_image}
 										alt="Logo for {item.model.name}"
-										class="rounded-full size-12 sm:size-20"
+										class="rounded-full w-full h-full object-cover"
 									/>
+
+									{#if !canUse}
+										<!-- dark overlay with white lock in center -->
+										<div class="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+											<LockClosed className="size-6 text-white" strokeWidth="2" />
+										</div>
+									{/if}
 								</div>
+
 
 								<div class="flex-1 min-w-0">
 									<div class="flex items-center gap-2 mb-1">

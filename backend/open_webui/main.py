@@ -492,7 +492,30 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(periodic_usage_pool_cleanup())
 
+    from open_webui.scheduled_tasks import schedule_tasks
+    from open_webui.telegram_bot import app as telegram_app
+
+    schedule_tasks()
+
+    if telegram_app:
+        log.info("Initializing and starting Telegram bot...")
+        await telegram_app.initialize()
+        await telegram_app.start()
+        telegram_app.create_task(telegram_app.updater.start_polling())
+        if telegram_app.post_init:
+            await telegram_app.post_init(telegram_app)
+        log.info("Telegram bot started.")
+
     yield
+
+    # SHUTDOWN LOGIC
+    if telegram_app:
+        log.info("Stopping Telegram bot...")
+        if telegram_app.post_stop:
+            await telegram_app.post_stop(telegram_app)
+        await telegram_app.stop()
+        await telegram_app.shutdown()
+        log.info("Telegram bot stopped.")
 
 
 app = FastAPI(

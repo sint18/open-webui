@@ -210,3 +210,35 @@ export const createUserCredits = async (
 	}
 	return response.json();
 };
+
+export const createManualPaymentOrder = async (token: string, order: any) => {
+	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/admin/orders`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(order)
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.detail);
+	}
+	return response.json();
+};
+
+export const updatePaymentOrder = async (token: string, orderId: string, order: any) => {
+	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/admin/orders/${orderId}`, {
+		method: 'PUT',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(order)
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.detail);
+	}
+	return response.json();
+};

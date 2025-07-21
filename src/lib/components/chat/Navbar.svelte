@@ -142,7 +142,7 @@
 						</Tooltip>
 					{/if}
 
-					{#if !currentPlan}
+					{#if currentPlan === "free"}
 						<Tooltip content={$i18n.t('Pricing')}>
 							<a
 								href="/pricing"
