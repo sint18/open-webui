@@ -1405,5 +1405,9 @@
 	"\uD83D\uDD17 Connect with Telegram": "Telegram မှာ ဆက်လုပ်မယ်",
 	"To complete your payment submission and receive confirmation, you must connect with our Telegram bot.": "ငွေပေးချေမှု ပြီးမြောက်ဖို့နဲ့ Payment ကို အတည်ပြုပေးဖို့ ကျနော်တို့ Laby AI Telegram Bot လေးနဲ့ ချိတ်ထားဖို့လိုပါမယ်။",
 	"\uD83D\uDD10 This keeps your notifications secure and instant.": "\uD83D\uDD10 ဒီလိုချိတ်ထားမှ notification တွေက လုံခြုံပြီး ချက်ချင်းရောက်မှာပါ။",
-	"\uD83D\uDCF2 Final Step: Confirm via Telegram": "\uD83D\uDCF2 နောက်ဆုံးအဆင့် အနေနဲ့ Telegram မှာ အတည်ပြုပေးပါ"
+	"\uD83D\uDCF2 Final Step: Confirm via Telegram": "\uD83D\uDCF2 နောက်ဆုံးအဆင့် အနေနဲ့ Telegram မှာ အတည်ပြုပေးပါ",
+	"You're all set!": "အားလုံးအဆင်ပြေသွားပြီ!",
+	"✨ Thank you for uploading your payment screenshot. We'll notify you on Telegram as soon as your payment is confirmed.": "✨ Payment screenshot လေး ပို့ပေးလို့ ကျေးဇူးပါပဲ။ သင့်ရဲ့ payment ကို confirm လုပ်ပြီးတာနဲ့ Telegram ကနေ ချက်ချင်းအကြောင်းကြားပေးမယ်။",
+	"No need to do anything — we've already linked your Telegram for instant updates.": "သင့် အနေနဲ့ ဘာမှထပ်လုပ်စရာမလိုတော့ဘူး — update တွေ ချက်ချင်းရဖို့အတွက် မင်းရဲ့ Telegram ကို ချိတ်ပြီးသားမို့လို့ပါ။"
+
 }
