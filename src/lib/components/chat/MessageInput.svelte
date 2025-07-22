@@ -1264,7 +1264,7 @@
 															class="px-2 @xl:px-2.5 py-2 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 {selectedFilterIds.includes(
 																filter.id
 															)
-																? 'text-sky-500 dark:text-sky-300 bg-sky-50 dark:bg-sky-200/5'
+																? 'text-teal-500 dark:text-teal-300 bg-teal-50 dark:bg-teal-200/5'
 																: 'bg-transparent text-gray-600 dark:text-gray-300  '} capitalize"
 														>
 															{#if filter?.icon}
@@ -1296,7 +1296,7 @@
 															type="button"
 															class="px-2 @xl:px-2.5 py-2 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 {webSearchEnabled ||
 															($settings?.webSearch ?? false) === 'always'
-																? ' text-sky-500 dark:text-sky-300 bg-sky-50 dark:bg-sky-200/5'
+																? ' text-teal-500 dark:text-teal-300 bg-teal-50 dark:bg-teal-200/5'
 																: 'bg-transparent text-gray-600 dark:text-gray-300 '}"
 														>
 															<GlobeAlt className="size-4" strokeWidth="1.75" />
@@ -1315,7 +1315,7 @@
 																(imageGenerationEnabled = !imageGenerationEnabled)}
 															type="button"
 															class="px-2 @xl:px-2.5 py-2 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 {imageGenerationEnabled
-																? ' text-sky-500 dark:text-sky-300 bg-sky-50 dark:bg-sky-200/5'
+																? ' text-teal-500 dark:text-teal-300 bg-teal-50 dark:bg-teal-200/5'
 																: 'bg-transparent text-gray-600 dark:text-gray-300 '}"
 														>
 															<Photo className="size-4" strokeWidth="1.75" />
@@ -1334,7 +1334,7 @@
 																(codeInterpreterEnabled = !codeInterpreterEnabled)}
 															type="button"
 															class="px-2 @xl:px-2.5 py-2 flex gap-1.5 items-center text-sm rounded-full transition-colors duration-300 focus:outline-hidden max-w-full overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 {codeInterpreterEnabled
-																? ' text-sky-500 dark:text-sky-300 bg-sky-50 dark:bg-sky-200/5'
+																? ' text-teal-500 dark:text-teal-300 bg-teal-50 dark:bg-teal-200/5'
 																: 'bg-transparent text-gray-600 dark:text-gray-300 '}"
 														>
 															<CommandLine className="size-4" strokeWidth="1.75" />
