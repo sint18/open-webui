@@ -33,7 +33,7 @@ def upgrade() -> None:
     op.create_table('payment_order',
     sa.Column('order_id', sa.String(), nullable=False),
     sa.Column('user_id', sa.String(), nullable=False),
-    sa.Column('type', sa.Enum('credit', 'upgrade', 'plan_payment', name='order_type_enum'), nullable=False),
+    sa.Column('type', sa.Enum('credit', 'upgrade', 'plan_payment', 'manual', name='order_type_enum'), nullable=False),
     sa.Column('plan_target', sa.Text(), nullable=True),
     sa.Column('plan_id', sa.Enum('starter', 'pro', 'studio', 'free', name='plan_enum'), nullable=True),
     sa.Column('credits', sa.BigInteger(), nullable=True),
