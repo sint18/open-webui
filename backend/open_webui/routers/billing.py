@@ -18,6 +18,10 @@ from open_webui.models.billing import (
     UserCredits, CreditTransactions, PaymentOrders, PaymentOrderAudits,
     AdminPaymentOrderForm
 )
+from open_webui.models.plans import Plans, PlanModel
+
+class UserCreditsWithPlanModel(UserCreditsModel):
+    plan: Optional[PlanModel] = None
 
 from open_webui.storage.provider import Storage
 
@@ -46,18 +50,24 @@ async def create_credits(
     return result
 
 
-@router.get('/credits', response_model=UserCreditsModel)
+@router.get('/credits', response_model=UserCreditsWithPlanModel)
 async def get_credits(
         user=Depends(get_verified_user)
 ):
-    """Retrieve current user's credit balance"""
-    result = UserCredits.get_user_credits(user.id)
-    if not result:
+    """Retrieve current user's credit balance and associated plan"""
+    user_credits = UserCredits.get_user_credits(user.id)
+    if not user_credits:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ERROR_MESSAGES.DEFAULT()
         )
-    return result
+
+    current_plan = Plans.get_plan_by_id(user_credits.plan_id)
+
+    return UserCreditsWithPlanModel(
+        **user_credits.model_dump(),
+        plan=current_plan
+    )
 
 
 @router.get('/{user_id}/credits', response_model=UserCreditsModel)

@@ -97,7 +97,7 @@ class PaymentOrder(Base):
     user_id = Column(String, nullable=False)
     type = Column(SAEnum(OrderTypeEnum, name="order_type_enum"), nullable=False)
     plan_target = Column(Text, nullable=True)
-    plan_id = Column(SAEnum(PlanEnum, name="plan_enum"), nullable=True)
+    plan_id = Column(String, nullable=True)
     credits = Column(BigInteger, nullable=True)
     amount_mmk = Column(Numeric, nullable=False)
     provider = Column(String, nullable=False)

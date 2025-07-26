@@ -1,7 +1,6 @@
-
 import time
 from datetime import datetime
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any, Literal, List
 import logging
 
 from pydantic import BaseModel, ConfigDict
@@ -19,7 +18,7 @@ from open_webui.internal.db import Base, get_db
 from open_webui.models.users import Users
 from open_webui.models.billing import UserCredits
 
-Window = Literal["day", "week", "month"]
+Window = Literal["3h", "12h", "day", "week", "month"]
 log = logging.getLogger(__name__)
 
 
@@ -54,7 +53,58 @@ class Quota(BaseModel):
     window: Window
 
 
+class QuotaPolicyForm(BaseModel):
+    user_id: Optional[str] = None
+    plan_id: Optional[str] = None
+    resource_pattern: str
+    limit: int
+    window: Window
+    effective_from: Optional[int] = None
+    expires_at: Optional[int] = None
+
+
 class QuotaPoliciesTable:
+    def insert_quota_policy(self, form_data: QuotaPolicyForm) -> Optional[QuotaPolicyModel]:
+        with get_db() as db:
+            quota_policy = QuotaPolicy(**form_data.model_dump())
+            db.add(quota_policy)
+            db.commit()
+            db.refresh(quota_policy)
+            return QuotaPolicyModel.model_validate(quota_policy)
+
+    def get_quota_policy_by_id(self, policy_id: str) -> Optional[QuotaPolicyModel]:
+        with get_db() as db:
+            policy = db.query(QuotaPolicy).filter_by(id=policy_id).first()
+            return QuotaPolicyModel.model_validate(policy) if policy else None
+
+    def get_quota_policies(self, user_id: Optional[str] = None, plan_id: Optional[str] = None) -> List[
+        QuotaPolicyModel]:
+        with get_db() as db:
+            query = db.query(QuotaPolicy)
+            if user_id:
+                query = query.filter_by(user_id=user_id)
+            if plan_id:
+                query = query.filter_by(plan_id=plan_id)
+            policies = query.all()
+            return [QuotaPolicyModel.model_validate(policy) for policy in policies]
+
+    def update_quota_policy(self, policy_id: str, form_data: QuotaPolicyForm) -> Optional[QuotaPolicyModel]:
+        with get_db() as db:
+            policy = db.query(QuotaPolicy).filter_by(id=policy_id).first()
+            if policy:
+                for key, value in form_data.model_dump(exclude_unset=True).items():
+                    setattr(policy, key, value)
+                db.commit()
+                db.refresh(policy)
+                return QuotaPolicyModel.model_validate(policy)
+            return None
+
+    def delete_quota_policy(self, policy_id: str) -> bool:
+        with get_db() as db:
+            result = db.query(QuotaPolicy).filter_by(id=policy_id).delete()
+            db.commit()
+            return result > 0
+
     def get_quota(self, user_id: str, resource: str) -> Quota:
         now = int(time.time())
         with get_db() as db:

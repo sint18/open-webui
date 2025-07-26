@@ -80,7 +80,9 @@ from open_webui.routers import (
     utils,
     billing,
     storage,
-    discount
+    discount,
+    plans,
+    quota_policy # Added quota_policy router
 )
 
 from open_webui.routers.retrieval import (
@@ -1101,6 +1103,8 @@ app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(storage.router, prefix="/api/v1/storage", tags=["storage"])
 app.include_router(discount.router, prefix="/api/v1/discount", tags=["discount"])
+app.include_router(plans.router, prefix="/api/v1/plans", tags=["plans"])
+app.include_router(quota_policy.router, prefix="/api/v1/quota_policies", tags=["quota_policies"]) # Added quota_policy router
 
 try:
     audit_level = AuditLevel(AUDIT_LOG_LEVEL)
