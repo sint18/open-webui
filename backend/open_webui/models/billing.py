@@ -68,7 +68,7 @@ class UserCredit(Base):
     __tablename__ = "user_credit"
 
     user_id = Column(String, primary_key=True)
-    plan_id = Column(SAEnum(PlanEnum, name="plan_enum"), nullable=False)
+    plan_id = Column(String, nullable=False)
     credit_balance = Column(BigInteger, nullable=False)
     monthly_quota = Column(BigInteger, nullable=False)
     current_period_end = Column(BigInteger, nullable=True)
@@ -85,6 +85,9 @@ class CreditTransaction(Base):
     usd_spend = Column(Numeric, nullable=False)
     model_name = Column(Text, nullable=False)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
+    # resource_type = Column(String(32), nullable=True)
+    # reference_id  = Column(String)         # FK to image_jobs.id (optional)
+    # meta = Column(JSON, nullable=True)
 
 
 class PaymentOrder(Base):
@@ -157,7 +160,7 @@ class UserCreditsModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     user_id: str
-    plan_id: PlanEnum
+    plan_id: str
     credit_balance: int
     monthly_quota: int
     current_period_end: Optional[int] = None
@@ -167,7 +170,7 @@ class UserCreditsModel(BaseModel):
 
 class UserCreditsForm(BaseModel):
     user_id: str
-    plan_id: PlanEnum
+    plan_id: str
     credit_balance: int  # Add explicit credit_balance field
     monthly_quota: int
     current_period_end: Optional[int] = None
@@ -198,7 +201,7 @@ class PaymentOrderModel(BaseModel):
     user_id: str
     type: OrderTypeEnum
     plan_target: Optional[str] = None
-    plan_id: Optional[PlanEnum] = None
+    plan_id: Optional[str] = None
     credits: Optional[int] = None
     amount_mmk: float
     provider: str
@@ -220,7 +223,7 @@ class PaymentOrderWithUserModel(PaymentOrderModel):
 class PaymentOrderForm(BaseModel):
     type: OrderTypeEnum
     plan_target: Optional[str] = None
-    plan_id: Optional[PlanEnum] = None
+    plan_id: Optional[str] = None
     credits: Optional[int] = None
     amount_mmk: float
     provider: str
@@ -230,7 +233,7 @@ class AdminPaymentOrderForm(BaseModel):
     user_id: str
     type: OrderTypeEnum
     plan_target: Optional[str] = None
-    plan_id: Optional[PlanEnum] = None
+    plan_id: Optional[str] = None
     credits: Optional[int] = None
     amount_mmk: float
     provider: str

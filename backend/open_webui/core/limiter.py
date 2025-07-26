@@ -2,14 +2,14 @@ import os
 import logging
 from datetime import datetime, timedelta
 from typing import Literal, Optional
-
+from open_webui.env import REDIS_URL
 import redis.asyncio as redis
 
 # Setup logger
 log = logging.getLogger(__name__)
 
 # Config
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = REDIS_URL or "redis://localhost:6379/0"
 TIMEZONE = os.getenv("LIMITER_TZ", "UTC")  # Use "Asia/Yangon" if needed
 
 
