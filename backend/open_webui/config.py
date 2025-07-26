@@ -1012,10 +1012,8 @@ RESPONSE_WATERMARK = PersistentConfig(
 # TELEGRAM
 ####################################
 
-TELEGRAM_ENABLED = PersistentConfig(
-    "TELEGRAM_ENABLED",
-    "telegram.enabled",
-    os.environ.get("TELEGRAM_ENABLED", "False").lower() == "true",
+TELEGRAM_ENABLED = (
+    os.environ.get("TELEGRAM_ENABLED", "False").lower() == "true"
 )
 
 TELEGRAM_BOT_TOKEN = PersistentConfig(

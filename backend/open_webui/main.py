@@ -369,6 +369,7 @@ from open_webui.config import (
     AUTOCOMPLETE_GENERATION_INPUT_MAX_LENGTH,
     AppConfig,
     reset_config,
+    TELEGRAM_ENABLED
 )
 from open_webui.env import (
     AUDIT_EXCLUDED_PATHS,
@@ -430,6 +431,7 @@ from open_webui.tasks import (
 
 from open_webui.utils.redis import get_sentinels_from_env
 from open_webui.utils.billing import BillingMiddleware
+from open_webui.core.limiter import limiter as usage_limiter
 
 if SAFE_MODE:
     print("SAFE MODE ENABLED")
@@ -490,6 +492,10 @@ async def lifespan(app: FastAPI):
         limiter = anyio.to_thread.current_default_thread_limiter()
         limiter.total_tokens = THREAD_POOL_SIZE
 
+    log.info("Initializing Redis connection and rate limiter...")
+    app.state.usage_limiter = usage_limiter
+    log.info("Redis connection and rate limiter initialized.")
+
     asyncio.create_task(periodic_usage_pool_cleanup())
 
     from open_webui.scheduled_tasks import schedule_tasks
@@ -497,18 +503,24 @@ async def lifespan(app: FastAPI):
 
     schedule_tasks()
 
-    if telegram_app:
-        log.info("Initializing and starting Telegram bot...")
-        await telegram_app.initialize()
-        await telegram_app.start()
-        telegram_app.create_task(telegram_app.updater.start_polling())
-        if telegram_app.post_init:
-            await telegram_app.post_init(telegram_app)
-        log.info("Telegram bot started.")
+    if TELEGRAM_ENABLED:
+        if telegram_app:
+            log.info("Initializing and starting Telegram bot...")
+            await telegram_app.initialize()
+            await telegram_app.start()
+            telegram_app.create_task(telegram_app.updater.start_polling())
+            if telegram_app.post_init:
+                await telegram_app.post_init(telegram_app)
+            log.info("Telegram bot started.")
 
     yield
 
     # SHUTDOWN LOGIC
+    if app.state.usage_limiter:
+        log.info("Closing Redis connection...")
+        await app.state.usage_limiter.redis.close()
+        log.info("Redis connection closed.")
+
     if telegram_app:
         log.info("Stopping Telegram bot...")
         if telegram_app.post_stop:

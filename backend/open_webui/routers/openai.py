@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
+from core.quota import requires_quota
 from open_webui.models.models import Models
 from open_webui.config import (
     CACHE_DIR,
@@ -688,6 +689,7 @@ def convert_to_azure_payload(
 
 
 @router.post("/chat/completions")
+@requires_quota("model")
 @requires_credits(min_credits=1)
 async def generate_chat_completion(
         request: Request,
