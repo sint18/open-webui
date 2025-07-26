@@ -2,6 +2,7 @@
 import time
 from datetime import datetime
 from typing import Optional, Dict, Any, Literal
+import logging
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import (
@@ -16,8 +17,10 @@ from sqlalchemy import (
 
 from open_webui.internal.db import Base, get_db
 from open_webui.models.users import Users
+from open_webui.models.billing import UserCredits
 
 Window = Literal["day", "week", "month"]
+log = logging.getLogger(__name__)
 
 
 class QuotaPolicy(Base):
@@ -55,41 +58,49 @@ class QuotaPoliciesTable:
     def get_quota(self, user_id: str, resource: str) -> Quota:
         now = int(time.time())
         with get_db() as db:
-            user = Users.get_user_by_id(user_id)
-            plan_id = getattr(user, "plan_id", None)
+            user_credits = UserCredits.get_user_credits(user_id)
+            if not user_credits:
+                return Quota(limit=0, window="day")
 
+            plan_id = str(user_credits.plan_id)
             resource_parts = resource.split(":", 1)
-            wildcard_resource = f"{resource_parts[0]}:*"
-            resources_to_check = [resource, wildcard_resource]
-
-            # Build query for active policies matching the resource or its wildcard
-            query = db.query(QuotaPolicy).filter(
-                QuotaPolicy.resource_pattern.in_(resources_to_check),
+            wildcard = f"{resource_parts[0]}:*"
+            to_check = [resource, wildcard]
+            log.info(f"Checking resources: {to_check}")
+            # 1. Check user-specific policies
+            user_policy = db.query(QuotaPolicy).filter(
+                QuotaPolicy.user_id == user_id,
+                QuotaPolicy.resource_pattern.in_(to_check),
                 QuotaPolicy.effective_from <= now,
                 or_(
                     QuotaPolicy.expires_at == None,
-                    QuotaPolicy.expires_at > now
-                ),
+                    QuotaPolicy.expires_at > now,
+                )
+            ).order_by(
+                case((QuotaPolicy.resource_pattern == resource, 0), else_=1)
+            ).first()
+            if user_policy:
+                log.info(f"Quota policy {user_policy}")
+                return Quota(limit=user_policy.limit, window=user_policy.window)
+
+            # 2. Check plan-wide policies
+            plan_policy = db.query(QuotaPolicy).filter(
+                QuotaPolicy.plan_id == plan_id,
+                QuotaPolicy.resource_pattern.in_(to_check),
+                QuotaPolicy.effective_from <= now,
                 or_(
-                    QuotaPolicy.user_id == user_id,
-                    QuotaPolicy.plan_id == plan_id if plan_id else False,
-                ),
-            )
+                    QuotaPolicy.expires_at == None,
+                    QuotaPolicy.expires_at > now,
+                )
+            ).order_by(
+                case((QuotaPolicy.resource_pattern == resource, 0), else_=1)
+            ).first()
 
-            # Order by precedence:
-            # 1. User-specific policies first
-            # 2. Exact resource match first
-            query = query.order_by(
-                case((QuotaPolicy.user_id == user_id, 0), else_=1),
-                case((QuotaPolicy.resource_pattern == resource, 0), else_=1),
-            )
+            if plan_policy:
+                log.info(f"Quota policy {plan_policy}")
+                return Quota(limit=plan_policy.limit, window=plan_policy.window)
 
-            policy = query.first()
-
-            if policy:
-                return Quota(limit=policy.limit, window=policy.window)
-
-            # Graceful fallback
+            # 3. Nothing matched
             return Quota(limit=0, window="day")
 
 

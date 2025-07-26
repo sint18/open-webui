@@ -35,6 +35,7 @@ def requires_quota(resource_type: str):
                 return await func(request, *args, **kwargs)
 
             quota = QuotaPolicies.get_quota(user.id, resource_id)
+            log.info(f"Final policy={str(quota.model_dump())}")
             if quota.limit <= 0:
                 log.warning(f"Quota limit for resource {resource_id} is disabled for user {user.id}.")
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this resource.")
