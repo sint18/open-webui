@@ -68,19 +68,42 @@ class RateLimiter:
             log.error(f"[SLIDING] Redis error: {e}. Failing closed.")
             return False
 
-    async def get_remaining(self, user_id: str, resource: str, limit: int, window: Window) -> int:
+    async def get_remaining(self, user_id: str, resource: str, limit: int, window: Window) -> dict:
         now = datetime.utcnow()
         key = f"sliding:{user_id}:{resource}:{window}"
         window_secs = self._get_window_seconds(window)
-        min_score = int((now - timedelta(seconds=window_secs)).timestamp())
+        cutoff = int((now - timedelta(seconds=window_secs)).timestamp())
+
         try:
-            await self.redis.zremrangebyscore(key, 0, min_score)
-            used = await self.redis.zcard(key)
-            return max(0, limit - used)
+            pipe = self.redis.pipeline()
+            pipe.zremrangebyscore(key, 0, cutoff)
+            pipe.zcard(key)
+            # grab the oldest (smallest score) remaining member
+            pipe.zrange(key, 0, 0, withscores=True)
+            await pipe.execute()
+            _, used, oldest = pipe.execute()
+            remaining = max(0, limit - used)
+
+            if oldest:
+                oldest_ts = int(oldest[0][1])  # score of the first tuple
+                reset_time = datetime.utcfromtimestamp(oldest_ts + window_secs)
+            else:
+                # No hits => full window ahead
+                reset_time = now + timedelta(seconds=window_secs)
+
+            return {
+                "resets_at": reset_time.isoformat() + "Z",
+                "remaining": remaining,
+                "resource": resource,
+            }
+
         except redis.RedisError as e:
             log.error(f"[SLIDING] Redis error fetching remaining for key {key}: {e}")
-            return 0
-
+            return {
+                "resets_at": (now + timedelta(seconds=window_secs)).isoformat() + "Z",
+                "remaining": 0,
+                "resource": resource,
+            }
 
 # Singleton instance
 limiter = RateLimiter()
