@@ -19,6 +19,8 @@ from fastapi import (
     Query,
 )
 from fastapi.responses import FileResponse, StreamingResponse
+
+from core.quota import requires_quota
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import SRC_LOG_LEVELS
 
@@ -83,6 +85,7 @@ def has_access_to_file(
 
 
 @router.post("/", response_model=FileModelResponse)
+@requires_quota(resource_type="upload")
 def upload_file(
     request: Request,
     file: UploadFile = File(...),

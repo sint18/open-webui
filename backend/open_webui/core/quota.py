@@ -50,7 +50,8 @@ def requires_quota(resource_type: str):
             if not is_allowed:
                 log.warning(f"Quota limit for resource {resource_id} exceeded for user {user.id}.")
                 raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded")
-
+            if resource_type == "upload":
+                return func(request, *args, **kwargs)
             return await func(request, *args, **kwargs)
         return wrapper
     return decorator
