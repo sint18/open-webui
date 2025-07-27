@@ -9,6 +9,14 @@ export interface UserCredits {
 	current_period_end?: number;
 	status: 'active' | 'grace' | 'expired';
 	updated_at: number;
+	plan?: {
+		id: string;
+		name: string;
+		plan_type: string;
+		is_active: boolean;
+		created_at: number;
+		updated_at: number;
+	};
 }
 
 export interface CreditUsageInfo {

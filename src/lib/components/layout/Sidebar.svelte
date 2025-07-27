@@ -937,9 +937,9 @@
 							</div>
 							<div class="flex flex-1 items-center justify-between">
 								<div class="self-center font-medium">{$user?.name}</div>
-									{#if $userCredits?.plan_id}
+									{#if $userCredits?.plan_id && $userCredits?.plan?.name}
 										<span class="inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-md bg-[#21706d]/10 text-[#21706d] dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize">
-												{$userCredits?.plan_id}
+												{$userCredits?.plan?.name}
 										</span>
 									{/if}
 								</div>

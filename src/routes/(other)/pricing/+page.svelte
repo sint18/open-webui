@@ -89,7 +89,7 @@
 		trackEvent(ANALYTICS_EVENTS.PRICING_PLAN_CLICKED, {
 			plan_name: planName,
 			plan_price: planPrice,
-			current_plan: $userCredits?.plan_id || 'none',
+			current_plan: $userCredits?.plan?.name || 'none',
 			user_logged_in: !!$userCredits?.plan_id
 		});
 	};
@@ -106,7 +106,7 @@
 
 		<div class="grid gap-6 md:grid-cols-3">
 			{#each plans as plan}
-				{@const isCurrentPlan = $userCredits?.plan_id.toLowerCase() === plan.name.toLowerCase()}
+				{@const isCurrentPlan = $userCredits?.plan?.name.toLowerCase() === plan.name.toLowerCase()}
 				<div
 					class="flex flex-col rounded-2xl border {plan.highlight
 						? 'border-[#21706d] shadow-lg'

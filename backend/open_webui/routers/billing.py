@@ -4,6 +4,7 @@ import time
 from typing import Optional, List, Annotated
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Body, Form, Query
+from pydantic import Field
 
 from open_webui.models.discount import UserDiscountForm
 from open_webui.env import LITELLM_MASTER_KEY, LITELLM_URL
@@ -20,15 +21,24 @@ from open_webui.models.billing import (
 )
 from open_webui.models.plans import Plans, PlanModel
 
-class UserCreditsWithPlanModel(UserCreditsModel):
-    plan: Optional[PlanModel] = None
-
 from open_webui.storage.provider import Storage
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 router = APIRouter()
+
+
+class PlanPublicModel(PlanModel):
+    description: Optional[str] = Field(None, exclude=True)
+    price: float = Field(exclude=True)
+    credits: int  = Field(exclude=True)
+
+
+class UserCreditsWithPlanModel(UserCreditsModel):
+    credit_balance: int = Field(exclude=True)
+    monthly_quota: int = Field(exclude=True)
+    plan: Optional[PlanPublicModel] = None
 
 
 # -------------------------
@@ -59,7 +69,7 @@ async def get_credits(
     if not user_credits:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ERROR_MESSAGES.DEFAULT()
+            detail=ERROR_MESSAGES.DEFAULT
         )
 
     current_plan = Plans.get_plan_by_id(user_credits.plan_id)
