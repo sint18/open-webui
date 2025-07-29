@@ -2,6 +2,25 @@
 // utils/getCompanyName.ts
 import type { Model } from '$lib/stores';
 
+export const getAppName = (model: any) => {
+	const id = (model.id ?? '').toLowerCase();
+	const name = (model.name ?? '').toLowerCase();
+	if (id.includes('gpt') || name.includes('gpt')) return 'ChatGPT';
+	if (id.includes('grok') || name.includes('grok')) return 'Grok';
+	if (id.includes('claude') || name.includes('claude')) return 'Claude';
+	if (id.includes('gemini') || name.includes('gemini')) return 'Gemini';
+	if (id.includes('command') || name.includes('command')) return 'Cohere';
+	if (id.includes('groq') || name.includes('groq')) return 'Groq';
+	if (id.includes('deepseek') || name.includes('deepseek')) return 'Deepseek';
+	if (id.includes('perplexity') || name.includes('perplexity')) return 'Perplexity';
+	if (id.includes('mistral') || name.includes('mistral')) return 'Mistral';
+	if (id.includes('llama') || name.includes('llama')) return 'Meta AI';
+	if (id.includes('qwen') || name.includes('qwen')) return 'Alibaba';
+	if (id.includes('phi') || name.includes('phi')) return 'Microsoft';
+	if (model?.info?.base_model_id) return "Laby AI";
+	return id
+};
+
 export const getCompanyName = (model: {
 	id?: string;
 	name?: string;
