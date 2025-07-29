@@ -314,7 +314,7 @@ class UserCreditsTable:
             db.refresh(record)
             return UserCreditsModel.model_validate(record)
 
-    def update_subscription(self, user_id: str, new_plan: PlanEnum, monthly_quota: int, new_end: datetime.date, new_status: Optional[StatusEnum]=None) -> Optional[UserCreditsModel]:
+    def update_subscription(self, user_id: str, new_plan: str, monthly_quota: int, new_end: datetime.date, new_status: Optional[StatusEnum]=None) -> Optional[UserCreditsModel]:
         with get_db() as db:
             record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             if not record:

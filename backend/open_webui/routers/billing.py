@@ -219,7 +219,7 @@ async def create_order(
         type: Annotated[OrderTypeEnum, Form()],
         amount_mmk: Annotated[float, Form()],
         provider: Annotated[str, Form()],
-        plan_id: Annotated[Optional[PlanEnum], Form()] = None,
+        plan_id: Annotated[Optional[str], Form()] = None,
         plan_target: Annotated[Optional[str], Form()] = None,
         credits: Annotated[Optional[int], Form()] = None,
         discount_code: Annotated[Optional[str], Form()] = None,
