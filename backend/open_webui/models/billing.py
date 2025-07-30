@@ -33,13 +33,6 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 # Enums
 ####################
 
-class PlanEnum(enum.Enum):
-    starter = "starter"
-    pro = "pro"
-    studio = "studio"
-    free = "free"
-
-
 class OrderTypeEnum(enum.Enum):
     credit = "credit"
     upgrade = "upgrade"

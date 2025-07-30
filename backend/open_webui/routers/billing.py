@@ -1,5 +1,4 @@
 import logging
-import requests
 import time
 from typing import Optional, List, Annotated
 from decimal import Decimal
@@ -7,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from pydantic import Field
 
 from open_webui.models.discount import UserDiscountForm
-from open_webui.env import LITELLM_MASTER_KEY, LITELLM_URL
 
-from open_webui.models.billing import PaymentStatusEnum, OrderTypeEnum, PlanEnum
+
+from open_webui.models.billing import PaymentStatusEnum, OrderTypeEnum
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.utils.auth import get_verified_user, get_admin_user
 from open_webui.models.billing import (
@@ -339,10 +338,12 @@ async def create_order(
         order_creation_date = datetime.fromtimestamp(order.created_at).strftime("%d %b %Y %H:%M")
 
         user_info = f"👤 User: {user.name} ({user.email}, ID: {user.id})"
+        plan = Plans.get_plan_by_id(order.plan_id)
+        plan_name = plan.name if plan else str(order.plan_id).capitalize()
         order_details = (
             f"🧾 Order ID: {order.order_id}\n"
             f"💰 Amount: {order.amount_mmk:,} MMK\n"
-            f"📦 Plan: {str(order.plan_id.value).capitalize()}\n"
+            f"📦 Plan: {plan_name}\n"
             f"📆 Order Date: {order_creation_date}\n"
         )
         message = (
@@ -421,7 +422,7 @@ async def confirm_order(
                         f"Added {order.credits} credits to existing wallet for user {order.user_id}. New balance: {updated_credits.credit_balance}")
                     try:
                         from open_webui.models.groups import Groups
-                        group_name = str(order.plan_id.value).capitalize()
+                        group_name = str(order.plan_id).capitalize()
                         log.info(f"Assigning group {group_name} to user {order.user_id}")
                         result = Groups.sync_user_groups_by_group_names(order.user_id, [group_name])
 
@@ -473,18 +474,10 @@ async def confirm_order(
     else:
         log.info(f"No credits to allocate for order {order_id} (credits: {order.credits})")
 
-    # 3. Register with LiteLLM (existing functionality)
-    try:
-        await register_litellm_customer(order.user_id, order.plan_id.value)
-        log.info(f"Successfully registered user {order.user_id} with LiteLLM for plan {order.plan_id}")
-    except Exception as litellm_error:
-        log.error(f"Failed to register user {order.user_id} with LiteLLM: {litellm_error}")
-        # Log error but don't fail the confirmation
-
-    # 4. Track subscription completion analytics
+    # 3. Track subscription completion analytics
     log.info(f"Subscription completed for user {order.user_id}, order {order_id}, plan {order.plan_id}, credits {order.credits}")
 
-    # 5. Notify user via Telegram
+    # 4. Notify user via Telegram
     try:
         from open_webui.telegram_bot import send_telegram_message
         from open_webui.models.users import Users
@@ -494,9 +487,11 @@ async def confirm_order(
         user_to_notify = Users.get_user_by_id(order.user_id)
         if user_to_notify and user_to_notify.telegram_chat_id:
             period_end_str = datetime.fromtimestamp(order.period_end).strftime("%d %b %Y")
+            plan = Plans.get_plan_by_id(order.plan_id)
+            plan_name = plan.name if plan else str(order.plan_id).capitalize()
             message = (
                 f"✅ Payment Confirmed!\n\n"
-                f"📦 Plan: {str(order.plan_id.value).capitalize()}\n"
+                f"📦 Plan: {plan_name}\n"
                 f"📆 Valid Until: {period_end_str}\n\n"
                 f"🙏 Thank you for your purchase!"
             )
@@ -580,35 +575,3 @@ async def list_user_orders(
 ):
     """Admin: List payment orders for a specific user"""
     return PaymentOrders.get_orders_by_user(user_id, skip, limit)
-
-
-async def register_litellm_customer(user_id: str, budget_id: str):
-    """Register a new customer with LiteLLM"""
-    headers = {
-        "Authorization": f"Bearer {LITELLM_MASTER_KEY}"
-    }
-    payload = {
-        "user_id": user_id,
-        "budget_id": budget_id
-    }
-    response = requests.post(
-        f"{LITELLM_URL}/customer/new",
-        headers=headers,
-        json=payload
-    )
-
-    if not response.ok:
-        error_message = "Failed to register with LiteLLM"
-        try:
-            error_json = response.json()
-            if "error" in error_json and "message" in error_json["error"]:
-                error_message = error_json["error"]["message"]
-        except:
-            pass
-
-        log.error(f"Failed to register customer with LiteLLM: {response.text}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_message
-        )
-    return response.json()
