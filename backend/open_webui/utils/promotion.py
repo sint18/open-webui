@@ -1,6 +1,7 @@
 import logging
 
 from open_webui.env import FREE_SIGNUP_CREDITS
+from open_webui.models.plans import Plans
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +18,12 @@ def create_free_signup_credits(user_id: str, signup_method: str = "email") -> bo
         bool: True if credits were created successfully, False otherwise
     """
     try:
-        from open_webui.models.billing import UserCredits, PlanEnum, StatusEnum, UserCreditsForm
+        from open_webui.models.billing import UserCredits, StatusEnum, UserCreditsForm
+
+        free_plan = Plans.get_plan_by_name("Free")
+        if not free_plan:
+            log.error("Free plan not found when creating signup credits")
+            return False
 
         # Check if user already has credits (prevent duplicate credits)
         existing_credits = UserCredits.get_user_credits(user_id)
@@ -28,7 +34,7 @@ def create_free_signup_credits(user_id: str, signup_method: str = "email") -> bo
         # Create free credits
         credit_data = {
             'user_id': user_id,
-            'plan_id': PlanEnum.free,
+            'plan_id': free_plan.id,
             'credit_balance': FREE_SIGNUP_CREDITS,
             'monthly_quota': FREE_SIGNUP_CREDITS,
             'current_period_end': None,  # No expiry for free credits
@@ -70,15 +76,19 @@ def create_promotional_credits(user_id: str, amount: int, reason: str = "promoti
     """
     try:
         from open_webui.models.billing import UserCredits
+        free_plan = Plans.get_plan_by_name("Free")
+        if not free_plan:
+            log.error("Free plan not found when creating promotional credits")
+            return False
 
         # Get and update existing credits or create new ones
         existing_credits = UserCredits.update_credits(user_id, amount)
         if not existing_credits:
             # Create new credit record
-            from open_webui.models.billing import PlanEnum, StatusEnum, UserCreditsForm
+            from open_webui.models.billing import StatusEnum, UserCreditsForm
             credit_data = {
                 'user_id': user_id,
-                'plan_id': PlanEnum.free,
+                'plan_id': free_plan.id,
                 'credit_balance': amount,
                 'monthly_quota': amount,
                 'current_period_end': None,

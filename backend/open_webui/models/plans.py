@@ -81,6 +81,12 @@ class PlansTable:
             plan = db.query(Plan).filter_by(id=plan_id).first()
             return PlanModel.model_validate(plan) if plan else None
 
+    def get_plan_by_name(self, name: str) -> Optional[PlanModel]:
+        """Retrieve a plan by its name."""
+        with get_db() as db:
+            plan = db.query(Plan).filter_by(name=name).first()
+            return PlanModel.model_validate(plan) if plan else None
+
     def get_plans(self) -> List[PlanModel]:
         with get_db() as db:
             plans = db.query(Plan).all()
