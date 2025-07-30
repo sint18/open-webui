@@ -836,6 +836,9 @@ OPENAI_API_BASE_URL = os.environ.get("OPENAI_API_BASE_URL", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_API_BASE_URL = os.environ.get("GEMINI_API_BASE_URL", "")
 
+REPLICATE_API_KEY = os.environ.get("REPLICATE_API_KEY", "")
+REPLICATE_API_BASE_URL = os.environ.get("REPLICATE_API_BASE_URL", "https://api.replicate.com")
+
 
 if OPENAI_API_BASE_URL == "":
     OPENAI_API_BASE_URL = "https://api.openai.com/v1"
@@ -2734,6 +2737,7 @@ IMAGES_GEMINI_API_KEY = PersistentConfig(
     os.getenv("IMAGES_GEMINI_API_KEY", GEMINI_API_KEY),
 )
 
+
 IMAGE_SIZE = PersistentConfig(
     "IMAGE_SIZE", "image_generation.size", os.getenv("IMAGE_SIZE", "512x512")
 )
@@ -2747,6 +2751,7 @@ IMAGE_GENERATION_MODEL = PersistentConfig(
     "image_generation.model",
     os.getenv("IMAGE_GENERATION_MODEL", ""),
 )
+
 
 ####################################
 # Audio

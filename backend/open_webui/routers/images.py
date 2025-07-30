@@ -9,12 +9,22 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from open_webui.config import CACHE_DIR
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import ENABLE_FORWARD_USER_INFO_HEADERS, SRC_LOG_LEVELS
 from open_webui.routers.files import upload_file
 from open_webui.utils.auth import get_admin_user, get_verified_user
+from open_webui.models.image_jobs import ImageJobs, JobStatusEnum
+from open_webui.utils.images.input_builders import build_model_input
+from open_webui.utils.images.image_tasks import enqueue_prediction_job
+from open_webui.models.users import Users
+from open_webui.models.billing import CreditTransactions, CreditTransactionForm, UserCredits
+from open_webui.model_configs import MODEL_CONFIGS
+from open_webui.telegram_bot import send_telegram_message
+from open_webui.config import REPLICATE_API_BASE_URL
+import uuid
+import time
 from open_webui.utils.images.comfyui import (
     ComfyUIGenerateImageForm,
     ComfyUIWorkflow,
@@ -679,3 +689,127 @@ async def image_generations(
             if "error" in data:
                 error = data["error"]["message"]
         raise HTTPException(status_code=400, detail=ERROR_MESSAGES.DEFAULT(error))
+
+
+@router.post("/predictions")
+async def create_prediction(
+    request: Request,
+    payload: str = Form(...),
+    style_reference_images: list[UploadFile] | None = File(None),
+    reference_images: list[UploadFile] | None = File(None),
+    image: UploadFile | None = File(None),
+    user=Depends(get_verified_user),
+):
+    log.info(f"Creating prediction for user {user.id}")
+    try:
+        payload_data = json.loads(payload)
+    except json.JSONDecodeError:
+        log.error("Invalid payload JSON")
+        raise HTTPException(status_code=400, detail="Invalid payload JSON")
+
+    file_urls: dict[str, list[str] | str] = {}
+    if style_reference_images:
+        urls = []
+        for f in style_reference_images:
+            data = await f.read()
+            url = upload_image(request, data, f.content_type or "image/png", {}, user)
+            urls.append(url)
+        file_urls["style_reference_images"] = urls
+        log.debug("Uploaded style reference images")
+    if reference_images:
+        urls = []
+        for f in reference_images:
+            data = await f.read()
+            url = upload_image(request, data, f.content_type or "image/png", {}, user)
+            urls.append(url)
+        file_urls["reference_images"] = urls
+        log.debug("Uploaded reference images")
+    if image:
+        data = await image.read()
+        file_urls["image"] = upload_image(request, data, image.content_type or "image/png", {}, user)
+        log.debug("Uploaded inpainting image")
+
+    model_slug = payload_data.get("model")
+    if not model_slug:
+        log.error("Model slug missing in payload")
+        raise HTTPException(status_code=400, detail="model is required")
+
+    built_input = build_model_input(model_slug, json.dumps(payload_data), file_urls)
+    
+    job = ImageJobs.insert_new_job(
+        user.id,
+        prompt=payload_data.get("prompt", ""),
+        model_name=model_slug,
+        negative_prompt=payload_data.get("negative_prompt"),
+    )
+    log.info(f"Enqueued image job {job.id} for model {model_slug}")
+    enqueue_prediction_job(job.id, built_input, user)
+    return {"job_id": job.id, "status": job.status.value}
+
+
+@router.post("/webhook/{job_id}")
+async def prediction_webhook(request: Request, job_id: str, data: dict):
+    log.info(f"Webhook received for job {job_id}")
+    predict_time = data.get("predict_time", 0.0)
+    output = data.get("output")
+    replicate_id = data.get("id")
+
+    job = ImageJobs.get_image_job_by_job_id(job_id)
+    if not job:
+        log.error(f"Job {job_id} not found for webhook")
+        raise HTTPException(status_code=404, detail="Job not found")
+    ImageJobs.update_image_job_by_id(job_id, {"replicate_id": replicate_id})
+    model_slug = job.model_name
+    version = MODEL_CONFIGS.get(model_slug)
+
+    owner, model = model_slug.split("/", 1)
+    price_resp = requests.get(
+        f"{REPLICATE_API_BASE_URL}/v1/models/{owner}/{model}/versions/{version}"
+    )
+    log.debug(f"Pricing response: {price_resp.text}")
+    usd_per_second = (
+        price_resp.json().get("pricing", {}).get("predict_time", {}).get("usd_per_second", 0.0)
+    )
+    usd_cost = float(predict_time) * float(usd_per_second)
+    credits = int(usd_cost / 0.0015)
+
+    image_url = output[0] if isinstance(output, list) else output
+    img_data = requests.get(image_url).content if image_url else b""
+    user = Users.get_user_by_id(job.user_id)
+    saved_url = upload_image(request, img_data, "image/png", {}, user)
+
+    ImageJobs.update_image_job_by_id(
+        job_id,
+        {
+            "output_url": saved_url,
+            "status": JobStatusEnum.succeeded,
+            "predict_time": predict_time,
+            "usd_cost": usd_cost,
+            "credits_spent": credits,
+            "completed_at": int(time.time()),
+            "meta": data,
+        },
+    )
+
+    CreditTransactions.insert_transaction(
+        job.user_id,
+        CreditTransactionForm(
+            tx_id=str(uuid.uuid4()),
+            delta=-credits,
+            usd_spend=usd_cost,
+            model_name=job.model_name,
+            resource_type="image",
+            reference_id=job.id,
+            meta=data,
+        ),
+    )
+    credits_record = UserCredits.update_credits(job.user_id, -credits)
+    if credits_record and credits_record.credit_balance <= 0 and user and user.telegram_chat_id:
+        await send_telegram_message(
+            user.telegram_chat_id,
+            "⚠️ You've reached your credit limit. Upgrade your plan to keep creating great images!",
+        )
+    log.info(
+        f"Job {job_id} completed. Cost: ${usd_cost:.4f}, credits spent: {credits}"
+    )
+    return {"detail": "ok"}

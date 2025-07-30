@@ -78,9 +78,9 @@ class CreditTransaction(Base):
     usd_spend = Column(Numeric, nullable=False)
     model_name = Column(Text, nullable=False)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
-    # resource_type = Column(String(32), nullable=True)
-    # reference_id  = Column(String)         # FK to image_jobs.id (optional)
-    # meta = Column(JSON, nullable=True)
+    resource_type = Column(String(32), nullable=True)
+    reference_id = Column(String)
+    meta = Column(JSON, nullable=True)
 
 
 class PaymentOrder(Base):
@@ -177,6 +177,9 @@ class CreditTransactionModel(BaseModel):
     delta: int
     usd_spend: float
     model_name: str
+    resource_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    meta: Optional[dict] = None
     created_at: int
 
 
@@ -185,6 +188,9 @@ class CreditTransactionForm(BaseModel):
     delta: int
     usd_spend: float
     model_name: str
+    resource_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    meta: Optional[dict] = None
 
 
 class PaymentOrderModel(BaseModel):
@@ -336,6 +342,9 @@ class CreditTransactionsTable:
                 delta=form.delta,
                 usd_spend=form.usd_spend,
                 model_name=form.model_name,
+                resource_type=form.resource_type,
+                reference_id=form.reference_id,
+                meta=form.meta,
                 created_at=now_ts,
             )
             db.add(record)
