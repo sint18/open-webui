@@ -1,6 +1,7 @@
 import os, shutil, threading, time, stat
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
+from fastapi.responses import StreamingResponse, PlainTextResponse
 
 import docker
 from fastapi import FastAPI, HTTPException
@@ -172,6 +173,47 @@ def kill(req: KillReq):
         pass
     shutil.rmtree(os.path.join(SESSIONS_ROOT, req.id), ignore_errors=True)
     return {"ok": True}
+
+@app.get("/status/{id}")
+def status(id: str):
+    name = f"st-{id}"
+    try:
+        c = client.containers.get(name)
+    except docker.errors.NotFound:
+        return {"exists": False, "status": "not_found"}
+    s = c.attrs or {}
+    return {
+        "exists": True,
+        "status": c.status,  # created | running | exited
+        "started_at": s.get("State", {}).get("StartedAt"),
+        "finished_at": s.get("State", {}).get("FinishedAt"),
+        "labels": c.labels or {},
+    }
+
+@app.get("/logs/{id}", response_class=PlainTextResponse)
+def logs_tail(id: str, tail: int = 200):
+    name = f"st-{id}"
+    try:
+        c = client.containers.get(name)
+    except docker.errors.NotFound:
+        return PlainTextResponse("not found", status_code=404)
+    out = c.logs(tail=max(1, min(tail, 2000)))
+    return out.decode("utf-8", errors="ignore")
+
+@app.get("/logs/{id}/stream")
+def logs_stream(id: str):
+    name = f"st-{id}"
+    try:
+        c = client.containers.get(name)
+    except docker.errors.NotFound:
+        return PlainTextResponse("not found", status_code=404)
+
+    def _iter():
+        # include recent context, then follow
+        for b in c.logs(stream=True, follow=True, tail=50):
+            yield b
+
+    return StreamingResponse(_iter(), media_type="text/plain")
 
 # ───── Sweeper ──────────────────────────────────────────────────
 def sweeper_loop():
