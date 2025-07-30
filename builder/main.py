@@ -1,0 +1,171 @@
+import os, shutil, threading, time, stat
+from datetime import datetime, timezone, timedelta
+from typing import List, Optional
+
+import docker
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+# ───── Settings ───────────────────────────────────────────────────
+PREVIEW_DOMAIN  = os.getenv("PREVIEW_DOMAIN",  "preview.labyai.app")
+PREVIEW_SCHEME  = os.getenv("PREVIEW_SCHEME",  "https")          # "http" for local
+ENTRYPOINT_NAME = os.getenv("ENTRYPOINT_NAME", "https")          # "web"  for local
+DOCKER_NETWORK  = os.getenv("DOCKER_NETWORK",  "shared-network")
+RUNNER_IMAGE    = os.getenv("RUNNER_IMAGE",    "labyai/streamlit-runner:latest")
+
+DEFAULT_TTL_MIN = int(os.getenv("DEFAULT_TTL_MIN", "45"))
+CPU_LIMIT       = os.getenv("CPU_LIMIT", "1")
+MEM_LIMIT       = os.getenv("MEM_LIMIT", "1g")
+CACHE_VOLUME    = os.getenv("CACHE_VOLUME", "wheels-cache")
+SESSIONS_ROOT   = os.getenv("SESSIONS_ROOT", "/run/desktop/mnt/host/c/laby-sessions")
+
+# ───── Models ─────────────────────────────────────────────────────
+class FileItem(BaseModel):
+    path: str
+    content: str
+
+class LaunchReq(BaseModel):
+    files:        Optional[List[FileItem]] = None
+    entrypoint:   Optional[str]            = "app.py"
+    code:         Optional[str]            = None
+    requirements: Optional[str]            = None
+    ttl_minutes:  Optional[int]            = None
+
+class KillReq(BaseModel):
+    id: str
+
+# ───── FastAPI & Docker ───────────────────────────────────────────
+app    = FastAPI()
+client = docker.from_env()
+os.makedirs(SESSIONS_ROOT, exist_ok=True)
+
+_now = lambda: datetime.now(timezone.utc)
+
+def _ensure_cache_volume():
+    if CACHE_VOLUME not in {v.name for v in client.volumes.list()}:
+        client.volumes.create(name=CACHE_VOLUME)
+
+def _safe_write(base: str, rel: str, content: str):
+    if rel.startswith("/") or ".." in rel.split("/"):
+        raise HTTPException(status_code=400, detail="Bad path")
+    tgt = os.path.join(base, rel.replace("\\", "/"))
+    os.makedirs(os.path.dirname(tgt), exist_ok=True)
+    with open(tgt, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def _nano_cpus(v):
+    return int(float(v) * 1e9)
+
+def _sid(n=6):
+    import secrets
+    return secrets.token_hex(n)
+
+# ───── API ────────────────────────────────────────────────────────
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+@app.post("/launch")
+def launch(req: LaunchReq):
+    sid = _sid()
+    ttl = int(req.ttl_minutes or DEFAULT_TTL_MIN)
+
+    # host session dir (one per preview)
+    session_dir = os.path.join(SESSIONS_ROOT, sid)
+    os.makedirs(session_dir, exist_ok=True)
+
+    # write code files
+    if req.files:
+        for f in req.files:
+            _safe_write(session_dir, f.path, f.content)
+        entrypoint = (req.entrypoint or "app.py").strip() or "app.py"
+    else:
+        code = req.code or "import streamlit as st\nst.title('Empty app')\n"
+        _safe_write(session_dir, "app.py", code)
+        entrypoint = "app.py"
+
+    _safe_write(session_dir, "requirements.txt", (req.requirements or "streamlit\n").strip() + "\n")
+
+    _ensure_cache_volume()
+
+    # make the directory world‑writable so non‑root runner can write
+    os.chmod(session_dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0o777
+
+    host = f"{sid}.{PREVIEW_DOMAIN}"
+    labels = {
+        "traefik.enable": "true",
+        f"traefik.http.routers.{sid}.rule": f"Host(`{host}`)",
+        f"traefik.http.routers.{sid}.entrypoints": ENTRYPOINT_NAME,
+        f"traefik.http.services.{sid}.loadbalancer.server.port": "8501",
+        "labyai.preview": "true",
+        "labyai.preview.id": sid,
+        "labyai.preview.url": f"{PREVIEW_SCHEME}://{host}/",
+        "labyai.preview.created_at": _now().isoformat(),
+        "labyai.preview.ttl_min": str(ttl),
+        "labyai.preview.entrypoint": entrypoint,
+    }
+    if PREVIEW_SCHEME == "https":
+        labels[f"traefik.http.routers.{sid}.tls"] = "true"
+
+    try:
+        client.containers.run(
+            RUNNER_IMAGE,
+            name=f"st-{sid}",
+            detach=True,
+            mem_limit=MEM_LIMIT,
+            nano_cpus=_nano_cpus(CPU_LIMIT),
+            read_only=True,
+            tmpfs={"/tmp": "rw,noexec,nosuid,size=200m"},
+            security_opt=["no-new-privileges"],
+            network=DOCKER_NETWORK,
+            labels=labels,
+            volumes={
+                session_dir:  {"bind": "/session",         "mode": "rw"},
+                CACHE_VOLUME: {"bind": "/wheels-cache",    "mode": "rw"},
+            },
+        )
+    except docker.errors.ImageNotFound:
+        raise HTTPException(status_code=500, detail="Runner image missing")
+    except Exception as e:
+        shutil.rmtree(session_dir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"id": sid, "url": f"{PREVIEW_SCHEME}://{host}/", "entrypoint": entrypoint}
+
+@app.post("/kill")
+def kill(req: KillReq):
+    try:
+        client.containers.get(f"st-{req.id}").remove(force=True)
+    except docker.errors.NotFound:
+        pass
+    shutil.rmtree(os.path.join(SESSIONS_ROOT, req.id), ignore_errors=True)
+    return {"ok": True}
+
+# ───── Sweeper ──────────────────────────────────────────────────
+
+def sweeper_loop():
+    while True:
+        try:
+            previews = client.containers.list(all=True, filters={"label": "labyai.preview=true"})
+            for c in previews:
+                lbl = c.labels or {}
+                sid = lbl.get("labyai.preview.id")
+                created_at = lbl.get("labyai.preview.created_at")
+                ttl_min = int(lbl.get("labyai.preview.ttl_min", DEFAULT_TTL_MIN))
+                if not (sid and created_at):
+                    continue
+                try:
+                    born = datetime.fromisoformat(created_at)
+                except ValueError:
+                    continue
+                if _now() > born + timedelta(minutes=ttl_min):
+                    try:
+                        c.remove(force=True)
+                    except Exception:
+                        pass
+                    shutil.rmtree(os.path.join(SESSIONS_ROOT, sid), ignore_errors=True)
+        except Exception:
+            pass
+        time.sleep(30)
+
+threading.Thread(target=sweeper_loop, daemon=True).start()
