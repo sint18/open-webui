@@ -7,17 +7,21 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 # ───── Settings ───────────────────────────────────────────────────
-PREVIEW_DOMAIN  = os.getenv("PREVIEW_DOMAIN",  "preview.labyai.app")
-PREVIEW_SCHEME  = os.getenv("PREVIEW_SCHEME",  "https")          # "http" for local
-ENTRYPOINT_NAME = os.getenv("ENTRYPOINT_NAME", "https")          # "web"  for local
+PREVIEW_DOMAIN  = os.getenv("PREVIEW_DOMAIN",  "chat.labyai.app")  # path-based default
+PREVIEW_SCHEME  = os.getenv("PREVIEW_SCHEME",  "https")             # "http" for local
+ENTRYPOINT_NAME = os.getenv("ENTRYPOINT_NAME", "https")             # "http" for local
 DOCKER_NETWORK  = os.getenv("DOCKER_NETWORK",  "shared-network")
 RUNNER_IMAGE    = os.getenv("RUNNER_IMAGE",    "labyai/streamlit-runner:latest")
+
+# New: routing mode + base path
+ROUTING_MODE    = os.getenv("ROUTING_MODE", "path")                 # "path" | "subdomain"
+PATH_PREFIX     = os.getenv("PATH_PREFIX", "/p").rstrip("/")        # e.g. /p
 
 DEFAULT_TTL_MIN = int(os.getenv("DEFAULT_TTL_MIN", "45"))
 CPU_LIMIT       = os.getenv("CPU_LIMIT", "1")
 MEM_LIMIT       = os.getenv("MEM_LIMIT", "1g")
 CACHE_VOLUME    = os.getenv("CACHE_VOLUME", "wheels-cache")
-SESSIONS_ROOT   = os.getenv("SESSIONS_ROOT", "/run/desktop/mnt/host/c/laby-sessions")
+SESSIONS_ROOT   = os.getenv("SESSIONS_ROOT", "/var/lib/labyai/sessions")
 
 # ───── Models ─────────────────────────────────────────────────────
 class FileItem(BaseModel):
@@ -91,21 +95,48 @@ def launch(req: LaunchReq):
     # make the directory world‑writable so non‑root runner can write
     os.chmod(session_dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0o777
 
-    host = f"{sid}.{PREVIEW_DOMAIN}"
-    labels = {
-        "traefik.enable": "true",
-        f"traefik.http.routers.{sid}.rule": f"Host(`{host}`)",
-        f"traefik.http.routers.{sid}.entrypoints": ENTRYPOINT_NAME,
-        f"traefik.http.services.{sid}.loadbalancer.server.port": "8501",
-        "labyai.preview": "true",
-        "labyai.preview.id": sid,
-        "labyai.preview.url": f"{PREVIEW_SCHEME}://{host}/",
-        "labyai.preview.created_at": _now().isoformat(),
-        "labyai.preview.ttl_min": str(ttl),
-        "labyai.preview.entrypoint": entrypoint,
-    }
-    if PREVIEW_SCHEME == "https":
-        labels[f"traefik.http.routers.{sid}.tls"] = "true"
+    # ── Build Traefik labels depending on routing mode ────────────
+    labels = {"traefik.enable": "true"}
+    extra_env = {}
+    if ROUTING_MODE.lower() == "path":
+        host = PREVIEW_DOMAIN                               # chat.labyai.app
+        base_path = f"{PATH_PREFIX}/{sid}"                  # /p/<id>
+        rule = f"Host(`{host}`) && PathPrefix(`{base_path}`)"
+        labels.update({
+            f"traefik.http.routers.{sid}.rule": rule,
+            f"traefik.http.routers.{sid}.entrypoints": ENTRYPOINT_NAME,
+            f"traefik.http.services.{sid}.loadbalancer.server.port": "8501",
+            # strip /p/<id> before forwarding to the app
+            f"traefik.http.middlewares.{sid}-strip.stripprefix.prefixes": base_path,
+            f"traefik.http.routers.{sid}.middlewares": f"{sid}-strip",
+            "labyai.preview": "true",
+            "labyai.preview.id": sid,
+            "labyai.preview.url": f"{PREVIEW_SCHEME}://{host}{base_path}/",
+            "labyai.preview.created_at": _now().isoformat(),
+            "labyai.preview.ttl_min": str(ttl),
+            "labyai.preview.entrypoint": entrypoint,
+        })
+        if PREVIEW_SCHEME == "https":
+            labels[f"traefik.http.routers.{sid}.tls"] = "true"
+        preview_url = f"{PREVIEW_SCHEME}://{host}{base_path}/"
+        extra_env = {"BASE_PATH": base_path}
+    else:
+        host = f"{sid}.{PREVIEW_DOMAIN}"
+        rule = f"Host(`{host}`)"
+        labels.update({
+            f"traefik.http.routers.{sid}.rule": rule,
+            f"traefik.http.routers.{sid}.entrypoints": ENTRYPOINT_NAME,
+            f"traefik.http.services.{sid}.loadbalancer.server.port": "8501",
+            "labyai.preview": "true",
+            "labyai.preview.id": sid,
+            "labyai.preview.url": f"{PREVIEW_SCHEME}://{host}/",
+            "labyai.preview.created_at": _now().isoformat(),
+            "labyai.preview.ttl_min": str(ttl),
+            "labyai.preview.entrypoint": entrypoint,
+        })
+        if PREVIEW_SCHEME == "https":
+            labels[f"traefik.http.routers.{sid}.tls"] = "true"
+        preview_url = f"{PREVIEW_SCHEME}://{host}/"
 
     try:
         client.containers.run(
@@ -119,9 +150,10 @@ def launch(req: LaunchReq):
             security_opt=["no-new-privileges"],
             network=DOCKER_NETWORK,
             labels=labels,
+            environment=extra_env,   # <— pass BASE_PATH to runner in path mode
             volumes={
-                session_dir:  {"bind": "/session",         "mode": "rw"},
-                CACHE_VOLUME: {"bind": "/wheels-cache",    "mode": "rw"},
+                session_dir:  {"bind": "/session",      "mode": "rw"},
+                CACHE_VOLUME: {"bind": "/wheels-cache", "mode": "rw"},
             },
         )
     except docker.errors.ImageNotFound:
@@ -130,7 +162,7 @@ def launch(req: LaunchReq):
         shutil.rmtree(session_dir, ignore_errors=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-    return {"id": sid, "url": f"{PREVIEW_SCHEME}://{host}/", "entrypoint": entrypoint}
+    return {"id": sid, "url": preview_url, "entrypoint": entrypoint}
 
 @app.post("/kill")
 def kill(req: KillReq):
@@ -142,7 +174,6 @@ def kill(req: KillReq):
     return {"ok": True}
 
 # ───── Sweeper ──────────────────────────────────────────────────
-
 def sweeper_loop():
     while True:
         try:
