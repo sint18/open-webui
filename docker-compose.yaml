@@ -1,34 +1,94 @@
 services:
-  ollama:
-    volumes:
-      - ollama:/root/.ollama
-    container_name: ollama
-    pull_policy: always
-    tty: true
-    restart: unless-stopped
-    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
-
-  open-webui:
-    build:
-      context: .
-      args:
-        OLLAMA_BASE_URL: '/ollama'
-      dockerfile: Dockerfile
-    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
-    container_name: open-webui
-    volumes:
-      - open-webui:/app/backend/data
-    depends_on:
-      - ollama
+  traefik:
+    image: traefik:v3.4
+    command:
+      - --providers.docker=true
+      - --providers.docker.endpoint=unix:///var/run/docker.sock
+      - --entrypoints.web.address=:80
     ports:
-      - ${OPEN_WEBUI_PORT-3000}:8080
-    environment:
-      - 'OLLAMA_BASE_URL=http://ollama:11434'
-      - 'WEBUI_SECRET_KEY='
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    restart: unless-stopped
+      - '80:80'
+    networks: [shared-network]
 
+    # 👇 ADD THIS block
+    volumes:
+      # ► WINDOWS Docker Desktop
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # ► If you ever run the same file on Linux/macOS, keep the unix path, too
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  builder:
+    build:
+      context: ./builder
+    environment:
+      - PREVIEW_DOMAIN=preview.localtest.me
+      - PREVIEW_SCHEME=http
+      - ENTRYPOINT_NAME=web
+      - SESSIONS_ROOT=/run/desktop/mnt/host/c/laby-sessions
+      - DOCKER_NETWORK=shared-network
+      - RUNNER_IMAGE=labyai/streamlit-runner:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/desktop/mnt/host/c/laby-sessions:/run/desktop/mnt/host/c/laby-sessions
+      - wheels-cache:/wheels-cache # shared pip cache
+    labels:
+      - traefik.enable=false
+    networks: [shared-network]
+  labyai:
+    image: 'ghcr.io/open-webui/open-webui:latest'
+    networks:
+      - shared-network
+    volumes:
+      - 'labyai-data:/app/backend/data'
+    environment:
+      - SERVICE_FQDN_OPENWEBUI_8080
+      - ANONYMIZED_TELEMETRY
+      - DATABASE_URL
+      - DO_NOT_TRACK
+      - OPENAI_API_BASE_URL
+      - OPENAI_API_KEY
+      - SCARF_NO_ANALYTICS
+      - WEBUI_NAME
+      - ENV
+      - ENABLE_FORWARD_USER_INFO_HEADERS
+      - LITELLM_URL
+      - LITELLM_MASTER_KEY
+      - ENABLE_OAUTH_SIGNUP
+      - OAUTH_MERGE_ACCOUNTS_BY_EMAIL
+      - OAUTH_UPDATE_PICTURE_ON_LOGIN
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - OPENID_PROVIDER_URL
+      - FREE_SIGNUP_CREDITS
+      - BRAVE_SEARCH_API_KEY
+      - TELEGRAM_ENABLED
+      - TELEGRAM_BOT_TOKEN
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - '-f'
+        - 'http://127.0.0.1:8080'
+      interval: 5s
+      timeout: 30s
+      retries: 10
+    labels:
+      # ---- Serve the real app on chat.localtest.app ----
+      - traefik.http.routers.chat.rule=Host(`chat.localtest.me`)
+      - traefik.http.routers.chat.entryPoints=web
+
+      # ---- 301 everything from beta.labyai.app ----
+      # - traefik.http.routers.beta-redirect.rule=Host(`beta.labyai.app`)
+      # - traefik.http.routers.beta-redirect.entryPoints=https
+      # - traefik.http.routers.beta-redirect.middlewares=beta-to-chat
+
+      - traefik.http.middlewares.beta-to-chat.redirectregex.regex=^(https?://)?beta\.labyai\.app(.*)
+      - traefik.http.middlewares.beta-to-chat.redirectregex.replacement=https://chat.labyai.app$$2
+      - traefik.http.middlewares.beta-to-chat.redirectregex.permanent=true
 volumes:
-  ollama: {}
-  open-webui: {}
+  labyai-data:
+    external: true
+  wheels-cache: {}
+networks:
+  shared-network:
+    external: true
