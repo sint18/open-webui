@@ -1,9 +1,11 @@
 import enum
 import time
+import logging
 from typing import Optional, Literal
 import uuid
 
 from open_webui.internal.db import Base, get_db
+from open_webui.env import SRC_LOG_LEVELS
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import (
     Column,
@@ -12,8 +14,13 @@ from sqlalchemy import (
     BigInteger,
     Integer,
     Float,
-    Enum as SAEnum, ForeignKey
+    Enum as SAEnum,
+    ForeignKey,
+    JSON,
 )
+
+log = logging.getLogger(__name__)
+log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
 # Status enum for ImageJob
 class JobStatusEnum(enum.Enum):
@@ -37,6 +44,7 @@ class ImageJob(Base):
     predict_time = Column(Float)
     usd_cost = Column(Float)
     credits_spent = Column(Integer)
+    meta = Column(JSON)
     attempts = Column(Integer, default=0)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
     completed_at = Column(BigInteger)
@@ -56,6 +64,7 @@ class ImageJobModel(BaseModel):
     predict_time: Optional[float] = None
     usd_cost: Optional[float] = None
     credits_spent: Optional[int] = None
+    meta: Optional[dict] = None
     attempts: int
     created_at: int
     completed_at: Optional[int] = None
@@ -72,6 +81,7 @@ class ImageJobsTable:
         model_name: str,
         negative_prompt: Optional[str] = None,
     ) -> ImageJobModel:
+        log.info(f"Inserting new image job for user {user_id}")
         with get_db() as db:
             job = ImageJob(
                 user_id=user_id,
@@ -82,7 +92,41 @@ class ImageJobsTable:
             db.add(job)
             db.commit()
             db.refresh(job)
+            log.debug(f"Inserted job {job.id}")
             return ImageJobModel.model_validate(job)
+
+    def get_image_job_by_job_id(self, job_id: str) -> Optional[ImageJobModel]:
+        try:
+            with get_db() as db:
+                job = db.query(ImageJob).filter_by(id=job_id).first()
+                if job:
+                    log.debug(f"Fetched job {job_id}")
+                    return ImageJobModel.model_validate(job)
+                log.debug(f"Job {job_id} not found")
+                return None
+        except Exception as e:
+            log.error(f"Error fetching job {job_id}: {e}")
+            return None
+
+    def update_image_job_by_id(self, job_id: str, updates: dict) -> Optional[ImageJobModel]:
+        """Update an ImageJob and return the updated model."""
+        try:
+            with get_db() as db:
+                job = db.query(ImageJob).filter_by(id=job_id).first()
+                if not job:
+                    log.warning(f"Attempted to update missing job {job_id}")
+                    return None
+
+                for key, value in updates.items():
+                    setattr(job, key, value)
+
+                db.commit()
+                db.refresh(job)
+                log.debug(f"Updated job {job_id} with {updates}")
+                return ImageJobModel.model_validate(job)
+        except Exception as e:
+            log.error(f"Error updating job {job_id}: {e}")
+            return None
 
 
 ImageJobs = ImageJobsTable()
