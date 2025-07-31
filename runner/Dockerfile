@@ -5,7 +5,6 @@ RUN adduser --disabled-password --gecos '' app
 USER app
 WORKDIR /app
 
-# Helpful env
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -15,14 +14,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 EXPOSE 8501
 
-# Use POSIX shell; no need for bash
-SHELL ["/bin/sh", "-lc"]
-
-CMD 'python -m venv /session/.venv && \
-     . /session/.venv/bin/activate && \
-     python -m pip install --upgrade pip && \
-     pip install --no-input --cache-dir "$PIP_CACHE_DIR" -r /session/requirements.txt && \
-     streamlit run /session/app.py \
-       --server.port 8501 \
-       --server.headless true \
-       --server.baseUrlPath "${BASE_PATH:-/}"'
+# Exec form: no quoting headaches, runs under /bin/sh -lc explicitly
+CMD ["/bin/sh","-lc","python3 -m venv /session/.venv \
+ && . /session/.venv/bin/activate \
+ && python3 -m pip install --upgrade pip \
+ && pip install --no-input --cache-dir \"$PIP_CACHE_DIR\" -r /session/requirements.txt \
+ && streamlit run /session/app.py --server.port 8501 --server.headless true --server.baseUrlPath \"${BASE_PATH:-/}\""]
