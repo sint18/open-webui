@@ -93,12 +93,13 @@ def launch(req: LaunchReq):
 
     _ensure_cache_volume()
 
-    # make the directory world‑writable so non‑root runner can write
+    # make the directory world-writable so non-root runner can write
     os.chmod(session_dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0o777
 
     # ── Build Traefik labels depending on routing mode ────────────
     labels = {"traefik.enable": "true"}
     extra_env = {}
+
     if ROUTING_MODE.lower() == "path":
         host = PREVIEW_DOMAIN                               # chat.labyai.app
         base_path = f"{PATH_PREFIX}/{sid}"                  # /p/<id>
@@ -106,10 +107,8 @@ def launch(req: LaunchReq):
         labels.update({
             f"traefik.http.routers.{sid}.rule": rule,
             f"traefik.http.routers.{sid}.entrypoints": ENTRYPOINT_NAME,
+            f"traefik.http.routers.{sid}.priority": "1000",   # ensure this wins
             f"traefik.http.services.{sid}.loadbalancer.server.port": "8501",
-            # strip /p/<id> before forwarding to the app
-            f"traefik.http.middlewares.{sid}-strip.stripprefix.prefixes": base_path,
-            f"traefik.http.routers.{sid}.middlewares": f"{sid}-strip",
             "labyai.preview": "true",
             "labyai.preview.id": sid,
             "labyai.preview.url": f"{PREVIEW_SCHEME}://{host}{base_path}/",
@@ -121,6 +120,7 @@ def launch(req: LaunchReq):
             labels[f"traefik.http.routers.{sid}.tls"] = "true"
         preview_url = f"{PREVIEW_SCHEME}://{host}{base_path}/"
         extra_env = {"BASE_PATH": base_path}
+
     else:
         host = f"{sid}.{PREVIEW_DOMAIN}"
         rule = f"Host(`{host}`)"
@@ -151,7 +151,7 @@ def launch(req: LaunchReq):
             security_opt=["no-new-privileges"],
             network=DOCKER_NETWORK,
             labels=labels,
-            environment=extra_env,   # <— pass BASE_PATH to runner in path mode
+            environment=extra_env,   # pass BASE_PATH in path mode
             volumes={
                 session_dir:  {"bind": "/session",      "mode": "rw"},
                 CACHE_VOLUME: {"bind": "/wheels-cache", "mode": "rw"},
