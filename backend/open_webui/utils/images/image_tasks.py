@@ -3,7 +3,7 @@ from redis import Redis
 from rq import Queue
 
 from open_webui.env import REDIS_URL, SRC_LOG_LEVELS
-from open_webui.workers.image_worker import run_prediction
+from open_webui.image_worker import run_prediction
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["IMAGES"])

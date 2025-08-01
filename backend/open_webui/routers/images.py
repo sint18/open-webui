@@ -22,7 +22,7 @@ from open_webui.models.users import Users
 from open_webui.models.billing import CreditTransactions, CreditTransactionForm, UserCredits
 from open_webui.model_configs import MODEL_CONFIGS
 from open_webui.telegram_bot import send_telegram_message
-from open_webui.config import REPLICATE_API_BASE_URL
+from open_webui.config import REPLICATE_API_BASE_URL, REPLICATE_API_KEY
 import uuid
 import time
 from open_webui.utils.images.comfyui import (
@@ -37,7 +37,6 @@ log.setLevel(SRC_LOG_LEVELS["IMAGES"])
 
 IMAGE_CACHE_DIR = CACHE_DIR / "image" / "generations"
 IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
 
 router = APIRouter()
 
@@ -109,7 +108,7 @@ class ConfigForm(BaseModel):
 
 @router.post("/config/update")
 async def update_config(
-    request: Request, form_data: ConfigForm, user=Depends(get_admin_user)
+        request: Request, form_data: ConfigForm, user=Depends(get_admin_user)
 ):
     request.app.state.config.IMAGE_GENERATION_ENGINE = form_data.engine
     request.app.state.config.ENABLE_IMAGE_GENERATION = form_data.enabled
@@ -276,8 +275,8 @@ def get_image_model(request):
             else ""
         )
     elif (
-        request.app.state.config.IMAGE_GENERATION_ENGINE == "automatic1111"
-        or request.app.state.config.IMAGE_GENERATION_ENGINE == ""
+            request.app.state.config.IMAGE_GENERATION_ENGINE == "automatic1111"
+            or request.app.state.config.IMAGE_GENERATION_ENGINE == ""
     ):
         try:
             r = requests.get(
@@ -308,7 +307,7 @@ async def get_image_config(request: Request, user=Depends(get_admin_user)):
 
 @router.post("/image/config/update")
 async def update_image_config(
-    request: Request, form_data: ImageConfigForm, user=Depends(get_admin_user)
+        request: Request, form_data: ImageConfigForm, user=Depends(get_admin_user)
 ):
     set_image_model(request, form_data.MODEL)
 
@@ -399,8 +398,8 @@ def get_models(request: Request, user=Depends(get_verified_user)):
                     )
                 )
         elif (
-            request.app.state.config.IMAGE_GENERATION_ENGINE == "automatic1111"
-            or request.app.state.config.IMAGE_GENERATION_ENGINE == ""
+                request.app.state.config.IMAGE_GENERATION_ENGINE == "automatic1111"
+                or request.app.state.config.IMAGE_GENERATION_ENGINE == ""
         ):
             r = requests.get(
                 url=f"{request.app.state.config.AUTOMATIC1111_BASE_URL}/sdapi/v1/sd-models",
@@ -470,16 +469,30 @@ def upload_image(request, image_data, content_type, metadata, user):
             "content-type": content_type,
         },
     )
-    file_item = upload_file(request, file, metadata=metadata, internal=True, user=user)
+    # Handle both sync and async upload_file functions
+    result = upload_file(request, file, metadata=metadata, internal=True, user=user)
+    if asyncio.iscoroutine(result):
+        # It's a coroutine, we need to run it
+        try:
+            # Try to get the current event loop
+            loop = asyncio.get_running_loop()
+            # We're in an async context, create a task
+            file_item = asyncio.run_coroutine_threadsafe(result, loop).result()
+        except RuntimeError:
+            # No event loop running, use asyncio.run
+            file_item = asyncio.run(result)
+    else:
+        file_item = result
+
     url = request.app.url_path_for("get_file_content_by_id", id=file_item.id)
     return url
 
 
 @router.post("/generations")
 async def image_generations(
-    request: Request,
-    form_data: GenerateImageForm,
-    user=Depends(get_verified_user),
+        request: Request,
+        form_data: GenerateImageForm,
+        user=Depends(get_verified_user),
 ):
     width, height = tuple(map(int, request.app.state.config.IMAGE_SIZE.split("x")))
 
@@ -630,8 +643,8 @@ async def image_generations(
                 images.append({"url": url})
             return images
         elif (
-            request.app.state.config.IMAGE_GENERATION_ENGINE == "automatic1111"
-            or request.app.state.config.IMAGE_GENERATION_ENGINE == ""
+                request.app.state.config.IMAGE_GENERATION_ENGINE == "automatic1111"
+                or request.app.state.config.IMAGE_GENERATION_ENGINE == ""
         ):
             if form_data.model:
                 set_image_model(request, form_data.model)
@@ -688,21 +701,21 @@ async def image_generations(
             data = r.json()
             if "error" in data:
                 error = data["error"]["message"]
-        raise HTTPException(status_code=400, detail=ERROR_MESSAGES.DEFAULT(error))
+        raise HTTPException(status_code=400, detail=ERROR_MESSAGES.DEFAULT)
 
 
 @router.post("/predictions")
 async def create_prediction(
-    request: Request,
-    payload: str = Form(...),
-    style_reference_images: list[UploadFile] | None = File(None),
-    reference_images: list[UploadFile] | None = File(None),
-    image: UploadFile | None = File(None),
-    user=Depends(get_verified_user),
+        request: Request,
+        payload: str = Form(...),
+        style_reference_images: list[UploadFile] | None = File(None),
+        reference_images: list[UploadFile] | None = File(None),
+        image: UploadFile | None = File(None),
+        user=Depends(get_verified_user),
 ):
     log.info(f"Creating prediction for user {user.id}")
     try:
-        payload_data = json.loads(payload)
+        payload_data = json.loads(json.loads(payload))
     except json.JSONDecodeError:
         log.error("Invalid payload JSON")
         raise HTTPException(status_code=400, detail="Invalid payload JSON")
@@ -712,7 +725,7 @@ async def create_prediction(
         urls = []
         for f in style_reference_images:
             data = await f.read()
-            url = upload_image(request, data, f.content_type or "image/png", {}, user)
+            url = upload_image(request, data, f.content_type or "image/png", payload_data, user)
             urls.append(url)
         file_urls["style_reference_images"] = urls
         log.debug("Uploaded style reference images")
@@ -720,22 +733,23 @@ async def create_prediction(
         urls = []
         for f in reference_images:
             data = await f.read()
-            url = upload_image(request, data, f.content_type or "image/png", {}, user)
+            url = upload_image(request, data, f.content_type or "image/png", payload_data, user)
             urls.append(url)
         file_urls["reference_images"] = urls
         log.debug("Uploaded reference images")
     if image:
         data = await image.read()
-        file_urls["image"] = upload_image(request, data, image.content_type or "image/png", {}, user)
+        file_urls["image"] = upload_image(request, data, image.content_type or "image/png", payload_data, user)
         log.debug("Uploaded inpainting image")
-
+    print(payload_data)
+    print(type(payload_data))
     model_slug = payload_data.get("model")
     if not model_slug:
         log.error("Model slug missing in payload")
         raise HTTPException(status_code=400, detail="model is required")
 
     built_input = build_model_input(model_slug, json.dumps(payload_data), file_urls)
-    
+
     job = ImageJobs.insert_new_job(
         user.id,
         prompt=payload_data.get("prompt", ""),
@@ -748,8 +762,14 @@ async def create_prediction(
 
 
 @router.post("/webhook/{job_id}")
-async def prediction_webhook(request: Request, job_id: str, data: dict):
+async def prediction_webhook(request: Request, job_id: str):
     log.info(f"Webhook received for job {job_id}")
+    data = await request.json()
+
+    if not data:
+        log.error(f"No data received for webhook")
+        raise HTTPException(status_code=400, detail="No data received")
+
     predict_time = data.get("predict_time", 0.0)
     output = data.get("output")
     replicate_id = data.get("id")
@@ -763,8 +783,9 @@ async def prediction_webhook(request: Request, job_id: str, data: dict):
     version = MODEL_CONFIGS.get(model_slug)
 
     owner, model = model_slug.split("/", 1)
-    price_resp = requests.get(
-        f"{REPLICATE_API_BASE_URL}/v1/models/{owner}/{model}/versions/{version}"
+    price_resp = requests.get(headers={
+        "Authorization": f"Bearer {REPLICATE_API_KEY}"
+    }, url=f"{REPLICATE_API_BASE_URL}/v1/models/{owner}/{model}"
     )
     log.debug(f"Pricing response: {price_resp.text}")
     usd_per_second = (
@@ -772,16 +793,35 @@ async def prediction_webhook(request: Request, job_id: str, data: dict):
     )
     usd_cost = float(predict_time) * float(usd_per_second)
     credits = int(usd_cost / 0.0015)
-
-    image_url = output[0] if isinstance(output, list) else output
-    img_data = requests.get(image_url).content if image_url else b""
     user = Users.get_user_by_id(job.user_id)
-    saved_url = upload_image(request, img_data, "image/png", {}, user)
+    # Handle output which can be either list[str] or str
+    print(data)
+    saved_urls = []
+    if isinstance(output, list):
+        # Multiple URLs
+        for image_url in output:
+            if image_url:
+                img_data = requests.get(headers={
+                    "Authorization": f"Bearer {REPLICATE_API_KEY}"
+                }, url=image_url).content
+                saved_url = upload_image(request, img_data, "image/png", data, user)
+                saved_urls.append(saved_url)
+    else:
+        # Single URL
+        if output:
+            img_data = requests.get(headers={
+                "Authorization": f"Bearer {REPLICATE_API_KEY}"
+            }, url=output).content
+            saved_url = upload_image(request, img_data, "image/png", data, user)
+            saved_urls.append(saved_url)
+
+    # Use the first URL for backward compatibility, or could store all URLs
+    primary_saved_url = saved_urls[0] if saved_urls else None
 
     ImageJobs.update_image_job_by_id(
         job_id,
         {
-            "output_url": saved_url,
+            "output_url": primary_saved_url,
             "status": JobStatusEnum.succeeded,
             "predict_time": predict_time,
             "usd_cost": usd_cost,
