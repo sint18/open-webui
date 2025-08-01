@@ -21,15 +21,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.add_column("image_job", sa.Column("meta", sa.JSON(), nullable=True))
-    op.add_column("user_credit", sa.Column("resource_type", sa.String(), nullable=True))
-    op.add_column("user_credit", sa.Column("reference_id", sa.String(), nullable=True))
-    op.add_column("user_credit", sa.Column("meta", sa.JSON(), nullable=True))
+    op.add_column("credit_transaction", sa.Column("resource_type", sa.String(), nullable=True))
+    op.add_column("credit_transaction", sa.Column("reference_id", sa.String(), nullable=True))
+    op.add_column("credit_transaction", sa.Column("meta", sa.JSON(), nullable=True))
 
 
 
 def downgrade() -> None:
-    op.drop_column("user_credit", "resource_type")
-    op.drop_column("user_credit", "reference_id")
-    op.drop_column("user_credit", "meta")
+    op.drop_column("credit_transaction", "resource_type")
+    op.drop_column("credit_transaction", "reference_id")
+    op.drop_column("credit_transaction", "meta")
     op.drop_column("image_job", "meta")
 
