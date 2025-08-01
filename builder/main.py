@@ -1,10 +1,12 @@
-import os, shutil, threading, time, stat
+import os, shutil, threading, time, stat, tempfile
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
-from fastapi.responses import StreamingResponse, PlainTextResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse, FileResponse
+from typing import List
+
 
 import docker
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException,BackgroundTasks
 from pydantic import BaseModel, Field
 
 # ───── Settings ───────────────────────────────────────────────────
@@ -69,6 +71,11 @@ def _sid(n=6):
 @app.get("/health")
 def health():
     return {"ok": True}
+MAX_BUNDLE_BYTES = int(os.getenv("MAX_BUNDLE_BYTES", 5 * 1024 * 1024))  # 5 MB
+
+def _bundle_too_big(files: List[FileItem]) -> bool:
+    total = sum(len(f.content.encode("utf-8")) for f in files)
+    return total > MAX_BUNDLE_BYTES
 
 @app.post("/launch")
 def launch(req: LaunchReq):
@@ -79,6 +86,12 @@ def launch(req: LaunchReq):
     session_dir = os.path.join(SESSIONS_ROOT, sid)
     os.makedirs(session_dir, exist_ok=True)
 
+    if req.files and _bundle_too_big(req.files):
+        raise HTTPException(
+            status_code=413,
+            detail=f"Bundle > {MAX_BUNDLE_BYTES // 1024} KB. "
+                   "Split it or raise MAX_BUNDLE_BYTES."
+        )
     # write code files
     if req.files:
         for f in req.files:
@@ -119,7 +132,8 @@ def launch(req: LaunchReq):
         if PREVIEW_SCHEME == "https":
             labels[f"traefik.http.routers.{sid}.tls"] = "true"
         preview_url = f"{PREVIEW_SCHEME}://{host}{base_path}/"
-        extra_env = {"BASE_PATH": base_path}
+        extra_env = {"BASE_PATH": base_path,
+                      "ENTRYPOINT": f"/session/{entrypoint}"}
 
     else:
         host = f"{sid}.{PREVIEW_DOMAIN}"
@@ -138,6 +152,10 @@ def launch(req: LaunchReq):
         if PREVIEW_SCHEME == "https":
             labels[f"traefik.http.routers.{sid}.tls"] = "true"
         preview_url = f"{PREVIEW_SCHEME}://{host}/"
+        extra_env = {
+        # NEW – even if there’s no BASE_PATH, still pass ENTRYPOINT
+        "ENTRYPOINT": f"/session/{entrypoint}",
+    }
 
     try:
         client.containers.run(
@@ -164,6 +182,26 @@ def launch(req: LaunchReq):
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"id": sid, "url": preview_url, "entrypoint": entrypoint}
+
+@app.get("/zip/{id}", response_class=FileResponse)
+def download_zip(id: str, bg: BackgroundTasks):
+    session_dir = os.path.join(SESSIONS_ROOT, id)
+    if not os.path.isdir(session_dir):
+        raise HTTPException(status_code=404, detail="preview not found")
+
+    # build the archive in /tmp
+    tmp = tempfile.NamedTemporaryFile(prefix=f"{id}_", suffix=".zip", delete=False)
+    archive_path = shutil.make_archive(tmp.name[:-4], "zip", session_dir)
+
+    # schedule its removal after the response is sent
+    bg.add_task(os.unlink, archive_path)
+
+    return FileResponse(
+        archive_path,
+        filename=f"{id}.zip",
+        media_type="application/zip",
+    )
+
 
 @app.post("/kill")
 def kill(req: KillReq):
