@@ -10,13 +10,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_ROOT_USER_ACTION=ignore \
     PIP_CACHE_DIR=/wheels-cache \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    ENTRYPOINT=/session/app.py
 
 EXPOSE 8501
 
-# Exec form: no quoting headaches, runs under /bin/sh -lc explicitly
-CMD ["/bin/sh","-lc","python3 -m venv /session/.venv \
- && . /session/.venv/bin/activate \
- && python3 -m pip install --upgrade pip \
- && pip install --no-input --cache-dir \"$PIP_CACHE_DIR\" -r /session/requirements.txt \
- && streamlit run /session/app.py --server.port 8501 --server.headless true --server.baseUrlPath \"${BASE_PATH:-/}\""]
+
+# ─── run the preview ──────────────────────────────────────────────
+# keep everything you already had, but drive Streamlit with $ENTRYPOINT
+CMD ["/bin/sh","-lc", "\
+  python3 -m venv /session/.venv && \
+  . /session/.venv/bin/activate && \
+  pip install --upgrade pip && \
+  pip install --no-input --cache-dir \"$PIP_CACHE_DIR\" -r /session/requirements.txt && \
+  streamlit run \"$ENTRYPOINT\" \
+      --server.port 8501 \
+      --server.headless true \
+      --server.baseUrlPath \"${BASE_PATH:-/}\" \
+"]

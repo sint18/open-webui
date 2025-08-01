@@ -1,10 +1,12 @@
-import os, shutil, threading, time, stat
+import os, shutil, threading, time, stat, tempfile
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
-from fastapi.responses import StreamingResponse, PlainTextResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse, FileResponse
+from typing import List
+
 
 import docker
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException,BackgroundTasks
 from pydantic import BaseModel, Field
 
 # ───── Settings ───────────────────────────────────────────────────
@@ -19,6 +21,7 @@ ROUTING_MODE    = os.getenv("ROUTING_MODE", "path")                 # "path" | "
 PATH_PREFIX     = os.getenv("PATH_PREFIX", "/p").rstrip("/")        # e.g. /p
 
 DEFAULT_TTL_MIN = int(os.getenv("DEFAULT_TTL_MIN", "45"))
+MAX_LIVE_CONTAINERS = int(os.getenv("MAX_LIVE_CONTAINERS", "50"))
 CPU_LIMIT       = os.getenv("CPU_LIMIT", "1")
 MEM_LIMIT       = os.getenv("MEM_LIMIT", "1g")
 CACHE_VOLUME    = os.getenv("CACHE_VOLUME", "wheels-cache")
@@ -35,6 +38,7 @@ class LaunchReq(BaseModel):
     code:         Optional[str]            = None
     requirements: Optional[str]            = None
     ttl_minutes:  Optional[int]            = None
+    bundle_hash:  Optional[str]            = None
 
 class KillReq(BaseModel):
     id: str
@@ -69,16 +73,39 @@ def _sid(n=6):
 @app.get("/health")
 def health():
     return {"ok": True}
+MAX_BUNDLE_BYTES = int(os.getenv("MAX_BUNDLE_BYTES", 5 * 1024 * 1024))  # 5 MB
+
+def _bundle_too_big(files: List[FileItem]) -> bool:
+    total = sum(len(f.content.encode("utf-8")) for f in files)
+    return total > MAX_BUNDLE_BYTES
 
 @app.post("/launch")
 def launch(req: LaunchReq):
     sid = _sid()
+    if req.bundle_hash:
+        matches = client.containers.list(
+            all=True,
+            filters={"label": f"labyai.bundle_hash={req.bundle_hash}"}
+        )
+        if matches:
+            c = matches[0]
+            return {
+                "id":         c.labels.get("labyai.preview.id"),
+                "url":        c.labels.get("labyai.preview.url"),
+                "entrypoint": c.labels.get("labyai.preview.entrypoint"),
+            }
     ttl = int(req.ttl_minutes or DEFAULT_TTL_MIN)
 
     # host session dir (one per preview)
     session_dir = os.path.join(SESSIONS_ROOT, sid)
     os.makedirs(session_dir, exist_ok=True)
 
+    if req.files and _bundle_too_big(req.files):
+        raise HTTPException(
+            status_code=413,
+            detail=f"Bundle > {MAX_BUNDLE_BYTES // 1024} KB. "
+                   "Split it or raise MAX_BUNDLE_BYTES."
+        )
     # write code files
     if req.files:
         for f in req.files:
@@ -115,11 +142,13 @@ def launch(req: LaunchReq):
             "labyai.preview.created_at": _now().isoformat(),
             "labyai.preview.ttl_min": str(ttl),
             "labyai.preview.entrypoint": entrypoint,
+            "labyai.bundle_hash": req.bundle_hash or "",
         })
         if PREVIEW_SCHEME == "https":
             labels[f"traefik.http.routers.{sid}.tls"] = "true"
         preview_url = f"{PREVIEW_SCHEME}://{host}{base_path}/"
-        extra_env = {"BASE_PATH": base_path}
+        extra_env = {"BASE_PATH": base_path,
+                      "ENTRYPOINT": f"/session/{entrypoint}"}
 
     else:
         host = f"{sid}.{PREVIEW_DOMAIN}"
@@ -134,10 +163,15 @@ def launch(req: LaunchReq):
             "labyai.preview.created_at": _now().isoformat(),
             "labyai.preview.ttl_min": str(ttl),
             "labyai.preview.entrypoint": entrypoint,
+            "labyai.bundle_hash": req.bundle_hash or "",
         })
         if PREVIEW_SCHEME == "https":
             labels[f"traefik.http.routers.{sid}.tls"] = "true"
         preview_url = f"{PREVIEW_SCHEME}://{host}/"
+        extra_env = {
+        # NEW – even if there’s no BASE_PATH, still pass ENTRYPOINT
+        "ENTRYPOINT": f"/session/{entrypoint}",
+    }
 
     try:
         client.containers.run(
@@ -164,6 +198,26 @@ def launch(req: LaunchReq):
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"id": sid, "url": preview_url, "entrypoint": entrypoint}
+
+@app.get("/zip/{id}", response_class=FileResponse)
+def download_zip(id: str, bg: BackgroundTasks):
+    session_dir = os.path.join(SESSIONS_ROOT, id)
+    if not os.path.isdir(session_dir):
+        raise HTTPException(status_code=404, detail="preview not found")
+
+    # build the archive in /tmp
+    tmp = tempfile.NamedTemporaryFile(prefix=f"{id}_", suffix=".zip", delete=False)
+    archive_path = shutil.make_archive(tmp.name[:-4], "zip", session_dir)
+
+    # schedule its removal after the response is sent
+    bg.add_task(os.unlink, archive_path)
+
+    return FileResponse(
+        archive_path,
+        filename=f"{id}.zip",
+        media_type="application/zip",
+    )
+
 
 @app.post("/kill")
 def kill(req: KillReq):
@@ -219,7 +273,12 @@ def logs_stream(id: str):
 def sweeper_loop():
     while True:
         try:
-            previews = client.containers.list(all=True, filters={"label": "labyai.preview=true"})
+            # list all previews (running or exited)
+            previews = client.containers.list(
+                all=True, filters={"label": "labyai.preview=true"}
+            )
+
+            # ── TTL cleanup (existing logic) ────────────────────────
             for c in previews:
                 lbl = c.labels or {}
                 sid = lbl.get("labyai.preview.id")
@@ -237,8 +296,26 @@ def sweeper_loop():
                     except Exception:
                         pass
                     shutil.rmtree(os.path.join(SESSIONS_ROOT, sid), ignore_errors=True)
+
+            # ── Global cap: remove oldest until <= MAX_LIVE_CONTAINERS ─
+            live = client.containers.list(
+                all=True, filters={"label": "labyai.preview=true"}
+            )
+            if len(live) > MAX_LIVE_CONTAINERS:
+                # sort by creation time (oldest first)
+                live.sort(key=lambda x: x.labels.get("labyai.preview.created_at", ""))
+                for c in live[: len(live) - MAX_LIVE_CONTAINERS]:
+                    sid = c.labels.get("labyai.preview.id")
+                    try:
+                        c.remove(force=True)
+                    except Exception:
+                        pass
+                    if sid:
+                        shutil.rmtree(os.path.join(SESSIONS_ROOT, sid), ignore_errors=True)
+
         except Exception:
             pass
+
         time.sleep(30)
 
 threading.Thread(target=sweeper_loop, daemon=True).start()
