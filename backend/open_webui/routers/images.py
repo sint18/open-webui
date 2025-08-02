@@ -5,8 +5,9 @@ import json
 import logging
 import mimetypes
 import re
+import secrets
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
@@ -23,7 +24,8 @@ from open_webui.utils.images.input_builders import build_model_input
 from open_webui.utils.images.image_tasks import enqueue_prediction_job
 from open_webui.models.users import Users
 from open_webui.models.billing import CreditTransactions, CreditTransactionForm, UserCredits
-from open_webui.model_configs import MODEL_CONFIGS
+from open_webui.model_configs import MODEL_CONFIGS, AspectRatio, Resolution, StyleType, Background, OutputFormat, \
+    ContentModeration
 from open_webui.telegram_bot import send_telegram_message
 from open_webui.config import REPLICATE_API_BASE_URL, REPLICATE_API_KEY
 import uuid
@@ -682,19 +684,89 @@ async def image_generations(
 
 @router.post("/predictions")
 async def create_prediction(
-        request: Request,
-        payload: str = Form(...),
-        reference_images: List[UploadFile] | None = File(default_factory=list),
-        style_reference_images: List[UploadFile] | None = File(default_factory=list),
-        input_images: List[UploadFile] | None = File(default_factory=list),
-        input_image: UploadFile | None = File(None),
-        image: UploadFile | None = File(None),
-        mask: UploadFile | None = File(None),
+        # ————————————————————————————— Scalars as Form(...) —————————————————————————————
+        model: str = Form(..., description="Replicate model slug"),
+        prompt: str = Form(..., description="Text prompt for generation"),
+
+        # RunwayGen4Payload
+        seed: Optional[int] = Form(None),
+        aspect_ratio: AspectRatio = Form("1:1"),
+        resolution: Resolution = Form("720p"),
+        reference_tags: List[str] = Form(default=[]),
+
+        # Imagen4Payload
+        negative_prompt: Optional[str] = Form(None),
+        safety_filter_level: str = Form("block_only_high"),
+
+        # IdeogramV3TurboPayload
+        magic_prompt_option: StyleType = Form("Auto"),
+        style_type: StyleType = Form("None"),
+        # (image & mask handled as UploadFile below)
+        # seed & aspect_ratio & resolution reused above
+
+        # GPTImage1Payload
+        quality: str = Form("auto"),
+        number_of_images: int = Form(1),
+        background: Background = Form("auto"),
+        output_compression: int = Form(90),
+        output_format: OutputFormat = Form("webp"),
+        moderation: ContentModeration = Form("auto"),
+
+        # FluxSchnellPayload
+        num_outputs: int = Form(1),
+        num_inference_steps: int = Form(4),
+        output_quality: int = Form(80),
+        disable_safety_checker: bool = Form(False),
+        go_fast: bool = Form(True),
+        megapixels: str = Form("1"),
+
+        # FluxKontextProPayload
+        prompt_upsampling: bool = Form(False),
+        safety_tolerance: int = Form(2),
+
+        # ————————————————————————————— Files as File(...) —————————————————————————————
+        reference_images: List[UploadFile] = File(default_factory=list),
+        style_reference_images: List[UploadFile] = File(default_factory=list),
+        input_images: List[UploadFile] = File(default_factory=list),
+        input_image: Optional[UploadFile] = File(None),
+        image: Optional[UploadFile] = File(None),
+        mask: Optional[UploadFile] = File(None),
+
         user=Depends(get_verified_user),
 ):
+    # Build a simple dict of all your scalar fields (only keep non-None)
+    raw_payload: Dict[str, Any] = {
+        k: v for k, v in {
+            "model": model,
+            "prompt": prompt,
+            "seed": seed,
+            "aspect_ratio": aspect_ratio,
+            "resolution": resolution,
+            "reference_tags": reference_tags,
+            "negative_prompt": negative_prompt,
+            "safety_filter_level": safety_filter_level,
+            "magic_prompt_option": magic_prompt_option,
+            "style_type": style_type,
+            "quality": quality,
+            "number_of_images": number_of_images,
+            "background": background,
+            "output_compression": output_compression,
+            "output_format": output_format,
+            "moderation": moderation,
+            "num_outputs": num_outputs,
+            "num_inference_steps": num_inference_steps,
+            "output_quality": output_quality,
+            "disable_safety_checker": disable_safety_checker,
+            "go_fast": go_fast,
+            "megapixels": megapixels,
+            "prompt_upsampling": prompt_upsampling,
+            "safety_tolerance": safety_tolerance,
+        }.items()
+        if v is not None and v != []
+    }
     log.info(f"Creating prediction for user {user.id}")
     try:
-        payload_data = json.loads(json.loads(payload))
+        payload_data = raw_payload
     except json.JSONDecodeError:
         log.error("Invalid payload JSON")
         raise HTTPException(status_code=400, detail="Invalid payload JSON")
@@ -722,7 +794,8 @@ async def create_prediction(
 
     if input_image:
         data = input_image.file
-        files["input_image"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data, user)
+        files["input_image"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data,
+                                                  user)
 
     if mask:
         data = mask.file
@@ -732,13 +805,17 @@ async def create_prediction(
         data = image.file
         files["image"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data, user)
 
-
     print(payload_data)
     print(type(payload_data))
     model_slug = payload_data.get("model")
     if not model_slug:
         log.error("Model slug missing in payload")
         raise HTTPException(status_code=400, detail="model is required")
+
+    if seed is None:
+        seed = secrets.randbits(32)
+        payload_data["seed"] = seed
+        log.info(f"Seed not provided. Generated randomly: {seed} for model {model_slug}")
 
     try:
         built_input = build_model_input(model_slug, payload_data, files)
