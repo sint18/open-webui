@@ -6,14 +6,17 @@ import logging
 import mimetypes
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from starlette.responses import StreamingResponse
+
+from open_webui.models.files import FileModel
 from open_webui.config import CACHE_DIR
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import ENABLE_FORWARD_USER_INFO_HEADERS, SRC_LOG_LEVELS
-from open_webui.routers.files import upload_file
+from open_webui.utils.image_helpers import upload_image
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.models.image_jobs import ImageJobs, JobStatusEnum
 from open_webui.utils.images.input_builders import build_model_input
@@ -30,7 +33,10 @@ from open_webui.utils.images.comfyui import (
     ComfyUIWorkflow,
     comfyui_generate_image,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+
+from redis_client import redis_conn
+from utils.file_helpers import save_bytes_as_file
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["IMAGES"])
@@ -460,34 +466,6 @@ def load_url_image_data(url, headers=None):
         return None
 
 
-def upload_image(request, image_data, content_type, metadata, user):
-    image_format = mimetypes.guess_extension(content_type)
-    file = UploadFile(
-        file=io.BytesIO(image_data),
-        filename=f"generated-image{image_format}",  # will be converted to a unique ID on upload_file
-        headers={
-            "content-type": content_type,
-        },
-    )
-    # Handle both sync and async upload_file functions
-    result = upload_file(request, file, metadata=metadata, internal=True, user=user)
-    if asyncio.iscoroutine(result):
-        # It's a coroutine, we need to run it
-        try:
-            # Try to get the current event loop
-            loop = asyncio.get_running_loop()
-            # We're in an async context, create a task
-            file_item = asyncio.run_coroutine_threadsafe(result, loop).result()
-        except RuntimeError:
-            # No event loop running, use asyncio.run
-            file_item = asyncio.run(result)
-    else:
-        file_item = result
-
-    url = request.app.url_path_for("get_file_content_by_id", id=file_item.id)
-    return url
-
-
 @router.post("/generations")
 async def image_generations(
         request: Request,
@@ -550,7 +528,7 @@ async def image_generations(
                 else:
                     image_data, content_type = load_b64_image_data(image["b64_json"])
 
-                url = upload_image(request, image_data, content_type, data, user)
+                url = upload_image(image_data, content_type, data, user)
                 images.append({"url": url})
             return images
 
@@ -584,7 +562,7 @@ async def image_generations(
                 image_data, content_type = load_b64_image_data(
                     image["bytesBase64Encoded"]
                 )
-                url = upload_image(request, image_data, content_type, data, user)
+                url = upload_image(image_data, content_type, data, user)
                 images.append({"url": url})
 
             return images
@@ -634,7 +612,6 @@ async def image_generations(
 
                 image_data, content_type = load_url_image_data(image["url"], headers)
                 url = upload_image(
-                    request,
                     image_data,
                     content_type,
                     form_data.model_dump(exclude_none=True),
@@ -687,7 +664,6 @@ async def image_generations(
             for image in res["images"]:
                 image_data, content_type = load_b64_image_data(image)
                 url = upload_image(
-                    request,
                     image_data,
                     content_type,
                     {**data, "info": res["info"]},
@@ -708,9 +684,12 @@ async def image_generations(
 async def create_prediction(
         request: Request,
         payload: str = Form(...),
-        style_reference_images: list[UploadFile] | None = File(None),
-        reference_images: list[UploadFile] | None = File(None),
+        reference_images: List[UploadFile] | None = File(default_factory=list),
+        style_reference_images: List[UploadFile] | None = File(default_factory=list),
+        input_images: List[UploadFile] | None = File(default_factory=list),
+        input_image: UploadFile | None = File(None),
         image: UploadFile | None = File(None),
+        mask: UploadFile | None = File(None),
         user=Depends(get_verified_user),
 ):
     log.info(f"Creating prediction for user {user.id}")
@@ -720,27 +699,40 @@ async def create_prediction(
         log.error("Invalid payload JSON")
         raise HTTPException(status_code=400, detail="Invalid payload JSON")
 
-    file_urls: dict[str, list[str] | str] = {}
-    if style_reference_images:
-        urls = []
-        for f in style_reference_images:
-            data = await f.read()
-            url = upload_image(request, data, f.content_type or "image/png", payload_data, user)
-            urls.append(url)
-        file_urls["style_reference_images"] = urls
-        log.debug("Uploaded style reference images")
+    files: dict[str, list[FileModel] | FileModel] = {}
     if reference_images:
-        urls = []
         for f in reference_images:
-            data = await f.read()
-            url = upload_image(request, data, f.content_type or "image/png", payload_data, user)
-            urls.append(url)
-        file_urls["reference_images"] = urls
+            file_item = save_bytes_as_file(f.file, f.filename, f.content_type, payload_data, user)
+            files["reference_images"].append(file_item)
         log.debug("Uploaded reference images")
+
+    for field_name, uploads in [
+        ("reference_images", reference_images),
+        ("style_reference_images", style_reference_images),
+        ("input_images", input_images),
+    ]:
+        if uploads:
+            saved = []
+            for up in uploads:
+                raw = up.file
+                saved.append(
+                    save_bytes_as_file(raw, up.filename, up.content_type, payload_data, user)
+                )
+            files[field_name] = saved
+
+    if input_image:
+        data = input_image.file
+        files["input_image"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data, user)
+
+    if mask:
+        data = mask.file
+        files["mask"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data, user)
+
     if image:
-        data = await image.read()
-        file_urls["image"] = upload_image(request, data, image.content_type or "image/png", payload_data, user)
-        log.debug("Uploaded inpainting image")
+        data = image.file
+        files["image"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data, user)
+
+
     print(payload_data)
     print(type(payload_data))
     model_slug = payload_data.get("model")
@@ -748,7 +740,13 @@ async def create_prediction(
         log.error("Model slug missing in payload")
         raise HTTPException(status_code=400, detail="model is required")
 
-    built_input = build_model_input(model_slug, json.dumps(payload_data), file_urls)
+    try:
+        built_input = build_model_input(model_slug, payload_data, files)
+    except ValidationError as ve:
+        # pydantic will give you exactly which fields are missing/extra
+        raise HTTPException(422, detail=ve.errors())
+    except ValueError as ve:
+        raise HTTPException(400, str(ve))
 
     job = ImageJobs.insert_new_job(
         user.id,
@@ -759,6 +757,48 @@ async def create_prediction(
     log.info(f"Enqueued image job {job.id} for model {model_slug}")
     enqueue_prediction_job(job.id, built_input, user)
     return {"job_id": job.id, "status": job.status.value}
+
+
+def format_sse(data: str, event: str = None) -> str:
+    """Simple helper to format a Server‐Sent Events payload."""
+    msg = ""
+    if event:
+        msg += f"event: {event}\n"
+    # ensure data is one line per SSE spec
+    for line in data.splitlines():
+        msg += f"data: {line}\n"
+    return msg + "\n"
+
+
+@router.get("/stream/{job_id}")
+async def image_progress_sse(job_id: str):
+    # verify job exists
+    from open_webui.models.image_jobs import ImageJobs
+    if not ImageJobs.get_image_job_by_job_id(job_id):
+        raise HTTPException(404, "Job not found")
+
+    async def event_generator():
+        pubsub = redis_conn.pubsub()
+        await pubsub.subscribe(f"image_job:{job_id}")
+        try:
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=5.0)
+                if message and message["type"] == "message":
+                    payload = message["data"].decode()
+                    data = json.loads(payload)
+                    status = data.get("status")
+                    # send an event named after the status
+                    yield format_sse(json.dumps(data), event=status)
+                    if status in ("finished", "failed"):
+                        break
+                # heartbeat to keep connection alive
+                yield ":" + " keep-alive\n\n"
+                await asyncio.sleep(1)
+        finally:
+            await pubsub.unsubscribe(f"image_job:{job_id}")
+            await pubsub.close()
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.post("/webhook/{job_id}")
@@ -804,7 +844,7 @@ async def prediction_webhook(request: Request, job_id: str):
                 img_data = requests.get(headers={
                     "Authorization": f"Bearer {REPLICATE_API_KEY}"
                 }, url=image_url).content
-                saved_url = upload_image(request, img_data, "image/png", data, user)
+                saved_url = upload_image(img_data, "image/png", data, user)
                 saved_urls.append(saved_url)
     else:
         # Single URL
@@ -812,7 +852,7 @@ async def prediction_webhook(request: Request, job_id: str):
             img_data = requests.get(headers={
                 "Authorization": f"Bearer {REPLICATE_API_KEY}"
             }, url=output).content
-            saved_url = upload_image(request, img_data, "image/png", data, user)
+            saved_url = upload_image(img_data, "image/png", data, user)
             saved_urls.append(saved_url)
 
     # Use the first URL for backward compatibility, or could store all URLs

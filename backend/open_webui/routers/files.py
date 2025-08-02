@@ -40,6 +40,8 @@ from open_webui.storage.provider import Storage
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from pydantic import BaseModel
 
+from utils.file_helpers import save_bytes_as_file
+
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
@@ -127,59 +129,32 @@ def upload_file(
                     ),
                 )
 
-        # replace filename with uuid
-        id = str(uuid.uuid4())
-        name = filename
-        filename = f"{id}_{filename}"
-        tags = {
-            "OpenWebUI-User-Email": user.email,
-            "OpenWebUI-User-Id": user.id,
-            "OpenWebUI-User-Name": user.name,
-            "OpenWebUI-File-Id": id,
-        }
-        contents, file_path = Storage.upload_file(file.file, filename, tags)
-
-        file_item = Files.insert_new_file(
-            user.id,
-            FileForm(
-                **{
-                    "id": id,
-                    "filename": name,
-                    "path": file_path,
-                    "meta": {
-                        "name": name,
-                        "content_type": file.content_type,
-                        "size": len(contents),
-                        "data": file_metadata,
-                    },
-                }
-            ),
-        )
+        file_item = save_bytes_as_file(file.file, file.filename, file.content_type, metadata, user)
         if process:
             try:
                 if file.content_type:
                     if file.content_type.startswith("audio/") or file.content_type in {
                         "video/webm"
                     }:
-                        file_path = Storage.get_file(file_path)
+                        file_path = Storage.get_file(file_item.path)
                         result = transcribe(request, file_path, file_metadata)
 
                         process_file(
                             request,
-                            ProcessFileForm(file_id=id, content=result.get("text", "")),
+                            ProcessFileForm(file_id=file_item.id, content=result.get("text", "")),
                             user=user,
                         )
                     elif (not file.content_type.startswith(("image/", "video/"))) or (
                         request.app.state.config.CONTENT_EXTRACTION_ENGINE == "external"
                     ):
-                        process_file(request, ProcessFileForm(file_id=id), user=user)
+                        process_file(request, ProcessFileForm(file_id=file_item.id), user=user)
                 else:
                     log.info(
                         f"File type {file.content_type} is not provided, but trying to process anyway"
                     )
-                    process_file(request, ProcessFileForm(file_id=id), user=user)
+                    process_file(request, ProcessFileForm(file_id=file_item.id), user=user)
 
-                file_item = Files.get_file_by_id(id=id)
+                file_item = Files.get_file_by_id(id=file_item.id)
             except Exception as e:
                 log.exception(e)
                 log.error(f"Error processing file: {file_item.id}")

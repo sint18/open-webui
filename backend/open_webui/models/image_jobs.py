@@ -40,6 +40,7 @@ class ImageJob(Base):
     negative_prompt = Column(Text)
     status = Column(SAEnum(JobStatusEnum, name="image_job_status_enum"), default=JobStatusEnum.queued, nullable=False)
     replicate_id = Column(String, unique=True)
+    # TODO: Change to 'output_urls' and make it a list
     output_url = Column(Text)
     predict_time = Column(Float)
     usd_cost = Column(Float)

@@ -1,16 +1,12 @@
+import json
 import logging
-from redis import Redis
-from rq import Queue
-
-from open_webui.env import REDIS_URL, SRC_LOG_LEVELS
+from open_webui.env import SRC_LOG_LEVELS
 from open_webui.image_worker import run_prediction
+from redis_client import hires_queue, standard_queue, redis_conn
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["IMAGES"])
 
-redis_conn = Redis.from_url(REDIS_URL)
-standard_queue = Queue("image_standard", connection=redis_conn)
-hires_queue = Queue("image_hires", connection=redis_conn)
 
 HIRES_MODELS = {"runwayml/gen4-image", "openai/gpt-image-1"}
 
