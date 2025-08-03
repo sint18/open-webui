@@ -60,7 +60,7 @@ def run_prediction(job_id: str, raw_payload: dict) -> None:
     model_slug = job.model_name
 
     try:
-
+        metadata = dict(raw_payload)
         payload = hydrate_payload_files(model_slug, raw_payload)
 
         publish_progress(job_id, "queued")
@@ -109,7 +109,6 @@ def run_prediction(job_id: str, raw_payload: dict) -> None:
         # Download and upload images from file objects
         output_files = prediction.output
         saved_urls = []
-        metadata = payload
 
         if prediction.output is None:
             log.info(f"[Job {job_id}] No output files found")
@@ -141,7 +140,8 @@ def run_prediction(job_id: str, raw_payload: dict) -> None:
         num_outputs = len(output_files or [])
         usd_cost = price_usd * num_outputs
         # convert to credits however you like, e.g. 1 credit = $0.0015
-        credits = int(usd_cost / config.get("credit_rate", 0.0015))
+        # TODO: Consult with GPT to set baseline credit and price
+        debit_credits_delta = int(usd_cost / config.get("credit_rate", 0.0015))
 
         primary_url = saved_urls[0] if saved_urls else None
 
@@ -153,7 +153,7 @@ def run_prediction(job_id: str, raw_payload: dict) -> None:
             "status": JobStatusEnum.succeeded,
             "predict_time": duration,
             "usd_cost": usd_cost,
-            "credits_spent": credits,
+            "credits_spent": debit_credits_delta,
             "completed_at": int(time.time()),
         })
         log.info(f"[Job {job_id}] Job record updated with output and billing")
@@ -161,7 +161,7 @@ def run_prediction(job_id: str, raw_payload: dict) -> None:
         # Record credit transaction and update user credits
         txn = CreditTransactionForm(
             tx_id=str(uuid.uuid4()),
-            delta=-credits,
+            delta=-debit_credits_delta,
             usd_spend=usd_cost,
             model_name=job.model_name,
             resource_type=f"image:{prediction.model}",
@@ -169,7 +169,7 @@ def run_prediction(job_id: str, raw_payload: dict) -> None:
             meta=metadata,
         )
         CreditTransactions.insert_transaction(user.id, txn)
-        credits_record = UserCredits.update_credits(user.id, -credits)
+        credits_record = UserCredits.update_credits(user.id, -debit_credits_delta)
 
         # Notify user if credits exhausted
         if credits_record and credits_record.credit_balance <= 0 and user and getattr(user, "telegram_chat_id", None):

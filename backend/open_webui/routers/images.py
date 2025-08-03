@@ -725,9 +725,9 @@ async def create_prediction(
         safety_tolerance: int = Form(2),
 
         # ————————————————————————————— Files as File(...) —————————————————————————————
-        reference_images: List[UploadFile] = File(default_factory=list),
-        style_reference_images: List[UploadFile] = File(default_factory=list),
-        input_images: List[UploadFile] = File(default_factory=list),
+        reference_images: Optional[List[UploadFile]] = File(default_factory=list),
+        style_reference_images: Optional[List[UploadFile]] = File(default_factory=list),
+        input_images: Optional[List[UploadFile]] = File(default_factory=list),
         input_image: Optional[UploadFile] = File(None),
         image: Optional[UploadFile] = File(None),
         mask: Optional[UploadFile] = File(None),
@@ -772,38 +772,38 @@ async def create_prediction(
         raise HTTPException(status_code=400, detail="Invalid payload JSON")
 
     files: dict[str, list[FileModel] | FileModel] = {}
-    if reference_images:
-        for f in reference_images:
-            file_item = save_bytes_as_file(f.file, f.filename, f.content_type, payload_data, user)
-            files["reference_images"].append(file_item)
-        log.debug("Uploaded reference images")
 
     for field_name, uploads in [
         ("reference_images", reference_images),
         ("style_reference_images", style_reference_images),
         ("input_images", input_images),
+        ("input_image", input_image),
+        ("mask", mask),
+        ("image", image),
     ]:
-        if uploads:
-            saved = []
-            for up in uploads:
-                raw = up.file
-                saved.append(
-                    save_bytes_as_file(raw, up.filename, up.content_type, payload_data, user)
-                )
-            files[field_name] = saved
+        if not uploads:
+            continue
 
-    if input_image:
-        data = input_image.file
-        files["input_image"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data,
-                                                  user)
+        # Make sure uploads is a list
+        if isinstance(uploads, UploadFile):
+            upload_list = [uploads]
+        elif isinstance(uploads, list):
+            upload_list = uploads
+        else:
+            # Handle any other iterable type
+            try:
+                upload_list = list(uploads)
+            except TypeError:
+                # If it's not iterable, treat it as a single item
+                upload_list = [uploads]
 
-    if mask:
-        data = mask.file
-        files["mask"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data, user)
-
-    if image:
-        data = image.file
-        files["image"] = save_bytes_as_file(data, input_image.filename, input_image.content_type, payload_data, user)
+        saved = []
+        for up in upload_list:
+            raw = up.file
+            saved.append(
+                save_bytes_as_file(raw, up.filename, up.content_type, payload_data, user)
+            )
+        files[field_name] = saved
 
     print(payload_data)
     print(type(payload_data))
@@ -851,15 +851,19 @@ def format_sse(data: str, event: str = None) -> str:
 async def image_progress_sse(job_id: str):
     # verify job exists
     from open_webui.models.image_jobs import ImageJobs
-    if not ImageJobs.get_image_job_by_job_id(job_id):
-        raise HTTPException(404, "Job not found")
+    # if not ImageJobs.get_image_job_by_job_id(job_id):
+    #     raise HTTPException(404, "Job not found")
 
     async def event_generator():
         pubsub = redis_conn.pubsub()
-        await pubsub.subscribe(f"image_job:{job_id}")
+        pubsub.subscribe(f"image_job:{job_id}")
         try:
             while True:
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=5.0)
+                message = await asyncio.to_thread(
+                    pubsub.get_message,
+                    ignore_subscribe_messages=True,
+                    timeout=5.0,
+                )
                 if message and message["type"] == "message":
                     payload = message["data"].decode()
                     data = json.loads(payload)
@@ -872,10 +876,56 @@ async def image_progress_sse(job_id: str):
                 yield ":" + " keep-alive\n\n"
                 await asyncio.sleep(1)
         finally:
-            await pubsub.unsubscribe(f"image_job:{job_id}")
-            await pubsub.close()
+            pubsub.unsubscribe(f"image_job:{job_id}")
+            pubsub.close()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+def publish_progress(job_id: str, status: str, extra: dict = None):
+    msg = {"status": status}
+    if extra:
+        msg.update(extra)
+    redis_conn.publish(f"image_job:{job_id}", json.dumps(msg))
+
+
+@router.post("/predictions/test")
+async def test_prediction():
+    """
+    Starts a fake job that publishes progress updates every second.
+    Returns the job_id to use with GET /stream/{job_id}.
+    """
+    job_id = str(uuid.uuid4())
+
+    async def fake_progress():
+        steps = [
+            ("started",    {"msg": "Job initialized"}),
+            ("queued",     {"msg": "Job queued"}),
+            ("predicting", {"percent": 25}),
+            ("predicting", {"percent": 30}),
+            ("predicting", {"percent": 40}),
+            ("predicting", {"percent": 50}),
+            ("predicting", {"percent": 52}),
+            ("predicting", {"percent": 54}),
+            ("predicting", {"percent": 56}),
+            ("predicting", {"percent": 56}),
+            ("predicting", {"percent": 57}),
+            ("predicting", {"percent": 58}),
+            ("predicting", {"percent": 58}),
+            ("predicting", {"percent": 58}),
+            ("predicting", {"percent": 79}),
+            ("finished",   {"urls": ["https://example.com/fake1.png", "https://example.com/fake2.png"]}),
+        ]
+        for status, extra in steps:
+            await asyncio.sleep(1)
+            print(f"Publishing {status} for job {job_id}")
+            # offload the synchronous publish to a thread so we don't block
+            await asyncio.to_thread(publish_progress, job_id, status, extra)
+
+    # fire-and-forget
+    asyncio.create_task(fake_progress())
+
+    return {"job_id": job_id}
 
 
 @router.post("/webhook/{job_id}")

@@ -77,7 +77,7 @@ class FluxSchnellPayload(BaseModel):
 
 class FluxKontextProPayload(BaseModel):
     prompt: str
-    input_image: dict
+    input_image: Optional[dict] = None
     aspect_ratio: Optional[AspectRatio] = "match_input_image"
     prompt_upsampling: Optional[bool] = False
     seed: Optional[int] = None
