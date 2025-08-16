@@ -56,6 +56,7 @@ from typing import Optional, List
 from ssl import CERT_NONE, CERT_REQUIRED, PROTOCOL_TLS
 
 from open_webui.utils.promotion import create_free_signup_credits
+from open_webui.core.affiliate import resolve_attribution_on_auth
 
 if ENABLE_LDAP.value:
     from ldap3 import Server, Connection, NONE, Tls
@@ -438,6 +439,9 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
             secure=WEBUI_AUTH_COOKIE_SECURE,
         )
 
+        # Resolve any affiliate attribution details for this authenticated user
+        resolve_attribution_on_auth(user.email, request, response)
+
         user_permissions = get_permissions(
             user.id, request.app.state.config.USER_PERMISSIONS
         )
@@ -547,6 +551,9 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
                         "user": user.model_dump_json(exclude_none=True),
                     },
                 )
+
+            # Resolve any affiliate attribution information for this new user
+            resolve_attribution_on_auth(user.email, request, response)
 
             user_permissions = get_permissions(
                 user.id, request.app.state.config.USER_PERMISSIONS
