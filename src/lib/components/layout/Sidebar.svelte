@@ -61,6 +61,7 @@
 	import Home from '../icons/Home.svelte';
 	import MagnifyingGlass from '../icons/MagnifyingGlass.svelte';
 	import SearchModal from './SearchModal.svelte';
+	import dayjs from 'dayjs';
 
 	const BREAKPOINT = 768;
 
@@ -937,11 +938,36 @@
 							</div>
 							<div class="flex flex-1 items-center justify-between">
 								<div class="self-center font-medium">{$user?.name}</div>
-									{#if $userCredits?.plan_id}
-										<span class="inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-md bg-[#21706d]/10 text-[#21706d] dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize">
+									<div class="flex items-center gap-2">
+										<!-- Plan Chip (flips to "Expired" when past period_end) -->
+										{#if $userCredits?.current_period_end && dayjs($userCredits.current_period_end * 1000).isBefore(dayjs())}
+											<!-- EXPIRED -->
+											<span
+												class="inline-flex items-center gap-1.5 px-2.5 py-0.5 font-semibold rounded-md
+															 bg-red-100 text-red-700 ring-1 ring-inset ring-red-200 text-sm
+															 dark:bg-red-900/30 dark:text-red-200 dark:ring-red-800/60"
+												aria-label={$i18n.t('Plan expired')}
+											>
+												<!-- tiny warning icon (inline SVG, no deps) -->
+												<svg viewBox="0 0 20 20" class="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+													<path fill-rule="evenodd"
+																d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.59c.73 1.297-.198 2.911-1.742 2.911H3.48c-1.544 0-2.472-1.614-1.742-2.911L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-.25-6.75a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4z"
+																clip-rule="evenodd" />
+												</svg>
+												{$i18n.t('Expired')}
+											</span>
+										{:else}
+											<!-- ACTIVE -->
+											<span
+												class="inline-flex items-center px-2.5 py-0.5 font-medium rounded-md text-sm
+															 bg-[#21706d]/10 text-[#21706d]
+															 dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize"
+												aria-label={$i18n.t('Current Plan')}
+											>
 												{$userCredits?.plan_id}
-										</span>
-									{/if}
+											</span>
+										{/if}
+									</div>
 								</div>
 
 						</button>

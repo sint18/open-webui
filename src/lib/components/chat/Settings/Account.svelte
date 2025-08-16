@@ -18,8 +18,10 @@
 	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
 	import { copyToClipboard } from '$lib/utils';
 	import Plus from '$lib/components/icons/Plus.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
+	import dayjs from 'dayjs';
 
 	const i18n = getContext('i18n');
 
@@ -39,6 +41,7 @@
 	let profileImageInputElement: HTMLInputElement;
 
 	let telegramConnected: boolean = false;
+	let loading: boolean = true;
 
 	const submitHandler = async () => {
 		if (name !== $user?.name) {
@@ -102,6 +105,7 @@
 			console.error('Failed to check Telegram connection status:', error);
 			return false;
 		});
+		loading = false;
 	});
 </script>
 
@@ -251,11 +255,11 @@
 
 			<div class="pt-0.5">
 				<div class="flex flex-col w-full">
-					<div class=" mb-1 text-xs font-medium">{$i18n.t('Name')}</div>
+					<div class=" mb-1 font-medium">{$i18n.t('Name')}</div>
 
 					<div class="flex-1">
 						<input
-							class="w-full text-sm dark:text-gray-300 bg-transparent outline-hidden"
+							class="w-full dark:text-gray-300 bg-transparent outline-hidden"
 							type="text"
 							bind:value={name}
 							required
@@ -264,34 +268,108 @@
 					</div>
 				</div>
 			</div>
+			<hr class="border-gray-50 dark:border-gray-850 my-2" />
 
 			{#if $userCredits?.plan_id !== undefined && $userCredits?.monthly_quota !== undefined}
-				<div class="pt-2">
-					<div class="flex flex-col">
-						<div class="mb-1 text-xs font-medium">{$i18n.t('Current Plan')}</div>
-						<span
-							class="inline-block w-fit px-2 py-0.5 text-xs font-medium rounded-md bg-[#21706d]/10 text-[#21706d] dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize">
-                {$userCredits?.plan_id}
-            </span>
+				<section class="space-y-2">
+					<div class="mb-1 font-medium">{$i18n.t('Plan Status')}</div>
+
+					<!-- Plan + Status -->
+					<div class="flex items-center gap-2">
+						<!-- Plan Chip (flips to "Expired" when past period_end) -->
+						{#if $userCredits?.current_period_end && dayjs($userCredits.current_period_end * 1000).isBefore(dayjs())}
+							<!-- EXPIRED -->
+							<span
+								class="inline-flex items-center gap-1.5 px-2.5 py-0.5 font-semibold rounded-md
+											 bg-red-100 text-red-700 ring-1 ring-inset ring-red-200
+											 dark:bg-red-900/30 dark:text-red-200 dark:ring-red-800/60"
+								aria-label={$i18n.t('Plan expired')}
+							>
+								<!-- tiny warning icon (inline SVG, no deps) -->
+								<svg viewBox="0 0 20 20" class="w-3.5 h-3.5" fill="currentColor" aria-hidden="true">
+									<path fill-rule="evenodd"
+												d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.59c.73 1.297-.198 2.911-1.742 2.911H3.48c-1.544 0-2.472-1.614-1.742-2.911L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-.25-6.75a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4z"
+												clip-rule="evenodd" />
+								</svg>
+								{$i18n.t('Expired')}
+							</span>
+						{:else}
+							<!-- ACTIVE -->
+							<span
+								class="inline-flex items-center px-2.5 py-0.5 font-medium rounded-md
+											 bg-[#21706d]/10 text-[#21706d]
+											 dark:bg-[#21706d]/20 dark:text-[#21706d]/90 capitalize"
+								aria-label={$i18n.t('Current Plan')}
+							>
+								{$userCredits?.plan_id}
+							</span>
+						{/if}
 
 					</div>
-				</div>
+
+					<!-- Dates + CTAs -->
+					{#if $userCredits?.current_period_end}
+						{#if dayjs($userCredits.current_period_end * 1000).isBefore(dayjs())}
+							<!-- EXPIRED STATE -->
+							<div class="mt-1 space-y-3">
+								<p class="text-sm">
+									{$i18n.t('Your plan expired on {{date}}. Reactivate now to restore access.', {
+										date: dayjs($userCredits.current_period_end * 1000).format('LL')
+									})}
+								</p>
+								<div class="flex items-center gap-2">
+									<a
+										href="/pricing"
+										class="px-3.5 py-1.5 text-sm font-medium bg-[#21706d] hover:bg-[#21706d]/90 text-white transition rounded-lg"
+										aria-label={$i18n.t('Reactivate Plan')}
+									>
+										{$i18n.t('Reactivate Plan')}
+									</a>
+								</div>
+							</div>
+						{:else}
+							<!-- ACTIVE STATE -->
+							{#key $userCredits.current_period_end}
+								{#await Promise.resolve(dayjs($userCredits.current_period_end * 1000).diff(dayjs(), 'day')) then daysLeft}
+									<div class="mt-1 space-y-2">
+										<p class="text-sm">
+											{$i18n.t('Your plan expires on {{date}} ({{days}} days left).', {
+												date: dayjs($userCredits.current_period_end * 1000).format('LL'),
+												days: daysLeft
+											})}
+										</p>
+										<div class="flex items-center gap-2">
+											<a
+												href="/pricing"
+												class="px-3.5 py-1.5 text-sm font-medium rounded-lg border border-[#21706d] text-[#21706d] hover:bg-[#21706d]/10 dark:hover:bg-[#21706d]/20 transition"
+											>
+												{$i18n.t('Change Plan')}
+											</a>
+										</div>
+									</div>
+								{/await}
+							{/key}
+						{/if}
+					{/if}
+				</section>
 			{/if}
 
-			<!-- Credit Progress Bar -->
-			<!--{#if $userCredits?.credit_balance !== undefined && $userCredits?.monthly_quota !== undefined}-->
-			<!--	<div class="py-2">-->
-			<!--		<div class="flex flex-col w-full gap-2">-->
-			<!--			<div class="mb-1 text-xs font-medium">{$i18n.t('Quota')}</div>-->
-			<!--			<CreditProgressBar-->
-			<!--				showDetails={false}-->
-			<!--				currentCredits={$userCredits.credit_balance}-->
-			<!--				totalCredits={$userCredits.monthly_quota}-->
-			<!--				size="sm"-->
-			<!--			/>-->
-			<!--		</div>-->
-			<!--	</div>-->
-			<!--{/if}-->
+			<!--			 Credit Progress Bar -->
+			<!--			{#if $userCredits?.credit_balance !== undefined && $userCredits?.monthly_quota !== undefined}-->
+			<!--				<div class="py-2">-->
+			<!--					<div class="flex flex-col w-full gap-2">-->
+			<!--						<div class="mb-1 text-xs font-medium">{$i18n.t('Quota')}</div>-->
+			<!--						<CreditProgressBar-->
+			<!--							showDetails={false}-->
+			<!--							currentCredits={$userCredits.credit_balance}-->
+			<!--							totalCredits={$userCredits.monthly_quota}-->
+			<!--							size="sm"-->
+			<!--						/>-->
+			<!--					</div>-->
+			<!--				</div>-->
+			<!--			{/if}-->
+			<hr class="border-gray-50 dark:border-gray-850 mt-2" />
+
 
 			{#if $config?.features?.enable_user_webhooks}
 				<div class="pt-2">
@@ -326,8 +404,9 @@
 
 					<button
 						class="flex gap-1.5 items-center font-medium px-3.5 py-1.5 rounded-lg bg-gray-100/70 disabled:cursor-not-allowed hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-850 transition"
-						disabled={telegramConnected}
+						disabled={telegramConnected || loading}
 						on:click={async () => {
+							loading = true;
 								const token = await getTelegramOnboardingToken(localStorage.token);
 								if (token) {
 									const url = `https://t.me/LabyAIBot?start=${token.token}`;
@@ -335,6 +414,7 @@
 									window.open(url, "_blank");
 
 									toast.success('Onboarding link copied to clipboard. Paste it to your Telegram bot.');
+									loading = false
 								} else {
 									toast.error('Failed to generate onboarding link.');
 								}
@@ -342,6 +422,9 @@
 					>
 						{#if telegramConnected}
 							{$i18n.t('Connected')}
+						{:else if loading}
+							{$i18n.t('Loading...')}
+							<Spinner></Spinner>
 						{:else}
 							<Plus strokeWidth="2" className=" size-3.5" />
 							{$i18n.t('Connect Telegram')}
