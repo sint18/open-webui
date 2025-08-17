@@ -8,13 +8,13 @@ from sqlalchemy import select
 
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import Payout, PayoutItem
-from open_webui.utils.auth import get_admin_user
+from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
 
 
 @router.post("/payouts/{payout_id}/approve")
-def approve_payout(payout_id: str, admin=Depends(get_admin_user)):
+def approve_payout(payout_id: str, admin=Depends(get_admin_or_support_user)):
     with get_db() as db:
         payout = db.get(Payout, payout_id)
         if not payout:
@@ -30,7 +30,7 @@ def approve_payout(payout_id: str, admin=Depends(get_admin_user)):
 
 
 @router.post("/payouts/{payout_id}/mark-paid")
-def mark_paid(payout_id: str, admin=Depends(get_admin_user)):
+def mark_paid(payout_id: str, admin=Depends(get_admin_or_support_user)):
     with get_db() as db:
         payout = db.get(Payout, payout_id)
         if not payout:
@@ -41,7 +41,7 @@ def mark_paid(payout_id: str, admin=Depends(get_admin_user)):
 
 
 @router.get("/payouts/export")
-def export_payouts(admin=Depends(get_admin_user)):
+def export_payouts(admin=Depends(get_admin_or_support_user)):
     with get_db() as db:
         payouts = db.execute(select(Payout)).scalars().all()
     buf = io.StringIO()
@@ -73,7 +73,7 @@ def export_payouts(admin=Depends(get_admin_user)):
 
 
 @router.post("/payouts/import")
-async def import_payouts(file: UploadFile, admin=Depends(get_admin_user)):
+async def import_payouts(file: UploadFile, admin=Depends(get_admin_or_support_user)):
     data = (await file.read()).decode()
     reader = csv.DictReader(io.StringIO(data))
     count = 0

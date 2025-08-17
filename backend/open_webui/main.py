@@ -89,6 +89,10 @@ from open_webui.routers.affiliate import payouts as affiliate_payouts
 from open_webui.routers.affiliate import partners as affiliate_partners
 from open_webui.routers.affiliate import analytics as affiliate_analytics
 from open_webui.routers.admin.affiliate import payouts as admin_affiliate_payouts
+from open_webui.routers.admin.affiliate import applications as admin_affiliate_applications
+from open_webui.routers.admin.affiliate import partners as admin_affiliate_partners
+from open_webui.routers.admin.affiliate import commissions as admin_affiliate_commissions
+from open_webui.routers.admin.affiliate import reports as admin_affiliate_reports
 
 from open_webui.routers.retrieval import (
     get_embedding_function,
@@ -1116,6 +1120,26 @@ app.include_router(affiliate_partners.router, prefix="/api/v1/affiliate", tags=[
 app.include_router(affiliate_analytics.router, prefix="/api/v1/affiliate", tags=["affiliate"])
 app.include_router(
     admin_affiliate_payouts.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_applications.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_partners.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_commissions.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_reports.router,
     prefix="/api/v1/admin/affiliate",
     tags=["admin"],
 )
