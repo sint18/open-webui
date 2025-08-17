@@ -86,6 +86,8 @@ from open_webui.routers import (
 )
 from open_webui.routers.affiliate import tracking as affiliate_tracking
 from open_webui.routers.affiliate import payouts as affiliate_payouts
+from open_webui.routers.affiliate import partners as affiliate_partners
+from open_webui.routers.affiliate import analytics as affiliate_analytics
 from open_webui.routers.admin.affiliate import payouts as admin_affiliate_payouts
 
 from open_webui.routers.retrieval import (
@@ -1110,6 +1112,8 @@ app.include_router(plans.router, prefix="/api/v1/plans", tags=["plans"])
 app.include_router(quota_policy.router, prefix="/api/v1/quota_policies", tags=["quota_policies"]) # Added quota_policy router
 app.include_router(affiliate_tracking.router, prefix="/t/affiliate", tags=["affiliate"])
 app.include_router(affiliate_payouts.router, prefix="/api/v1/affiliate", tags=["affiliate"])
+app.include_router(affiliate_partners.router, prefix="/api/v1/affiliate", tags=["affiliate"])
+app.include_router(affiliate_analytics.router, prefix="/api/v1/affiliate", tags=["affiliate"])
 app.include_router(
     admin_affiliate_payouts.router,
     prefix="/api/v1/admin/affiliate",
