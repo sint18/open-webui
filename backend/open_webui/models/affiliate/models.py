@@ -159,8 +159,11 @@ class Payout(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     partner_id = Column(String, nullable=False)
+    requested_amount = Column(Numeric, nullable=False)
     total_amount = Column(Numeric, nullable=False)
+    fee_mmk = Column(Numeric, nullable=False, default=0)
     status = Column(String, nullable=False, default="pending")
+    details = Column(Text, nullable=True)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
 
 

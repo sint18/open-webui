@@ -85,6 +85,8 @@ from open_webui.routers import (
     quota_policy # Added quota_policy router
 )
 from open_webui.routers.affiliate import tracking as affiliate_tracking
+from open_webui.routers.affiliate import payouts as affiliate_payouts
+from open_webui.routers.admin.affiliate import payouts as admin_affiliate_payouts
 
 from open_webui.routers.retrieval import (
     get_embedding_function,
@@ -1107,6 +1109,12 @@ app.include_router(discount.router, prefix="/api/v1/discount", tags=["discount"]
 app.include_router(plans.router, prefix="/api/v1/plans", tags=["plans"])
 app.include_router(quota_policy.router, prefix="/api/v1/quota_policies", tags=["quota_policies"]) # Added quota_policy router
 app.include_router(affiliate_tracking.router, prefix="/t/affiliate", tags=["affiliate"])
+app.include_router(affiliate_payouts.router, prefix="/api/v1/affiliate", tags=["affiliate"])
+app.include_router(
+    admin_affiliate_payouts.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
 
 try:
     audit_level = AuditLevel(AUDIT_LOG_LEVEL)
