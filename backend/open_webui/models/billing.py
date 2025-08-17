@@ -534,6 +534,20 @@ class PaymentOrdersTable:
                     )
                     db.add(audit_record)
 
+                if record.status == PaymentStatusEnum.paid:
+                    from open_webui.models.affiliate import OutboxEvent
+
+                    db.add(
+                        OutboxEvent(
+                            event_type="order_paid_internal",
+                            payload={
+                                "order_id": order_id,
+                                "user_id": record.user_id,
+                                "amount": str(record.amount_mmk),
+                            },
+                        )
+                    )
+
                 # Commit the transaction
                 db.commit()
                 db.refresh(record)

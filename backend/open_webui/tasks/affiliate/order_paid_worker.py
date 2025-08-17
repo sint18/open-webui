@@ -115,6 +115,17 @@ def _create_commissions(
                 note=note,
             )
             db.add(commission)
+            db.add(
+                OutboxEvent(
+                    event_type="commission_created",
+                    payload={
+                        "commission_id": commission.id,
+                        "order_id": order_id,
+                        "partner_id": partner_id,
+                        "amount": str(amount),
+                    },
+                )
+            )
             try:
                 db.commit()
             except IntegrityError:
@@ -145,16 +156,30 @@ def _approve_pending_commissions() -> None:
     """Move commissions from pending to approved after lock period."""
     threshold = int(time.time()) - LOCK_PERIOD_SECONDS
     with get_db() as db:
-        updated = (
+        commissions = (
             db.query(Commission)
             .filter(
                 Commission.status == CommissionStatusEnum.pending,
                 Commission.created_at <= threshold,
             )
-            .update({"status": CommissionStatusEnum.approved}, synchronize_session=False)
+            .all()
         )
-        if updated:
-            db.commit()
+        if not commissions:
+            return
+        for c in commissions:
+            c.status = CommissionStatusEnum.approved
+            db.add(
+                OutboxEvent(
+                    event_type="commission_approved",
+                    payload={
+                        "commission_id": c.id,
+                        "order_id": c.order_id,
+                        "partner_id": c.partner_id,
+                        "amount": str(c.amount),
+                    },
+                )
+            )
+        db.commit()
 
 
 def _mark_paid_commissions() -> None:
@@ -166,16 +191,30 @@ def _mark_paid_commissions() -> None:
             .filter(Payout.status == "paid")
             .subquery()
         )
-        updated = (
+        commissions = (
             db.query(Commission)
             .filter(
                 Commission.status == CommissionStatusEnum.approved,
                 Commission.id.in_(paid_commission_ids),
             )
-            .update({"status": CommissionStatusEnum.paid}, synchronize_session=False)
+            .all()
         )
-        if updated:
-            db.commit()
+        if not commissions:
+            return
+        for c in commissions:
+            c.status = CommissionStatusEnum.paid
+            db.add(
+                OutboxEvent(
+                    event_type="commission_paid",
+                    payload={
+                        "commission_id": c.id,
+                        "order_id": c.order_id,
+                        "partner_id": c.partner_id,
+                        "amount": str(c.amount),
+                    },
+                )
+            )
+        db.commit()
 
 
 async def _process_outbox_events() -> None:
@@ -185,7 +224,7 @@ async def _process_outbox_events() -> None:
             db.query(OutboxEvent)
             .filter(
                 OutboxEvent.event_type.in_(
-                    ["order_paid", "payment_rejected", "order_refunded"]
+                    ["order_paid_internal", "payment_rejected", "order_refunded"]
                 ),
                 OutboxEvent.processed_at.is_(None),
             )
@@ -201,7 +240,7 @@ async def _process_outbox_events() -> None:
         coupon_code = payload.get("coupon_code")
         self_ref = payload.get("self_referral")
 
-        if event.event_type == "order_paid":
+        if event.event_type == "order_paid_internal":
             if not attribution_id and coupon_code:
                 res = _create_attribution_from_coupon(coupon_code)
                 if res:
@@ -229,11 +268,28 @@ async def _process_outbox_events() -> None:
             if order_id:
                 _void_commissions(order_id, "Refund within lock period", only_pending=True)
 
-        with get_db() as db:
-            db.query(OutboxEvent).filter(OutboxEvent.id == event.id).update(
-                {"processed_at": int(time.time())}
-            )
-            db.commit()
+        if event.event_type == "order_paid_internal":
+            with get_db() as db:
+                db.add(
+                    OutboxEvent(
+                        event_type="order_paid",
+                        payload={
+                            "order_id": order_id,
+                            "partner_id": partner_id,
+                            "amount": str(amount),
+                        },
+                    )
+                )
+                db.query(OutboxEvent).filter(OutboxEvent.id == event.id).update(
+                    {"processed_at": int(time.time())}
+                )
+                db.commit()
+        else:
+            with get_db() as db:
+                db.query(OutboxEvent).filter(OutboxEvent.id == event.id).update(
+                    {"processed_at": int(time.time())}
+                )
+                db.commit()
 
 
 async def worker_loop() -> None:

@@ -7,7 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 
 from open_webui.internal.db import get_db
-from open_webui.models.affiliate import Payout, PayoutItem
+from open_webui.models.affiliate import Payout, PayoutItem, OutboxEvent
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
@@ -36,6 +36,16 @@ def mark_paid(payout_id: str, admin=Depends(get_admin_or_support_user)):
         if not payout:
             raise HTTPException(status_code=404, detail="Payout not found")
         payout.status = "paid"
+        db.add(
+            OutboxEvent(
+                event_type="payout_paid",
+                payload={
+                    "payout_id": payout_id,
+                    "partner_id": payout.partner_id,
+                    "amount": str(payout.total_amount),
+                },
+            )
+        )
         db.commit()
     return {"id": payout_id, "status": "paid"}
 
