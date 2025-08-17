@@ -12,6 +12,7 @@ from sqlalchemy import (
     JSON,
     ForeignKey,
     Enum as SAEnum,
+    UniqueConstraint,
 )
 
 from open_webui.internal.db import Base
@@ -118,7 +119,10 @@ class OrderAttribution(Base):
 
 class Commission(Base):
     __tablename__ = "commission"
-    __table_args__ = {"schema": "affiliate"}
+    __table_args__ = (
+        UniqueConstraint("order_id", "partner_id", "type", name="uq_commission_order_partner_type"),
+        {"schema": "affiliate"},
+    )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     partner_id = Column(String, nullable=False)
