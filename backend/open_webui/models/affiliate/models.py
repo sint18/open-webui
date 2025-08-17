@@ -164,6 +164,7 @@ class Payout(Base):
     fee_mmk = Column(Numeric, nullable=False, default=0)
     status = Column(String, nullable=False, default="pending")
     details = Column(Text, nullable=True)
+    approved_mmk = Column(Numeric, nullable=True)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
 
 
