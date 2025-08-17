@@ -160,6 +160,7 @@ class LedgerEntry(BaseModel):
     amount: Decimal
     created_at: int
     adjustments: List[AdjustmentSchema] = []
+    note: str | None = None
 
 
 @router.get("/partners/me/ledger", response_model=List[LedgerEntry])
@@ -186,6 +187,7 @@ def get_ledger(user=Depends(get_verified_user)):
                     status=c.status,
                     amount=c.amount,
                     created_at=c.created_at,
+                    note=c.note,
                     adjustments=[
                         AdjustmentSchema.model_validate(a, from_attributes=True)
                         for a in adjustments

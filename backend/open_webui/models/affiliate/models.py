@@ -38,6 +38,7 @@ class CommissionStatusEnum(enum.Enum):
     """Lifecycle status of a commission."""
 
     pending = "pending"
+    review = "review"
     approved = "approved"
     rejected = "rejected"
     paid = "paid"
@@ -114,6 +115,7 @@ class OrderAttribution(Base):
     attribution_id = Column(
         String, ForeignKey("affiliate.attribution.id"), nullable=False
     )
+    lost_to_partner_id = Column(String, nullable=True)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
 
 
@@ -138,6 +140,7 @@ class Commission(Base):
     )
     amount = Column(Numeric, nullable=False)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
+    note = Column(Text, nullable=True)
 
 
 class CommissionAdjustment(Base):

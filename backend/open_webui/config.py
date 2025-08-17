@@ -110,6 +110,12 @@ if os.path.exists(f"{DATA_DIR}/config.json"):
 DEFAULT_CONFIG = {
     "version": 0,
     "ui": {},
+    "affiliate": {
+        "commission_rules": {},
+        "lock_period_days": 30,
+        "attribution_policy": "last_click",
+        "cookie_window_days": 30,
+    },
 }
 
 
