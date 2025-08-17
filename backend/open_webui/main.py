@@ -511,8 +511,15 @@ async def lifespan(app: FastAPI):
 
     from open_webui.scheduled_tasks import schedule_tasks
     from open_webui.telegram_bot import app as telegram_app
+    from open_webui.tasks.affiliate import (
+        order_paid_worker,
+        outbox_processor,
+    )
 
     schedule_tasks()
+
+    asyncio.create_task(order_paid_worker.worker_loop())
+    asyncio.create_task(outbox_processor.worker_loop())
 
     if TELEGRAM_ENABLED:
         if telegram_app:
