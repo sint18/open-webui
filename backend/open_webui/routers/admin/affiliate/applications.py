@@ -12,7 +12,7 @@ from open_webui.models.affiliate import (
     PartnerProfile,
     PartnerStatusEnum,
     Link,
-    Coupon,
+    DiscountCodeBinding,
     AuditLog,
     AuditSeverityEnum,
 )
@@ -139,19 +139,19 @@ def approve_application(
 
         if form.coupon_code:
             if db.query(DiscountCode).filter(DiscountCode.code == form.coupon_code).first():
-                raise HTTPException(status_code=400, detail="Coupon code already exists")
+                raise HTTPException(status_code=400, detail="Discount code already exists")
             discount = DiscountCode(
                 code=form.coupon_code,
                 discount_percent=form.coupon_discount_percent,
                 expires_at=form.coupon_expires_at,
             )
             db.add(discount)
-            coupon = Coupon(
+            binding = DiscountCodeBinding(
                 partner_id=record.partner_id,
                 code=form.coupon_code,
                 expires_at=form.coupon_expires_at,
             )
-            db.add(coupon)
+            db.add(binding)
 
         db.add(
             AuditLog(
