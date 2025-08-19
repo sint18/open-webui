@@ -22,7 +22,7 @@ from open_webui.models.affiliate import (
     PayoutItem,
     PayoutStatusEnum,
     Attribution,
-    Coupon,
+    DiscountCodeBinding,
     Click,
     AttrViaEnum,
 )
@@ -76,37 +76,40 @@ def _persist_order_attribution(order_id: str, attribution_id: str) -> None:
 def _create_attribution_from_coupon(coupon_code: str) -> tuple[str, str] | None:
     """Create an attribution record when only a coupon code is present."""
     with get_db() as db:
-        coupon_row = (
-            db.query(Coupon, DiscountCode)
-            .join(DiscountCode, Coupon.code == DiscountCode.code)
+        binding_row = (
+            db.query(DiscountCodeBinding, DiscountCode)
+            .join(DiscountCode, DiscountCodeBinding.code == DiscountCode.code)
             .filter(
-                Coupon.code == coupon_code,
-                Coupon.active.is_(True),
+                DiscountCodeBinding.code == coupon_code,
+                DiscountCodeBinding.active.is_(True),
                 DiscountCode.active.is_(True),
                 (DiscountCode.expires_at.is_(None)
                  | (DiscountCode.expires_at > int(time.time()))),
-                (Coupon.expires_at.is_(None) | (Coupon.expires_at > int(time.time()))),
+                (
+                    DiscountCodeBinding.expires_at.is_(None)
+                    | (DiscountCodeBinding.expires_at > int(time.time()))
+                ),
             )
             .first()
         )
-        if not coupon_row:
+        if not binding_row:
             return None
-        coupon_obj = coupon_row[0]
+        binding_obj = binding_row[0]
         click = Click(
-            partner_id=coupon_obj.partner_id,
-            coupon_id=coupon_obj.id,
+            partner_id=binding_obj.partner_id,
+            coupon_id=binding_obj.id,
             user_agent="coupon",
         )
         db.add(click)
         db.commit()
         db.refresh(click)
         attr = Attribution(
-            click_id=click.id, partner_id=coupon_obj.partner_id, attr_via=AttrViaEnum.coupon
+            click_id=click.id, partner_id=binding_obj.partner_id, attr_via=AttrViaEnum.coupon
         )
         db.add(attr)
         db.commit()
         db.refresh(attr)
-        return attr.id, coupon_obj.partner_id
+        return attr.id, binding_obj.partner_id
 
 
 def _create_commissions(

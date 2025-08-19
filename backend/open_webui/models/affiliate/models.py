@@ -14,7 +14,10 @@ from sqlalchemy import (
     Enum as SAEnum,
     UniqueConstraint,
 )
+from sqlalchemy.orm import relationship
+
 from open_webui.internal.db import Base
+from open_webui.models.discount import DiscountCode
 
 
 class AttrViaEnum(enum.Enum):
@@ -133,7 +136,7 @@ class Link(Base):
     created_at = Column(BigInteger, default=lambda: int(time.time()))
 
 
-class Coupon(Base):
+class DiscountCodeBinding(Base):
     __tablename__ = "coupon"
     __table_args__ = {"schema": "affiliate"}
 
@@ -143,6 +146,7 @@ class Coupon(Base):
     expires_at = Column(BigInteger, nullable=True)
     active = Column(Boolean, default=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
+    discount_code = relationship("DiscountCode", backref="discount_code_bindings")
 
 
 class Click(Base):
