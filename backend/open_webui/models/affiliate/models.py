@@ -117,6 +117,11 @@ class PartnerProfile(Base):
     )
     payout_method = Column(String, nullable=True)
     payout_details = Column(Text, nullable=True)
+    rates = Column(
+        JSON,
+        nullable=False,
+        default=lambda: {"sales": 0.01, "clicks": 0.005},
+    )
     terms = Column(JSON, nullable=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
     updated_at = Column(BigInteger, default=lambda: int(time.time()))
