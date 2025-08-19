@@ -1,12 +1,19 @@
 import datetime
 import hashlib
+import time
 
 from fastapi import APIRouter, Request, Response, HTTPException
 from pydantic import BaseModel
 
 from open_webui.env import WEBUI_AUTH_COOKIE_SAME_SITE, WEBUI_AUTH_COOKIE_SECURE
 from open_webui.internal.db import get_db
-from open_webui.models.affiliate import Click, Attribution, AttrViaEnum
+from open_webui.models.affiliate import (
+    Click,
+    Attribution,
+    AttrViaEnum,
+    FraudFlag,
+)
+from open_webui.models.users import User
 
 router = APIRouter()
 
@@ -96,7 +103,21 @@ async def create_attribution(
         record = Attribution(
             click_id=int(click_id), partner_id=form.partner_id, attr_via=form.attr_via
         )
+
+        flag = None
+        if form.email:
+            partner = db.get(User, form.partner_id)
+            if partner and partner.email and partner.email.lower() == form.email.lower():
+                flag = FraudFlag(
+                    partner_id=form.partner_id,
+                    flag_type="self_referral",
+                    notes="Attribution email matches partner email",
+                    created_at=int(time.time()),
+                )
+
         db.add(record)
+        if flag:
+            db.add(flag)
         db.commit()
         db.refresh(record)
 

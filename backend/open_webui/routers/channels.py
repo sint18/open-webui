@@ -33,6 +33,13 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
 router = APIRouter()
 
+
+def _ensure_not_blocked(user, channel_id: str):
+    if user.role != "admin" and user.info and channel_id in user.info.get("blocked_channels", []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.DEFAULT()
+        )
+
 ############################
 # GetChatList
 ############################
@@ -75,6 +82,8 @@ async def get_channel_by_id(id: str, user=Depends(get_verified_user)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
+
+    _ensure_not_blocked(user, id)
 
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control
@@ -152,6 +161,8 @@ async def get_channel_messages(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
+
+    _ensure_not_blocked(user, id)
 
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control
@@ -231,6 +242,8 @@ async def post_new_message(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
+
+    _ensure_not_blocked(user, id)
 
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control
@@ -333,6 +346,8 @@ async def get_channel_message(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
 
+    _ensure_not_blocked(user, id)
+
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control
     ):
@@ -430,6 +445,8 @@ async def update_message_by_id(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
 
+    _ensure_not_blocked(user, id)
+
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control
     ):
@@ -502,6 +519,8 @@ async def add_reaction_to_message(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
 
+    _ensure_not_blocked(user, id)
+
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control
     ):
@@ -567,6 +586,8 @@ async def remove_reaction_by_id_and_user_id_and_name(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
+
+    _ensure_not_blocked(user, id)
 
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control
@@ -636,6 +657,8 @@ async def delete_message_by_id(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_MESSAGES.NOT_FOUND
         )
+
+    _ensure_not_blocked(user, id)
 
     if user.role != "admin" and not has_access(
         user.id, type="read", access_control=channel.access_control

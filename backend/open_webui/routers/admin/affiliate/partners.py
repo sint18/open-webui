@@ -1,3 +1,4 @@
+import time
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -35,6 +36,8 @@ class PartnerUpdateForm(BaseModel):
     email: Optional[str] = None
     rate_override: Optional[float] = None
     suspended: Optional[bool] = None
+    terms_version: Optional[str] = None
+    blocked_channels: Optional[List[str]] = None
 
 
 @router.put("/partners/{partner_id}", response_model=PartnerSchema)
@@ -54,6 +57,13 @@ def update_partner(
             info["rate_override"] = form.rate_override
         if form.suspended is not None:
             info["suspended"] = form.suspended
+        if form.terms_version is not None:
+            info["terms"] = {
+                "version": form.terms_version,
+                "accepted_at": int(time.time()),
+            }
+        if form.blocked_channels is not None:
+            info["blocked_channels"] = form.blocked_channels
         partner.info = info
         db.commit()
         db.refresh(partner)

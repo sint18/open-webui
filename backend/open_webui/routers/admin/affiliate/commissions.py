@@ -7,6 +7,7 @@ from open_webui.models.affiliate import (
     Commission,
     CommissionAdjustment,
     CommissionStatusEnum,
+    FraudFlag,
 )
 from open_webui.utils.auth import get_admin_or_support_user
 
@@ -22,6 +23,7 @@ class CommissionSchema(BaseModel):
     amount: Decimal
     created_at: int
     note: str | None = None
+    fraud_flags: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -32,6 +34,7 @@ def list_commissions(
     partner_id: Optional[str] = None,
     start: Optional[int] = None,
     end: Optional[int] = None,
+    flagged: bool = False,
     admin=Depends(get_admin_or_support_user),
 ):
     with get_db() as db:
@@ -45,7 +48,18 @@ def list_commissions(
         if end:
             query = query.filter(Commission.created_at <= end)
         records = query.order_by(Commission.created_at.desc()).all()
-        return [CommissionSchema.model_validate(r, from_attributes=True) for r in records]
+        results: List[CommissionSchema] = []
+        for r in records:
+            flags = [
+                f.flag_type
+                for f in db.query(FraudFlag).filter(FraudFlag.partner_id == r.partner_id)
+            ]
+            if flagged and not flags:
+                continue
+            comm = CommissionSchema.model_validate(r, from_attributes=True)
+            comm.fraud_flags = flags
+            results.append(comm)
+        return results
 
 
 class ActionForm(BaseModel):
@@ -100,3 +114,16 @@ def adjust_commission(
         db.add(adj)
         db.commit()
     return {"id": commission_id, "adjustment": str(form.amount)}
+
+
+@router.post("/commissions/{commission_id}/flags/review")
+def review_commission_flags(
+    commission_id: str, admin=Depends(get_admin_or_support_user)
+):
+    with get_db() as db:
+        record = db.get(Commission, commission_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Commission not found")
+        db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id).delete()
+        db.commit()
+    return {"id": commission_id, "flags_cleared": True}
