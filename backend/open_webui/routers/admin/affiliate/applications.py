@@ -16,6 +16,7 @@ from open_webui.models.affiliate import (
     AuditLog,
     AuditSeverityEnum,
 )
+from open_webui.models.audit import AuditLog
 from open_webui.models.discount import DiscountCode
 from open_webui.models.users import User
 from open_webui.utils.auth import get_admin_or_support_user
@@ -114,6 +115,7 @@ def approve_application(
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
+        before = ApplicationSchema.model_validate(record, from_attributes=True).model_dump()
 
         if db.query(Link).filter(Link.code == form.link_code).first():
             raise HTTPException(status_code=400, detail="Link code already exists")
@@ -153,12 +155,15 @@ def approve_application(
             )
             db.add(binding)
 
+        after = ApplicationSchema.model_validate(record, from_attributes=True).model_dump()
         db.add(
             AuditLog(
-                partner_id=record.partner_id,
+                actor_id=admin.id,
+                resource=f"application:{app_id}",
                 action="approve_application",
-                severity=AuditSeverityEnum.info,
-                details={"application_id": app_id},
+                before=before,
+                after=after,
+                reason=None,
             )
         )
 
@@ -176,15 +181,19 @@ def reject_application(app_id: str, form: ApplicationRejectForm, admin=Depends(g
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
+        before = ApplicationSchema.model_validate(record, from_attributes=True).model_dump()
         record.status = ApplicationStatusEnum.rejected
         record.updated_at = int(time.time())
         record.notes = form.note
+        after = ApplicationSchema.model_validate(record, from_attributes=True).model_dump()
         db.add(
             AuditLog(
-                partner_id=record.partner_id,
+                actor_id=admin.id,
+                resource=f"application:{app_id}",
                 action="reject_application",
-                severity=AuditSeverityEnum.warning,
-                details={"application_id": app_id, "note": form.note},
+                before=before,
+                after=after,
+                reason=form.note,
             )
         )
         db.commit()
@@ -197,13 +206,16 @@ def review_application_flags(app_id: str, admin=Depends(get_admin_or_support_use
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
+        flags = [f.flag_type for f in db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id)]
         db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id).delete()
         db.add(
             AuditLog(
-                partner_id=record.partner_id,
+                actor_id=admin.id,
+                resource=f"application:{app_id}",
                 action="review_application_flags",
-                severity=AuditSeverityEnum.info,
-                details={"application_id": app_id},
+                before={"flags": flags},
+                after={"flags": []},
+                reason=None,
             )
         )
         db.commit()

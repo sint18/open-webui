@@ -98,6 +98,7 @@ from open_webui.routers.admin.affiliate import (
 )
 from open_webui.routers.admin.affiliate import reports as admin_affiliate_reports
 from open_webui.routers.admin.affiliate import links as admin_affiliate_links
+from open_webui.routers.admin.affiliate import audit as admin_affiliate_audit
 from open_webui.routers.admin.affiliate import (
     order_lookup as admin_affiliate_order_lookup,
 )
@@ -1186,6 +1187,11 @@ app.include_router(
 )
 app.include_router(
     admin_affiliate_settings.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_audit.router,
     prefix="/api/v1/admin/affiliate",
     tags=["admin"],
 )

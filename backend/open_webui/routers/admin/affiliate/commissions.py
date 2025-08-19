@@ -101,6 +101,7 @@ def approve_commission(
         record = db.get(Commission, commission_id)
         if not record:
             raise HTTPException(status_code=404, detail="Commission not found")
+        before = {"status": record.status.value, "note": record.note}
         if record.status == CommissionStatusEnum.approved:
             return {"id": commission_id, "status": "approved"}
 
@@ -108,18 +109,15 @@ def approve_commission(
         record.status = CommissionStatusEnum.approved
         if form.note is not None:
             record.note = form.note
-
+        after = {"status": record.status.value, "note": record.note}
         db.add(
             AuditLog(
-                partner_id=record.partner_id,
-                action="admin_approve_commission",
-                severity=AuditSeverityEnum.info,
-                details={
-                    "commission_id": commission_id,
-                    "previous_status": previous_status.value,
-                    "note": form.note,
-                    "admin_id": admin.id,
-                },
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="approve_commission",
+                before=before,
+                after=after,
+                reason=form.note,
             )
         )
         db.commit()
@@ -138,20 +136,19 @@ def void_commission(
             return {"id": commission_id, "status": "void"}
 
         previous_status = record.status
+        before = {"status": record.status.value, "note": record.note}
         record.status = CommissionStatusEnum.rejected
         if form.note is not None:
             record.note = form.note
+        after = {"status": record.status.value, "note": record.note}
         db.add(
             AuditLog(
-                partner_id=record.partner_id,
-                action="admin_void_commission",
-                severity=AuditSeverityEnum.warning,
-                details={
-                    "commission_id": commission_id,
-                    "previous_status": previous_status.value,
-                    "note": form.note,
-                    "admin_id": admin.id,
-                },
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="void_commission",
+                before=before,
+                after=after,
+                reason=form.note,
             )
         )
         db.commit()
@@ -189,15 +186,16 @@ def adjust_commission(
         db.add(adj)
         db.add(
             AuditLog(
-                partner_id=record.partner_id,
-                action="admin_adjust_commission",
-                severity=AuditSeverityEnum.info,
-                details={
-                    "commission_id": commission_id,
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="adjust_commission",
+                before=None,
+                after={
+                    "adjustment_id": adj.id,
                     "amount": str(form.amount),
                     "reason": form.reason,
-                    "admin_id": admin.id,
                 },
+                reason=form.reason,
             )
         )
         db.commit()
@@ -212,6 +210,20 @@ def review_commission_flags(
         record = db.get(Commission, commission_id)
         if not record:
             raise HTTPException(status_code=404, detail="Commission not found")
+        flags = [
+            f.flag_type
+            for f in db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id)
+        ]
         db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id).delete()
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="review_commission_flags",
+                before={"flags": flags},
+                after={"flags": []},
+                reason=None,
+            )
+        )
         db.commit()
     return {"id": commission_id, "flags_cleared": True}

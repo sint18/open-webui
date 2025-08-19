@@ -78,12 +78,6 @@ class PayoutStatusEnum(enum.Enum):
     rejected = "rejected"
 
 
-class AuditSeverityEnum(enum.Enum):
-    """Severity level for audit logging."""
-
-    info = "info"
-    warning = "warning"
-    critical = "critical"
 
 
 class Application(Base):
@@ -292,16 +286,3 @@ class OutboxEvent(Base):
     processed_at = Column(BigInteger, nullable=True)
 
 
-class AuditLog(Base):
-    __tablename__ = "audit_log"
-    __table_args__ = {"schema": "affiliate"}
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    partner_id = Column(String, nullable=True)
-    action = Column(String, nullable=False)
-    severity = Column(
-        SAEnum(AuditSeverityEnum, name="audit_severity_enum", schema="affiliate"),
-        nullable=False,
-    )
-    details = Column(JSON, nullable=True)
-    created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
