@@ -111,10 +111,11 @@ DEFAULT_CONFIG = {
     "version": 0,
     "ui": {},
     "affiliate": {
-        "commission_rules": {},
         "lock_period_days": 30,
-        "attribution_policy": "last_click",
+        "min_payout_amount": 0,
+        "attribution_model": "last_click",
         "cookie_window_days": 30,
+        "terms_version": 1,
     },
 }
 

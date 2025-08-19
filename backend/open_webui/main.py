@@ -94,6 +94,7 @@ from open_webui.routers.admin.affiliate import partners as admin_affiliate_partn
 from open_webui.routers.admin.affiliate import commissions as admin_affiliate_commissions
 from open_webui.routers.admin.affiliate import reports as admin_affiliate_reports
 from open_webui.routers.admin.affiliate import links as admin_affiliate_links
+from open_webui.routers.admin.affiliate import settings as admin_affiliate_settings
 
 from open_webui.routers.retrieval import (
     get_embedding_function,
@@ -1154,6 +1155,11 @@ app.include_router(
 )
 app.include_router(
     admin_affiliate_links.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_settings.router,
     prefix="/api/v1/admin/affiliate",
     tags=["admin"],
 )
