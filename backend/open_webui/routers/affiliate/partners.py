@@ -1,4 +1,5 @@
 from decimal import Decimal
+import time
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,6 +15,7 @@ from open_webui.models.affiliate import (
     CommissionTypeEnum,
     CommissionStatusEnum,
 )
+from open_webui.models.users import User
 from open_webui.utils.auth import get_verified_user
 
 router = APIRouter()
@@ -35,9 +37,26 @@ def get_partner_me(user=Depends(get_verified_user)):
             ),
             {"pid": user.id},
         ).scalar()
-        if result:
-            total = Decimal(result)
+    if result:
+        total = Decimal(result)
     return PartnerMeResponse(id=user.id, total_commission=total)
+
+
+class TermsAcceptanceForm(BaseModel):
+    version: str
+
+
+@router.post("/partners/me/accept-terms")
+def accept_terms(form: TermsAcceptanceForm, user=Depends(get_verified_user)):
+    with get_db() as db:
+        partner = db.get(User, user.id)
+        if not partner:
+            raise HTTPException(status_code=404, detail="Partner not found")
+        info = partner.info or {}
+        info["terms"] = {"version": form.version, "accepted_at": int(time.time())}
+        partner.info = info
+        db.commit()
+    return {"status": "accepted", "version": form.version}
 
 
 class LinkBase(BaseModel):
