@@ -1,5 +1,6 @@
 from decimal import Decimal
 import time
+from decimal import Decimal
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,9 +21,8 @@ from open_webui.models.affiliate import (
     PartnerProfile,
     PartnerStatusEnum,
     PartnerTypeEnum,
-    AuditLog,
-    AuditSeverityEnum,
 )
+from open_webui.models.audit import AuditLog
 from open_webui.models.discount import DiscountCode
 from open_webui.utils.auth import get_verified_user
 
@@ -141,13 +141,17 @@ def update_profile(form: PartnerProfileUpdate, user=Depends(get_verified_user)):
             profile.status = form.status
         if form.type is not None:
             profile.type = form.type
+        before = to_profile_schema(profile).model_dump()
         profile.updated_at = int(time.time())
+        after = to_profile_schema(profile).model_dump()
         db.add(
             AuditLog(
-                partner_id=user.id,
+                actor_id=user.id,
+                resource=f"partner:{user.id}",
                 action="update_profile",
-                severity=AuditSeverityEnum.info,
-                details={"website": form.website},
+                before=before,
+                after=after,
+                reason=None,
             )
         )
         db.commit()
@@ -177,17 +181,31 @@ def update_payout_info(form: PayoutInfo, user=Depends(get_verified_user)):
         if not profile:
             profile = PartnerProfile(partner_id=user.id, status=PartnerStatusEnum.inactive)
             db.add(profile)
+        before = {
+            "payout_method": profile.payout_method,
+            "details": decrypt_details(profile.payout_details)
+            if profile.payout_details
+            else None,
+        }
         if form.method is not None:
             profile.payout_method = form.method
         if form.details is not None:
             profile.payout_details = encrypt_details(form.details)
         profile.updated_at = int(time.time())
+        after = {
+            "payout_method": profile.payout_method,
+            "details": decrypt_details(profile.payout_details)
+            if profile.payout_details
+            else None,
+        }
         db.add(
             AuditLog(
-                partner_id=user.id,
+                actor_id=user.id,
+                resource=f"partner:{user.id}",
                 action="update_payout_info",
-                severity=AuditSeverityEnum.info,
-                details={"method": form.method},
+                before=before,
+                after=after,
+                reason=None,
             )
         )
         db.commit()
@@ -226,10 +244,12 @@ def create_link(form: LinkCreate, user=Depends(get_verified_user)):
         db.add(record)
         db.add(
             AuditLog(
-                partner_id=user.id,
+                actor_id=user.id,
+                resource=f"link:{record.id}",
                 action="create_link",
-                severity=AuditSeverityEnum.info,
-                details={"link_id": record.id},
+                before=None,
+                after=LinkSchema.model_validate(record, from_attributes=True).model_dump(),
+                reason=None,
             )
         )
         db.commit()
@@ -280,13 +300,16 @@ def delete_link(link_id: str, user=Depends(get_verified_user)):
         )
         if not record:
             raise HTTPException(status_code=404, detail="Link not found")
+        before = LinkSchema.model_validate(record, from_attributes=True).model_dump()
         db.delete(record)
         db.add(
             AuditLog(
-                partner_id=user.id,
+                actor_id=user.id,
+                resource=f"link:{link_id}",
                 action="delete_link",
-                severity=AuditSeverityEnum.warning,
-                details={"link_id": link_id},
+                before=before,
+                after=None,
+                reason=None,
             )
         )
         db.commit()

@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from open_webui.internal.db import get_db
-from open_webui.models.affiliate import Link, AuditLog, AuditSeverityEnum
+from open_webui.models.affiliate import Link
+from open_webui.models.audit import AuditLog
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
@@ -81,10 +82,12 @@ def create_link(form: LinkCreateForm, admin=Depends(get_admin_or_support_user)):
         db.add(link)
         db.add(
             AuditLog(
-                partner_id=form.partner_id,
+                actor_id=admin.id,
+                resource=f"link:{link.id}",
                 action="create_link",
-                severity=AuditSeverityEnum.info,
-                details={"link_id": link.id},
+                before=None,
+                after=LinkSchema.model_validate(link, from_attributes=True).model_dump(),
+                reason=None,
             )
         )
         db.commit()
@@ -109,6 +112,7 @@ def update_link(link_id: str, form: LinkUpdateForm, admin=Depends(get_admin_or_s
         link = db.get(Link, link_id)
         if not link:
             raise HTTPException(status_code=404, detail="Link not found")
+        before = LinkSchema.model_validate(link, from_attributes=True).model_dump()
         if form.code and form.code != link.code:
             if db.query(Link).filter(Link.code == form.code).first():
                 raise HTTPException(status_code=400, detail="Link code already exists")
@@ -125,12 +129,15 @@ def update_link(link_id: str, form: LinkUpdateForm, admin=Depends(get_admin_or_s
             value = getattr(form, field)
             if value is not None:
                 setattr(link, field, value)
+        after = LinkSchema.model_validate(link, from_attributes=True).model_dump()
         db.add(
             AuditLog(
-                partner_id=link.partner_id,
+                actor_id=admin.id,
+                resource=f"link:{link.id}",
                 action="update_link",
-                severity=AuditSeverityEnum.info,
-                details={"link_id": link.id, "changes": form.model_dump(exclude_none=True)},
+                before=before,
+                after=after,
+                reason=None,
             )
         )
         db.commit()
@@ -144,13 +151,16 @@ def delete_link(link_id: str, admin=Depends(get_admin_or_support_user)):
         link = db.get(Link, link_id)
         if not link:
             raise HTTPException(status_code=404, detail="Link not found")
+        before = LinkSchema.model_validate(link, from_attributes=True).model_dump()
         db.delete(link)
         db.add(
             AuditLog(
-                partner_id=link.partner_id,
+                actor_id=admin.id,
+                resource=f"link:{link_id}",
                 action="delete_link",
-                severity=AuditSeverityEnum.warning,
-                details={"link_id": link_id},
+                before=before,
+                after=None,
+                reason=None,
             )
         )
         db.commit()

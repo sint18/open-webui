@@ -1,12 +1,12 @@
 from decimal import Decimal
-from typing import List, Optional
-
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import func
 
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import Commission
+from open_webui.models.audit import AuditLog
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
