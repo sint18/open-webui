@@ -3,7 +3,13 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from open_webui.internal.db import get_db
-from open_webui.models.affiliate import Application, FraudFlag
+from open_webui.models.affiliate import (
+    Application,
+    FraudFlag,
+    ApplicationStatusEnum,
+    PartnerProfile,
+    PartnerStatusEnum,
+)
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
@@ -12,7 +18,7 @@ router = APIRouter()
 class ApplicationSchema(BaseModel):
     id: str
     partner_id: str
-    status: str
+    status: ApplicationStatusEnum
     notes: Optional[str] = None
     created_at: int
     updated_at: int
@@ -23,7 +29,7 @@ class ApplicationSchema(BaseModel):
 
 @router.get("/applications", response_model=List[ApplicationSchema])
 def list_applications(
-    status: Optional[str] = None,
+    status: Optional[ApplicationStatusEnum] = None,
     flagged: bool = False,
     admin=Depends(get_admin_or_support_user),
 ):
@@ -66,20 +72,37 @@ def approve_application(app_id: str, admin=Depends(get_admin_or_support_user)):
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
-        record.status = "approved"
+        record.status = ApplicationStatusEnum.approved
         record.updated_at = int(time.time())
+        profile = db.get(PartnerProfile, record.partner_id)
+        if profile:
+            profile.status = PartnerStatusEnum.active
+            profile.updated_at = int(time.time())
+        else:
+            profile = PartnerProfile(
+                partner_id=record.partner_id,
+                status=PartnerStatusEnum.active,
+                created_at=int(time.time()),
+                updated_at=int(time.time()),
+            )
+            db.add(profile)
         db.commit()
     return {"id": app_id, "status": "approved"}
 
 
+class ApplicationRejectForm(BaseModel):
+    note: str
+
+
 @router.post("/applications/{app_id}/reject")
-def reject_application(app_id: str, admin=Depends(get_admin_or_support_user)):
+def reject_application(app_id: str, form: ApplicationRejectForm, admin=Depends(get_admin_or_support_user)):
     with get_db() as db:
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
-        record.status = "rejected"
+        record.status = ApplicationStatusEnum.rejected
         record.updated_at = int(time.time())
+        record.notes = form.note
         db.commit()
     return {"id": app_id, "status": "rejected"}
 

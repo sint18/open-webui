@@ -20,11 +20,13 @@ from open_webui.models.affiliate import (
     CommissionStatusEnum,
     Payout,
     PayoutItem,
+    PayoutStatusEnum,
     Attribution,
     Coupon,
     Click,
     AttrViaEnum,
 )
+from open_webui.models.discount import DiscountCode
 
 logger = logging.getLogger(__name__)
 
@@ -74,24 +76,37 @@ def _persist_order_attribution(order_id: str, attribution_id: str) -> None:
 def _create_attribution_from_coupon(coupon_code: str) -> tuple[str, str] | None:
     """Create an attribution record when only a coupon code is present."""
     with get_db() as db:
-        coupon = (
-            db.query(Coupon)
-            .filter(Coupon.code == coupon_code, Coupon.active.is_(True))
+        coupon_row = (
+            db.query(Coupon, DiscountCode)
+            .join(DiscountCode, Coupon.code == DiscountCode.code)
+            .filter(
+                Coupon.code == coupon_code,
+                Coupon.active.is_(True),
+                DiscountCode.active.is_(True),
+                (DiscountCode.expires_at.is_(None)
+                 | (DiscountCode.expires_at > int(time.time()))),
+                (Coupon.expires_at.is_(None) | (Coupon.expires_at > int(time.time()))),
+            )
             .first()
         )
-        if not coupon:
+        if not coupon_row:
             return None
-        click = Click(partner_id=coupon.partner_id, coupon_id=coupon.id, user_agent="coupon")
+        coupon_obj = coupon_row[0]
+        click = Click(
+            partner_id=coupon_obj.partner_id,
+            coupon_id=coupon_obj.id,
+            user_agent="coupon",
+        )
         db.add(click)
         db.commit()
         db.refresh(click)
         attr = Attribution(
-            click_id=click.id, partner_id=coupon.partner_id, attr_via=AttrViaEnum.coupon
+            click_id=click.id, partner_id=coupon_obj.partner_id, attr_via=AttrViaEnum.coupon
         )
         db.add(attr)
         db.commit()
         db.refresh(attr)
-        return attr.id, coupon.partner_id
+        return attr.id, coupon_obj.partner_id
 
 
 def _create_commissions(
@@ -188,7 +203,7 @@ def _mark_paid_commissions() -> None:
         paid_commission_ids = (
             db.query(PayoutItem.commission_id)
             .join(Payout, Payout.id == PayoutItem.payout_id)
-            .filter(Payout.status == "paid")
+            .filter(Payout.status == PayoutStatusEnum.paid)
             .subquery()
         )
         commissions = (

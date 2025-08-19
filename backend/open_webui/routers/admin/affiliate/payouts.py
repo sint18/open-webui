@@ -7,7 +7,12 @@ from fastapi.responses import Response
 from sqlalchemy import select
 
 from open_webui.internal.db import get_db
-from open_webui.models.affiliate import Payout, PayoutItem, OutboxEvent
+from open_webui.models.affiliate import (
+    Payout,
+    PayoutItem,
+    OutboxEvent,
+    PayoutStatusEnum,
+)
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
@@ -23,10 +28,10 @@ def approve_payout(payout_id: str, admin=Depends(get_admin_or_support_user)):
         items = db.query(PayoutItem).filter(PayoutItem.payout_id == payout_id).all()
         approved_sum = sum(item.amount for item in items)
 
-        payout.status = "approved"
+        payout.status = PayoutStatusEnum.approved
         payout.approved_mmk = approved_sum
         db.commit()
-    return {"id": payout_id, "status": "approved", "approved_mmk": str(approved_sum)}
+    return {"id": payout_id, "status": PayoutStatusEnum.approved, "approved_mmk": str(approved_sum)}
 
 
 @router.post("/payouts/{payout_id}/mark-paid")
@@ -35,7 +40,7 @@ def mark_paid(payout_id: str, admin=Depends(get_admin_or_support_user)):
         payout = db.get(Payout, payout_id)
         if not payout:
             raise HTTPException(status_code=404, detail="Payout not found")
-        payout.status = "paid"
+        payout.status = PayoutStatusEnum.paid
         db.add(
             OutboxEvent(
                 event_type="payout_paid",
@@ -47,7 +52,7 @@ def mark_paid(payout_id: str, admin=Depends(get_admin_or_support_user)):
             )
         )
         db.commit()
-    return {"id": payout_id, "status": "paid"}
+    return {"id": payout_id, "status": PayoutStatusEnum.paid}
 
 
 @router.get("/payouts/export")
@@ -56,16 +61,19 @@ def export_payouts(admin=Depends(get_admin_or_support_user)):
         payouts = db.execute(select(Payout)).scalars().all()
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow([
-        "id",
-        "partner_id",
-        "requested_amount",
-        "total_amount",
-        "approved_mmk",
-        "fee_mmk",
-        "status",
-        "created_at",
-    ])
+    writer.writerow(
+        [
+            "id",
+            "partner_id",
+            "requested_amount",
+            "total_amount",
+            "approved_mmk",
+            "fee_mmk",
+            "status",
+            "reference",
+            "created_at",
+        ]
+    )
     for p in payouts:
         writer.writerow(
             [
@@ -75,7 +83,8 @@ def export_payouts(admin=Depends(get_admin_or_support_user)):
                 p.total_amount,
                 p.approved_mmk,
                 p.fee_mmk,
-                p.status,
+                p.status.value,
+                p.reference,
                 p.created_at,
             ]
         )
@@ -96,7 +105,8 @@ async def import_payouts(file: UploadFile, admin=Depends(get_admin_or_support_us
                 total_amount=row.get("total_amount", 0),
                 approved_mmk=row.get("approved_mmk"),
                 fee_mmk=row.get("fee_mmk", 0),
-                status=row.get("status", "pending"),
+                status=PayoutStatusEnum(row.get("status", "pending")),
+                reference=row.get("reference"),
                 created_at=int(row.get("created_at") or time.time()),
             )
             db.merge(payout)

@@ -5,9 +5,16 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from open_webui.core.affiliate.crypto import encrypt_details, decrypt_details
+from open_webui.core.affiliate.crypto import decrypt_details
 from open_webui.internal.db import get_db
-from open_webui.models.affiliate import Commission, CommissionStatusEnum, Payout, PayoutItem
+from open_webui.models.affiliate import (
+    Commission,
+    CommissionStatusEnum,
+    Payout,
+    PayoutItem,
+    PayoutStatusEnum,
+    PartnerProfile,
+)
 from open_webui.utils.auth import get_verified_user
 
 router = APIRouter()
@@ -18,7 +25,6 @@ MIN_PAYOUT = Decimal(os.environ.get("AFFILIATE_MIN_PAYOUT_MMK", "30000"))
 
 class PayoutCreateForm(BaseModel):
     amount: Decimal
-    details: Any
     fee_mmk: Decimal | None = None
 
 
@@ -29,7 +35,9 @@ def create_payout(form: PayoutCreateForm, user=Depends(get_verified_user)):
             db.query(Payout)
             .filter(
                 Payout.partner_id == user.id,
-                Payout.status.in_(["pending", "approved"]),
+                Payout.status.in_(
+                    [PayoutStatusEnum.pending, PayoutStatusEnum.approved]
+                ),
             )
             .first()
         )
@@ -75,13 +83,17 @@ def create_payout(form: PayoutCreateForm, user=Depends(get_verified_user)):
         if not selected:
             raise HTTPException(status_code=400, detail="No commissions selected for payout")
 
+        profile = db.get(PartnerProfile, user.id)
+        if not profile or not profile.payout_details:
+            raise HTTPException(status_code=400, detail="Payout information required")
+
         payout = Payout(
             partner_id=user.id,
             requested_amount=requested,
             total_amount=total,
             fee_mmk=form.fee_mmk or Decimal("0"),
-            status="pending",
-            details=encrypt_details(form.details),
+            status=PayoutStatusEnum.pending,
+            details=profile.payout_details,
         )
         db.add(payout)
         db.flush()
@@ -110,7 +122,8 @@ class PayoutResponse(BaseModel):
     total_amount: Decimal
     fee_mmk: Decimal
     net_amount: Decimal
-    status: str
+    status: PayoutStatusEnum
+    reference: str | None = None
     details: Any | None = None
     created_at: int
 
@@ -136,6 +149,7 @@ def list_payouts(user=Depends(get_verified_user)):
                 fee_mmk=p.fee_mmk,
                 net_amount=net,
                 status=p.status,
+                reference=p.reference,
                 details=details,
                 created_at=p.created_at,
             )
