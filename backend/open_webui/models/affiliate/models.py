@@ -135,6 +135,12 @@ class Link(Base):
     partner_id = Column(String, nullable=False)
     code = Column(String, nullable=False, unique=True)
     url = Column(Text, nullable=False)
+    utm_source = Column(String, nullable=True)
+    utm_medium = Column(String, nullable=True)
+    utm_campaign = Column(String, nullable=True)
+    utm_term = Column(String, nullable=True)
+    utm_content = Column(String, nullable=True)
+    active = Column(Boolean, default=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
 
 
