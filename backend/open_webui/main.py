@@ -82,18 +82,25 @@ from open_webui.routers import (
     storage,
     discount,
     plans,
-    quota_policy # Added quota_policy router
+    quota_policy,  # Added quota_policy router
 )
 from open_webui.routers.affiliate import tracking as affiliate_tracking
 from open_webui.routers.affiliate import payouts as affiliate_payouts
 from open_webui.routers.affiliate import partners as affiliate_partners
 from open_webui.routers.affiliate import analytics as affiliate_analytics
 from open_webui.routers.admin.affiliate import payouts as admin_affiliate_payouts
-from open_webui.routers.admin.affiliate import applications as admin_affiliate_applications
+from open_webui.routers.admin.affiliate import (
+    applications as admin_affiliate_applications,
+)
 from open_webui.routers.admin.affiliate import partners as admin_affiliate_partners
-from open_webui.routers.admin.affiliate import commissions as admin_affiliate_commissions
+from open_webui.routers.admin.affiliate import (
+    commissions as admin_affiliate_commissions,
+)
 from open_webui.routers.admin.affiliate import reports as admin_affiliate_reports
 from open_webui.routers.admin.affiliate import links as admin_affiliate_links
+from open_webui.routers.admin.affiliate import (
+    order_lookup as admin_affiliate_order_lookup,
+)
 
 from open_webui.routers.retrieval import (
     get_embedding_function,
@@ -382,7 +389,7 @@ from open_webui.config import (
     AUTOCOMPLETE_GENERATION_INPUT_MAX_LENGTH,
     AppConfig,
     reset_config,
-    TELEGRAM_ENABLED
+    TELEGRAM_ENABLED,
 )
 from open_webui.env import (
     AUDIT_EXCLUDED_PATHS,
@@ -1060,8 +1067,8 @@ async def check_url(request: Request, call_next):
 @app.middleware("http")
 async def inspect_websocket(request: Request, call_next):
     if (
-            "/ws/socket.io" in request.url.path
-            and request.query_params.get("transport") == "websocket"
+        "/ws/socket.io" in request.url.path
+        and request.query_params.get("transport") == "websocket"
     ):
         upgrade = (request.headers.get("Upgrade") or "").lower()
         connection = (request.headers.get("Connection") or "").lower().split(",")
@@ -1088,7 +1095,7 @@ app.mount("/ws", socket_app)
 app.include_router(ollama.router, prefix="/ollama", tags=["ollama"])
 app.include_router(openai.router, prefix="/openai", tags=["openai"])
 
-app.include_router(pipelines.router, prefix="/api/v1/pipelines", tags=["pipelines"]) 
+app.include_router(pipelines.router, prefix="/api/v1/pipelines", tags=["pipelines"])
 app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
 app.include_router(images.router, prefix="/api/v1/images", tags=["images"])
 
@@ -1122,11 +1129,19 @@ app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(storage.router, prefix="/api/v1/storage", tags=["storage"])
 app.include_router(discount.router, prefix="/api/v1/discount", tags=["discount"])
 app.include_router(plans.router, prefix="/api/v1/plans", tags=["plans"])
-app.include_router(quota_policy.router, prefix="/api/v1/quota_policies", tags=["quota_policies"]) # Added quota_policy router
+app.include_router(
+    quota_policy.router, prefix="/api/v1/quota_policies", tags=["quota_policies"]
+)  # Added quota_policy router
 app.include_router(affiliate_tracking.router, prefix="/t/affiliate", tags=["affiliate"])
-app.include_router(affiliate_payouts.router, prefix="/api/v1/affiliate", tags=["affiliate"])
-app.include_router(affiliate_partners.router, prefix="/api/v1/affiliate", tags=["affiliate"])
-app.include_router(affiliate_analytics.router, prefix="/api/v1/affiliate", tags=["affiliate"])
+app.include_router(
+    affiliate_payouts.router, prefix="/api/v1/affiliate", tags=["affiliate"]
+)
+app.include_router(
+    affiliate_partners.router, prefix="/api/v1/affiliate", tags=["affiliate"]
+)
+app.include_router(
+    affiliate_analytics.router, prefix="/api/v1/affiliate", tags=["affiliate"]
+)
 app.include_router(
     admin_affiliate_payouts.router,
     prefix="/api/v1/admin/affiliate",
@@ -1154,6 +1169,11 @@ app.include_router(
 )
 app.include_router(
     admin_affiliate_links.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_order_lookup.router,
     prefix="/api/v1/admin/affiliate",
     tags=["admin"],
 )
@@ -1187,11 +1207,11 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
         for model in models:
             if model.get("arena"):
                 if has_access(
-                        user.id,
-                        type="read",
-                        access_control=model.get("info", {})
-                                .get("meta", {})
-                                .get("access_control", {}),
+                    user.id,
+                    type="read",
+                    access_control=model.get("info", {})
+                    .get("meta", {})
+                    .get("access_control", {}),
                 ):
                     filtered_models.append(model)
                 continue
@@ -1199,7 +1219,7 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
             model_info = Models.get_model_by_id(model["id"])
             if model_info:
                 if user.id == model_info.user_id or has_access(
-                        user.id, type="read", access_control=model_info.access_control
+                    user.id, type="read", access_control=model_info.access_control
                 ):
                     filtered_models.append(model)
 
@@ -1227,11 +1247,11 @@ async def get_models(request: Request, user=Depends(get_verified_user)):
         for model in models:
             if model.get("arena"):
                 if has_access(
-                        user.id,
-                        type="read",
-                        access_control=model.get("info", {})
-                                .get("meta", {})
-                                .get("access_control", {}),
+                    user.id,
+                    type="read",
+                    access_control=model.get("info", {})
+                    .get("meta", {})
+                    .get("access_control", {}),
                 ):
                     filtered_models.append(model)
                 continue
@@ -1294,9 +1314,9 @@ async def get_base_models(request: Request, user=Depends(get_admin_user)):
 
 @app.post("/api/chat/completions")
 async def chat_completion(
-        request: Request,
-        form_data: dict,
-        user=Depends(get_verified_user),
+    request: Request,
+    form_data: dict,
+    user=Depends(get_verified_user),
 ):
     if not request.app.state.MODELS:
         await get_all_models(request, user=user)
@@ -1343,11 +1363,11 @@ async def chat_completion(
             **(
                 {"function_calling": "native"}
                 if form_data.get("params", {}).get("function_calling") == "native"
-                   or (
-                           model_info
-                           and model_info.params.model_dump().get("function_calling")
-                           == "native"
-                   )
+                or (
+                    model_info
+                    and model_info.params.model_dump().get("function_calling")
+                    == "native"
+                )
                 else {}
             ),
         }
@@ -1396,7 +1416,7 @@ generate_chat_completion = chat_completion
 
 @app.post("/api/chat/completed")
 async def chat_completed(
-        request: Request, form_data: dict, user=Depends(get_verified_user)
+    request: Request, form_data: dict, user=Depends(get_verified_user)
 ):
     try:
         model_item = form_data.pop("model_item", {})
@@ -1415,7 +1435,7 @@ async def chat_completed(
 
 @app.post("/api/chat/actions/{action_id}")
 async def chat_action(
-        request: Request, action_id: str, form_data: dict, user=Depends(get_verified_user)
+    request: Request, action_id: str, form_data: dict, user=Depends(get_verified_user)
 ):
     try:
         model_item = form_data.pop("model_item", {})
@@ -1617,8 +1637,8 @@ async def get_app_latest_release_version(user=Depends(get_verified_user)):
         timeout = aiohttp.ClientTimeout(total=1)
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
             async with session.get(
-                    "https://api.github.com/repos/open-webui/open-webui/releases/latest",
-                    ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                "https://api.github.com/repos/open-webui/open-webui/releases/latest",
+                ssl=AIOHTTP_CLIENT_SESSION_SSL,
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
