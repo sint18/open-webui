@@ -12,7 +12,7 @@ from open_webui.models.affiliate import (
     Application,
     ApplicationStatusEnum,
     Link,
-    Coupon,
+    DiscountCodeBinding,
     Commission,
     CommissionAdjustment,
     CommissionTypeEnum,
@@ -293,7 +293,7 @@ def delete_link(link_id: str, user=Depends(get_verified_user)):
     return {"status": "deleted"}
 
 
-class CouponSchema(BaseModel):
+class DiscountCodeBindingSchema(BaseModel):
     id: str
     code: str
     discount_percent: Decimal | None = None
@@ -304,23 +304,25 @@ class CouponSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/partners/me/coupons", response_model=List[CouponSchema])
+@router.get("/partners/me/coupons", response_model=List[DiscountCodeBindingSchema])
 def list_coupons(user=Depends(get_verified_user)):
     with get_db() as db:
         records = (
-            db.query(Coupon, DiscountCode)
-            .join(DiscountCode, Coupon.code == DiscountCode.code)
-            .filter(Coupon.partner_id == user.id)
-            .order_by(Coupon.created_at.desc())
+            db.query(DiscountCodeBinding, DiscountCode)
+            .join(DiscountCode, DiscountCodeBinding.code == DiscountCode.code)
+            .filter(DiscountCodeBinding.partner_id == user.id)
+            .order_by(DiscountCodeBinding.created_at.desc())
             .all()
         )
-        results: List[CouponSchema] = []
+        results: List[DiscountCodeBindingSchema] = []
         for c, d in records:
             results.append(
-                CouponSchema(
+                DiscountCodeBindingSchema(
                     id=c.id,
                     code=d.code,
-                    discount_percent=Decimal(d.discount_percent) if d.discount_percent is not None else None,
+                    discount_percent=Decimal(d.discount_percent)
+                    if d.discount_percent is not None
+                    else None,
                     expires_at=c.expires_at or d.expires_at,
                     active=c.active and d.active,
                     created_at=c.created_at,
