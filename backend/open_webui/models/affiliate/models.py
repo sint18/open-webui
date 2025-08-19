@@ -120,6 +120,11 @@ class PartnerProfile(Base):
     )
     payout_method = Column(String, nullable=True)
     payout_details = Column(Text, nullable=True)
+    rates = Column(
+        JSON,
+        nullable=False,
+        default=lambda: {"sales": 0.01, "clicks": 0.005},
+    )
     terms = Column(JSON, nullable=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
     updated_at = Column(BigInteger, default=lambda: int(time.time()))
@@ -133,6 +138,12 @@ class Link(Base):
     partner_id = Column(String, nullable=False)
     code = Column(String, nullable=False, unique=True)
     url = Column(Text, nullable=False)
+    utm_source = Column(String, nullable=True)
+    utm_medium = Column(String, nullable=True)
+    utm_campaign = Column(String, nullable=True)
+    utm_term = Column(String, nullable=True)
+    utm_content = Column(String, nullable=True)
+    active = Column(Boolean, default=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
 
 

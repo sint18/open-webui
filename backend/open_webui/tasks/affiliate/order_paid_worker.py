@@ -25,15 +25,12 @@ from open_webui.models.affiliate import (
     DiscountCodeBinding,
     Click,
     AttrViaEnum,
+    PartnerProfile,
 )
 from open_webui.models.discount import DiscountCode
 
 logger = logging.getLogger(__name__)
 
-# Default commission rates per type. These could be loaded from configuration.
-PLAN_COMMISSION_RATES: Dict[CommissionTypeEnum, Decimal] = {
-    CommissionTypeEnum.sale: Decimal("0.10"),
-}
 
 # Number of seconds an order should remain pending before auto-approval
 LOCK_PERIOD_SECONDS = int(60 * 60 * 24 * 30)  # 30 days
@@ -122,38 +119,37 @@ def _create_commissions(
 ) -> None:
     """Create commission records based on configured rates."""
     with get_db() as db:
-        for ctype, rate in PLAN_COMMISSION_RATES.items():
-            amount = order_amount * rate
-            commission = Commission(
-                partner_id=partner_id,
-                order_id=order_id,
-                type=ctype,
-                amount=amount,
-                status=status,
-                note=note,
+        profile = db.get(PartnerProfile, partner_id)
+        rate_map = profile.rates if profile and profile.rates else {}
+        sale_rate = Decimal(str(rate_map.get("sales", 0.01)))
+        amount = order_amount * sale_rate
+        commission = Commission(
+            partner_id=partner_id,
+            order_id=order_id,
+            type=CommissionTypeEnum.sale,
+            amount=amount,
+            status=status,
+            note=note,
+        )
+        db.add(commission)
+        db.add(
+            OutboxEvent(
+                event_type="commission_created",
+                payload={
+                    "commission_id": commission.id,
+                    "order_id": order_id,
+                    "partner_id": partner_id,
+                    "amount": str(amount),
+                },
             )
-            db.add(commission)
-            db.add(
-                OutboxEvent(
-                    event_type="commission_created",
-                    payload={
-                        "commission_id": commission.id,
-                        "order_id": order_id,
-                        "partner_id": partner_id,
-                        "amount": str(amount),
-                    },
-                )
+        )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            logger.debug(
+                "Commission already exists for order %s partner %s", order_id, partner_id
             )
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                logger.debug(
-                    "Commission already exists for order %s partner %s type %s",
-                    order_id,
-                    partner_id,
-                    ctype.value,
-                )
 
 
 def _void_commissions(order_id: str, reason: str, only_pending: bool = False) -> None:
