@@ -1,7 +1,9 @@
 import time
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import or_
+
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import (
     Application,
@@ -9,10 +11,19 @@ from open_webui.models.affiliate import (
     ApplicationStatusEnum,
     PartnerProfile,
     PartnerStatusEnum,
+    Link,
+    Coupon,
+    AuditLog,
+    AuditSeverityEnum,
 )
+from open_webui.models.discount import DiscountCode
+from open_webui.models.users import User
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
+
+
+PAGE_ITEM_COUNT = 50
 
 
 class ApplicationSchema(BaseModel):
@@ -30,14 +41,33 @@ class ApplicationSchema(BaseModel):
 @router.get("/applications", response_model=List[ApplicationSchema])
 def list_applications(
     status: Optional[ApplicationStatusEnum] = None,
+    from_ts: Optional[int] = Query(None, alias="from"),
+    to_ts: Optional[int] = Query(None, alias="to"),
+    q: Optional[str] = None,
+    page: Optional[int] = 1,
     flagged: bool = False,
     admin=Depends(get_admin_or_support_user),
 ):
+    limit = PAGE_ITEM_COUNT
+    page = max(1, page)
+    skip = (page - 1) * limit
     with get_db() as db:
-        query = db.query(Application)
+        query = db.query(Application).join(User, User.id == Application.partner_id)
         if status:
             query = query.filter(Application.status == status)
-        records = query.order_by(Application.created_at.desc()).all()
+        if from_ts:
+            query = query.filter(Application.created_at >= from_ts)
+        if to_ts:
+            query = query.filter(Application.created_at <= to_ts)
+        if q:
+            like = f"%{q}%"
+            query = query.filter(or_(User.name.ilike(like), User.email.ilike(like)))
+        records = (
+            query.order_by(Application.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
         results: List[ApplicationSchema] = []
         for r in records:
             flags = [
@@ -66,14 +96,31 @@ def get_application(app_id: str, admin=Depends(get_admin_or_support_user)):
         return app
 
 
+class ApplicationApproveForm(BaseModel):
+    link_code: str
+    link_url: str
+    coupon_code: Optional[str] = None
+    coupon_discount_percent: Optional[int] = None
+    coupon_expires_at: Optional[int] = None
+
+
 @router.post("/applications/{app_id}/approve")
-def approve_application(app_id: str, admin=Depends(get_admin_or_support_user)):
+def approve_application(
+    app_id: str,
+    form: ApplicationApproveForm,
+    admin=Depends(get_admin_or_support_user),
+):
     with get_db() as db:
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
+
+        if db.query(Link).filter(Link.code == form.link_code).first():
+            raise HTTPException(status_code=400, detail="Link code already exists")
+
         record.status = ApplicationStatusEnum.approved
         record.updated_at = int(time.time())
+
         profile = db.get(PartnerProfile, record.partner_id)
         if profile:
             profile.status = PartnerStatusEnum.active
@@ -86,6 +133,35 @@ def approve_application(app_id: str, admin=Depends(get_admin_or_support_user)):
                 updated_at=int(time.time()),
             )
             db.add(profile)
+
+        link = Link(partner_id=record.partner_id, code=form.link_code, url=form.link_url)
+        db.add(link)
+
+        if form.coupon_code:
+            if db.query(DiscountCode).filter(DiscountCode.code == form.coupon_code).first():
+                raise HTTPException(status_code=400, detail="Coupon code already exists")
+            discount = DiscountCode(
+                code=form.coupon_code,
+                discount_percent=form.coupon_discount_percent,
+                expires_at=form.coupon_expires_at,
+            )
+            db.add(discount)
+            coupon = Coupon(
+                partner_id=record.partner_id,
+                code=form.coupon_code,
+                expires_at=form.coupon_expires_at,
+            )
+            db.add(coupon)
+
+        db.add(
+            AuditLog(
+                partner_id=record.partner_id,
+                action="approve_application",
+                severity=AuditSeverityEnum.info,
+                details={"application_id": app_id},
+            )
+        )
+
         db.commit()
     return {"id": app_id, "status": "approved"}
 
@@ -103,6 +179,14 @@ def reject_application(app_id: str, form: ApplicationRejectForm, admin=Depends(g
         record.status = ApplicationStatusEnum.rejected
         record.updated_at = int(time.time())
         record.notes = form.note
+        db.add(
+            AuditLog(
+                partner_id=record.partner_id,
+                action="reject_application",
+                severity=AuditSeverityEnum.warning,
+                details={"application_id": app_id, "note": form.note},
+            )
+        )
         db.commit()
     return {"id": app_id, "status": "rejected"}
 
@@ -114,5 +198,13 @@ def review_application_flags(app_id: str, admin=Depends(get_admin_or_support_use
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
         db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id).delete()
+        db.add(
+            AuditLog(
+                partner_id=record.partner_id,
+                action="review_application_flags",
+                severity=AuditSeverityEnum.info,
+                details={"application_id": app_id},
+            )
+        )
         db.commit()
     return {"id": app_id, "flags_cleared": True}
