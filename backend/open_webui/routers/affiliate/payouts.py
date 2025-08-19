@@ -1,10 +1,10 @@
 from decimal import Decimal
-import os
-from typing import Any, List
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from open_webui.config import CONFIG_DATA
 from open_webui.core.affiliate.crypto import decrypt_details
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import (
@@ -20,9 +20,6 @@ from open_webui.utils.auth import get_verified_user
 router = APIRouter()
 
 
-MIN_PAYOUT = Decimal(os.environ.get("AFFILIATE_MIN_PAYOUT_MMK", "30000"))
-
-
 class PayoutCreateForm(BaseModel):
     amount: Decimal
     fee_mmk: Decimal | None = None
@@ -30,6 +27,9 @@ class PayoutCreateForm(BaseModel):
 
 @router.post("/payouts")
 def create_payout(form: PayoutCreateForm, user=Depends(get_verified_user)):
+    min_payout = Decimal(
+        CONFIG_DATA.get("affiliate", {}).get("min_payout_amount", 0)
+    )
     with get_db() as db:
         open_payout = (
             db.query(Payout)
@@ -56,14 +56,14 @@ def create_payout(form: PayoutCreateForm, user=Depends(get_verified_user)):
             .all()
         )
         eligible_balance = sum(Decimal(c.amount) for c in commissions)
-        if eligible_balance < MIN_PAYOUT:
+        if eligible_balance < min_payout:
             raise HTTPException(status_code=400, detail="Eligible balance below minimum threshold")
 
         requested = Decimal(form.amount)
-        if requested < MIN_PAYOUT:
+        if requested < min_payout:
             raise HTTPException(
                 status_code=400,
-                detail=f"Requested amount must be at least {MIN_PAYOUT}",
+                detail=f"Requested amount must be at least {min_payout}",
             )
         if requested > eligible_balance:
             raise HTTPException(

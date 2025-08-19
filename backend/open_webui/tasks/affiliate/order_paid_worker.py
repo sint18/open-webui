@@ -11,6 +11,7 @@ from typing import Dict, Any
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from open_webui.config import CONFIG_DATA
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import (
     OutboxEvent,
@@ -32,15 +33,16 @@ from open_webui.models.discount import DiscountCode
 logger = logging.getLogger(__name__)
 
 
-# Number of seconds an order should remain pending before auto-approval
-LOCK_PERIOD_SECONDS = int(60 * 60 * 24 * 30)  # 30 days
+def get_lock_period_seconds() -> int:
+    days = CONFIG_DATA.get("affiliate", {}).get("lock_period_days", 30)
+    return int(60 * 60 * 24 * days)
 
 # Poll interval for checking outbox events
 POLL_INTERVAL_SECONDS = 10
 
 
 def _persist_order_attribution(order_id: str, attribution_id: str) -> None:
-    """Persist an order attribution record and handle last-click wins."""
+    """Persist an order attribution record respecting the configured model."""
     with get_db() as db:
         new_attr = db.get(Attribution, attribution_id)
         if not new_attr:
@@ -50,6 +52,9 @@ def _persist_order_attribution(order_id: str, attribution_id: str) -> None:
             .filter(OrderAttribution.order_id == order_id)
             .all()
         )
+        model = CONFIG_DATA.get("affiliate", {}).get("attribution_model", "last_click")
+        if model == "first_click" and existing_records:
+            return
         for existing in existing_records:
             if existing.attribution_id != attribution_id:
                 prev_attr = db.get(Attribution, existing.attribution_id)
@@ -168,7 +173,7 @@ def _void_commissions(order_id: str, reason: str, only_pending: bool = False) ->
 
 def _approve_pending_commissions() -> None:
     """Move commissions from pending to approved after lock period."""
-    threshold = int(time.time()) - LOCK_PERIOD_SECONDS
+    threshold = int(time.time()) - get_lock_period_seconds()
     with get_db() as db:
         commissions = (
             db.query(Commission)

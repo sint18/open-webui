@@ -5,6 +5,7 @@ import time
 from fastapi import APIRouter, Request, Response, HTTPException
 from pydantic import BaseModel
 
+from open_webui.config import CONFIG_DATA
 from open_webui.env import WEBUI_AUTH_COOKIE_SAME_SITE, WEBUI_AUTH_COOKIE_SECURE
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import (
@@ -49,7 +50,8 @@ async def track_click(form: ClickForm, request: Request, response: Response):
         db.commit()
         db.refresh(record)
 
-    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)
+    window = CONFIG_DATA.get("affiliate", {}).get("cookie_window_days", 30)
+    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=window)
     response.set_cookie(
         key="aff_click_id",
         value=str(record.id),
@@ -121,7 +123,8 @@ async def create_attribution(
         db.commit()
         db.refresh(record)
 
-    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)
+    window = CONFIG_DATA.get("affiliate", {}).get("cookie_window_days", 30)
+    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=window)
     response.set_cookie(
         key="aff_attr_id",
         value=str(record.id),

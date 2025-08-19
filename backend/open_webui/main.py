@@ -102,6 +102,7 @@ from open_webui.routers.admin.affiliate import (
     order_lookup as admin_affiliate_order_lookup,
 )
 from open_webui.routers.admin.affiliate import coupons as admin_affiliate_coupons
+from open_webui.routers.admin.affiliate import settings as admin_affiliate_settings
 
 from open_webui.routers.retrieval import (
     get_embedding_function,
@@ -1180,6 +1181,11 @@ app.include_router(
 )
 app.include_router(
     admin_affiliate_coupons.router,
+    prefix="/api/v1/admin/affiliate",
+    tags=["admin"],
+)
+app.include_router(
+    admin_affiliate_settings.router,
     prefix="/api/v1/admin/affiliate",
     tags=["admin"],
 )
