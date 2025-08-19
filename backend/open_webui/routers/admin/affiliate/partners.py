@@ -10,11 +10,10 @@ from open_webui.core.affiliate.crypto import encrypt_details, decrypt_details
 from open_webui.internal.db import get_db
 from open_webui.models.users import User
 from open_webui.models.affiliate import (
-    AuditLog,
-    AuditSeverityEnum,
     PartnerProfile,
     PartnerStatusEnum,
 )
+from open_webui.models.audit import AuditLog
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
@@ -33,10 +32,13 @@ class PartnerSchema(BaseModel):
 
 class AuditLogSchema(BaseModel):
     id: str
+    actor_id: str
+    resource: str
     action: str
-    severity: AuditSeverityEnum
-    details: dict | None = None
-    created_at: int
+    before: dict | None = None
+    after: dict | None = None
+    reason: str | None = None
+    timestamp: int
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -99,8 +101,8 @@ def get_partner(partner_id: str, admin=Depends(get_admin_or_support_user)):
         )
         logs = (
             db.query(AuditLog)
-            .filter(AuditLog.partner_id == partner_id)
-            .order_by(AuditLog.created_at.desc())
+            .filter(AuditLog.resource == f"partner:{partner_id}")
+            .order_by(AuditLog.timestamp.desc())
             .limit(20)
             .all()
         )
@@ -143,17 +145,22 @@ def update_partner(
             db.add(profile)
 
         changes: dict = {}
+        before: dict = {}
 
         if form.name:
+            before["name"] = user.name
             user.name = form.name
             changes["name"] = form.name
         if form.email:
+            before["email"] = user.email
             user.email = form.email
             changes["email"] = form.email
         if form.status is not None:
+            before["status"] = profile.status.value
             profile.status = form.status
             changes["status"] = form.status.value
         if form.payout_method is not None:
+            before["payout_method"] = profile.payout_method
             profile.payout_method = form.payout_method
             changes["payout_method"] = form.payout_method
         if form.payout_details is not None:
@@ -161,13 +168,17 @@ def update_partner(
         if form.rates is not None:
             if admin.role != "admin":
                 raise HTTPException(status_code=401, detail="Only admin can edit rates")
+            before["rates"] = profile.rates
             profile.rates = form.rates
             changes["rates"] = form.rates
         if form.blocked_channels is not None:
             info = user.info or {}
+            before["blocked_channels"] = info.get("blocked_channels")
             info["blocked_channels"] = form.blocked_channels
             user.info = info
+            changes["blocked_channels"] = form.blocked_channels
         if form.terms_version is not None:
+            before["terms_version"] = profile.terms.get("version") if profile.terms else None
             profile.terms = {
                 "version": form.terms_version,
                 "accepted_at": int(time.time()),
@@ -178,10 +189,12 @@ def update_partner(
 
         db.add(
             AuditLog(
-                partner_id=partner_id,
+                actor_id=admin.id,
+                resource=f"partner:{partner_id}",
                 action="admin_update_partner",
-                severity=AuditSeverityEnum.info,
-                details=changes,
+                before=before,
+                after=changes,
+                reason=None,
             )
         )
 
@@ -201,8 +214,8 @@ def update_partner(
         )
         logs = (
             db.query(AuditLog)
-            .filter(AuditLog.partner_id == partner_id)
-            .order_by(AuditLog.created_at.desc())
+            .filter(AuditLog.resource == f"partner:{partner_id}")
+            .order_by(AuditLog.timestamp.desc())
             .limit(20)
             .all()
         )
@@ -224,17 +237,22 @@ def update_partner(
 def activate_partner(partner_id: str, admin=Depends(get_admin_or_support_user)):
     with get_db() as db:
         profile = db.get(PartnerProfile, partner_id)
+        before = {"status": profile.status.value} if profile else {"status": None}
         if not profile:
             profile = PartnerProfile(partner_id=partner_id, status=PartnerStatusEnum.active)
             db.add(profile)
         else:
             profile.status = PartnerStatusEnum.active
             profile.updated_at = int(time.time())
+        after = {"status": profile.status.value}
         db.add(
             AuditLog(
-                partner_id=partner_id,
+                actor_id=admin.id,
+                resource=f"partner:{partner_id}",
                 action="admin_activate_partner",
-                severity=AuditSeverityEnum.info,
+                before=before,
+                after=after,
+                reason=None,
             )
         )
         db.commit()
@@ -245,17 +263,22 @@ def activate_partner(partner_id: str, admin=Depends(get_admin_or_support_user)):
 def suspend_partner(partner_id: str, admin=Depends(get_admin_or_support_user)):
     with get_db() as db:
         profile = db.get(PartnerProfile, partner_id)
+        before = {"status": profile.status.value} if profile else {"status": None}
         if not profile:
             profile = PartnerProfile(partner_id=partner_id, status=PartnerStatusEnum.suspended)
             db.add(profile)
         else:
             profile.status = PartnerStatusEnum.suspended
             profile.updated_at = int(time.time())
+        after = {"status": profile.status.value}
         db.add(
             AuditLog(
-                partner_id=partner_id,
+                actor_id=admin.id,
+                resource=f"partner:{partner_id}",
                 action="admin_suspend_partner",
-                severity=AuditSeverityEnum.warning,
+                before=before,
+                after=after,
+                reason=None,
             )
         )
         db.commit()

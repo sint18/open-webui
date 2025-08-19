@@ -9,6 +9,7 @@ from open_webui.models.affiliate import (
     CommissionStatusEnum,
     FraudFlag,
 )
+from open_webui.models.audit import AuditLog
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
@@ -74,9 +75,21 @@ def approve_commission(
         record = db.get(Commission, commission_id)
         if not record:
             raise HTTPException(status_code=404, detail="Commission not found")
+        before = {"status": record.status.value, "note": record.note}
         record.status = CommissionStatusEnum.approved
         if form.note is not None:
             record.note = form.note
+        after = {"status": record.status.value, "note": record.note}
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="approve_commission",
+                before=before,
+                after=after,
+                reason=form.note,
+            )
+        )
         db.commit()
     return {"id": commission_id, "status": "approved"}
 
@@ -89,9 +102,21 @@ def void_commission(
         record = db.get(Commission, commission_id)
         if not record:
             raise HTTPException(status_code=404, detail="Commission not found")
+        before = {"status": record.status.value, "note": record.note}
         record.status = CommissionStatusEnum.rejected
         if form.note is not None:
             record.note = form.note
+        after = {"status": record.status.value, "note": record.note}
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="void_commission",
+                before=before,
+                after=after,
+                reason=form.note,
+            )
+        )
         db.commit()
     return {"id": commission_id, "status": "void"}
 
@@ -112,6 +137,20 @@ def adjust_commission(
             commission_id=commission_id, amount=form.amount, reason=form.reason
         )
         db.add(adj)
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="adjust_commission",
+                before=None,
+                after={
+                    "adjustment_id": adj.id,
+                    "amount": str(form.amount),
+                    "reason": form.reason,
+                },
+                reason=form.reason,
+            )
+        )
         db.commit()
     return {"id": commission_id, "adjustment": str(form.amount)}
 
@@ -124,6 +163,20 @@ def review_commission_flags(
         record = db.get(Commission, commission_id)
         if not record:
             raise HTTPException(status_code=404, detail="Commission not found")
+        flags = [
+            f.flag_type
+            for f in db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id)
+        ]
         db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id).delete()
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                resource=f"commission:{commission_id}",
+                action="review_commission_flags",
+                before={"flags": flags},
+                after={"flags": []},
+                reason=None,
+            )
+        )
         db.commit()
     return {"id": commission_id, "flags_cleared": True}

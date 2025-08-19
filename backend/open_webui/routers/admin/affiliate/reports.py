@@ -1,10 +1,12 @@
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
+from decimal import Decimal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import func
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import Commission
+from open_webui.models.audit import AuditLog
 from open_webui.utils.auth import get_admin_or_support_user
 from open_webui.config import CONFIG_DATA, save_config
 
@@ -41,6 +43,7 @@ class AffiliateSettingsForm(BaseModel):
 @router.put("/settings")
 def update_settings(form: AffiliateSettingsForm, admin=Depends(get_admin_or_support_user)):
     config = CONFIG_DATA.copy()
+    before = config.get("affiliate", {}).copy()
     aff = config.get("affiliate", {})
     if form.commission_rules is not None:
         aff["commission_rules"] = form.commission_rules
@@ -52,4 +55,16 @@ def update_settings(form: AffiliateSettingsForm, admin=Depends(get_admin_or_supp
         aff["cookie_window_days"] = form.cookie_window_days
     config["affiliate"] = aff
     save_config(config)
+    with get_db() as db:
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                resource="affiliate:settings",
+                action="update_settings",
+                before=before,
+                after=aff,
+                reason=None,
+            )
+        )
+        db.commit()
     return aff
