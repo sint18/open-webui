@@ -14,7 +14,6 @@ from sqlalchemy import (
     Enum as SAEnum,
     UniqueConstraint,
 )
-
 from open_webui.internal.db import Base
 
 
@@ -44,14 +43,81 @@ class CommissionStatusEnum(enum.Enum):
     paid = "paid"
 
 
+class ApplicationStatusEnum(enum.Enum):
+    """Status of a partner application."""
+
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class PartnerStatusEnum(enum.Enum):
+    """Operational status of a partner."""
+
+    active = "active"
+    inactive = "inactive"
+    suspended = "suspended"
+
+
+class PartnerTypeEnum(enum.Enum):
+    """Classification type of partner."""
+
+    individual = "individual"
+    company = "company"
+
+
+class PayoutStatusEnum(enum.Enum):
+    """Lifecycle status of a payout."""
+
+    pending = "pending"
+    approved = "approved"
+    paid = "paid"
+    rejected = "rejected"
+
+
+class AuditSeverityEnum(enum.Enum):
+    """Severity level for audit logging."""
+
+    info = "info"
+    warning = "warning"
+    critical = "critical"
+
+
 class Application(Base):
     __tablename__ = "application"
     __table_args__ = {"schema": "affiliate"}
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     partner_id = Column(String, nullable=False)
-    status = Column(String, nullable=False)
+    status = Column(
+        SAEnum(ApplicationStatusEnum, name="application_status_enum", schema="affiliate"),
+        nullable=False,
+        default=ApplicationStatusEnum.pending,
+    )
     notes = Column(Text, nullable=True)
+    created_at = Column(BigInteger, default=lambda: int(time.time()))
+    updated_at = Column(BigInteger, default=lambda: int(time.time()))
+
+
+class PartnerProfile(Base):
+    __tablename__ = "partner_profile"
+    __table_args__ = {"schema": "affiliate"}
+
+    partner_id = Column(String, ForeignKey("user.id"), primary_key=True)
+    website = Column(Text, nullable=True)
+    status = Column(
+        SAEnum(PartnerStatusEnum, name="partner_status_enum", schema="affiliate"),
+        nullable=False,
+        default=PartnerStatusEnum.active,
+    )
+    type = Column(
+        SAEnum(PartnerTypeEnum, name="partner_type_enum", schema="affiliate"),
+        nullable=False,
+        default=PartnerTypeEnum.individual,
+    )
+    payout_method = Column(String, nullable=True)
+    payout_details = Column(Text, nullable=True)
+    terms = Column(JSON, nullable=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
     updated_at = Column(BigInteger, default=lambda: int(time.time()))
 
@@ -73,8 +139,8 @@ class Coupon(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     partner_id = Column(String, nullable=False)
-    code = Column(String, nullable=False, unique=True)
-    discount_percent = Column(Numeric, nullable=True)
+    code = Column(String, ForeignKey("discount_code.code"), nullable=False, unique=True)
+    expires_at = Column(BigInteger, nullable=True)
     active = Column(Boolean, default=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
 
@@ -165,7 +231,12 @@ class Payout(Base):
     requested_amount = Column(Numeric, nullable=False)
     total_amount = Column(Numeric, nullable=False)
     fee_mmk = Column(Numeric, nullable=False, default=0)
-    status = Column(String, nullable=False, default="pending")
+    status = Column(
+        SAEnum(PayoutStatusEnum, name="payout_status_enum", schema="affiliate"),
+        nullable=False,
+        default=PayoutStatusEnum.pending,
+    )
+    reference = Column(String, nullable=True, unique=True)
     details = Column(Text, nullable=True)
     approved_mmk = Column(Numeric, nullable=True)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
@@ -204,3 +275,18 @@ class OutboxEvent(Base):
     payload = Column(JSON, nullable=False)
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     processed_at = Column(BigInteger, nullable=True)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+    __table_args__ = {"schema": "affiliate"}
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    partner_id = Column(String, nullable=True)
+    action = Column(String, nullable=False)
+    severity = Column(
+        SAEnum(AuditSeverityEnum, name="audit_severity_enum", schema="affiliate"),
+        nullable=False,
+    )
+    details = Column(JSON, nullable=True)
+    created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))

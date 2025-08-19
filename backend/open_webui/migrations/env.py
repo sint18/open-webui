@@ -14,7 +14,10 @@ from alembic import context
 from open_webui.models.auths import Auth
 from open_webui.env import DATABASE_URL
 from sqlalchemy import engine_from_config, pool
-# from open_webui.internal.db import Base
+from open_webui.internal.db import Base
+# Import models to ensure metadata is populated
+from open_webui.models import users, discount  # noqa: F401
+from open_webui.models.affiliate import models as affiliate_models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,8 +32,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = Auth.metadata
-# target_metadata = Base.metadata
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

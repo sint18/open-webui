@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import or_
 from open_webui.internal.db import get_db
 from open_webui.models.users import User
+from open_webui.models.affiliate import PartnerProfile, PartnerStatusEnum
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()
@@ -57,14 +58,17 @@ def update_partner(
             info["rate_override"] = form.rate_override
         if form.suspended is not None:
             info["suspended"] = form.suspended
-        if form.terms_version is not None:
-            info["terms"] = {
-                "version": form.terms_version,
-                "accepted_at": int(time.time()),
-            }
         if form.blocked_channels is not None:
             info["blocked_channels"] = form.blocked_channels
         partner.info = info
+
+        if form.terms_version is not None:
+            profile = db.get(PartnerProfile, partner_id)
+            if not profile:
+                profile = PartnerProfile(partner_id=partner_id, status=PartnerStatusEnum.inactive)
+                db.add(profile)
+            profile.terms = {"version": form.terms_version, "accepted_at": int(time.time())}
+            profile.updated_at = int(time.time())
         db.commit()
         db.refresh(partner)
         return PartnerSchema.model_validate(partner, from_attributes=True)

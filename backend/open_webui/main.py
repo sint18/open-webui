@@ -106,6 +106,7 @@ from open_webui.models.functions import Functions
 from open_webui.models.models import Models
 from open_webui.models.users import UserModel, Users
 from open_webui.models.chats import Chats
+from open_webui.models.affiliate import models as affiliate_models  # noqa: F401
 
 from open_webui.config import (
     LICENSE_KEY,
