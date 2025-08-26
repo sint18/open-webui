@@ -78,6 +78,30 @@ export interface CommissionAdjustmentForm {
     reason?: string;
 }
 
+export interface PayoutItem {
+    id: string;
+    payout_id: string;
+    commission_id: string;
+    amount: DecimalString;
+    created_at: number;
+}
+
+export interface Payout {
+    id: string;
+    partner_id: string;
+    requested_amount: DecimalString;
+    total_amount: DecimalString;
+    fee_mmk: DecimalString;
+    status: 'pending' | 'approved' | 'paid' | 'rejected';
+    reference?: string;
+    approved_mmk?: DecimalString;
+    created_at: number;
+}
+
+export interface PayoutDetail extends Payout {
+    items: PayoutItem[];
+}
+
 export interface Link {
     id: string;
     partner_id: string;
