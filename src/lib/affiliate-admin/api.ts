@@ -258,12 +258,61 @@ export const markPayoutPaid = async (
     return handle(res);
 };
 
-export const exportPayouts = async (
-    token: string
-): Promise<string> => {
-    const res = await fetch(`${ADMIN_AFFILIATE_API_BASE_URL}/payouts/export`, {
+export const listPayouts = async (
+    token: string,
+    params: {
+        partner_id?: string;
+        status?: string;
+        start?: number;
+        end?: number;
+    } = {}
+): Promise<Payout[]> => {
+    const query = new URLSearchParams();
+    if (params.partner_id) query.set('partner_id', params.partner_id);
+    if (params.status) query.set('status', params.status);
+    if (params.start) query.set('start', String(params.start));
+    if (params.end) query.set('end', String(params.end));
+    const res = await fetch(`${ADMIN_AFFILIATE_API_BASE_URL}/payouts?${query.toString()}`, {
         method: 'GET',
         headers: jsonHeaders(token),
+    });
+    return handle(res);
+};
+
+export const getPayout = async (
+    token: string,
+    payoutId: string
+): Promise<PayoutDetail> => {
+    const res = await fetch(`${ADMIN_AFFILIATE_API_BASE_URL}/payouts/${payoutId}`, {
+        method: 'GET',
+        headers: jsonHeaders(token),
+    });
+    return handle(res);
+};
+
+export const exportPayouts = async (
+    token: string,
+    ids: string[] = []
+): Promise<string> => {
+    const query = ids.length ? `?ids=${ids.join(',')}` : '';
+    const res = await fetch(`${ADMIN_AFFILIATE_API_BASE_URL}/payouts/export${query}`, {
+        method: 'GET',
+        headers: jsonHeaders(token),
+    });
+    if (!res.ok) {
+        throw await res.json();
+    }
+    return res.text();
+};
+
+export const exportPayoutItems = async (
+    token: string,
+    ids: string[]
+): Promise<string> => {
+    const res = await fetch(`${ADMIN_AFFILIATE_API_BASE_URL}/payouts/items/export`, {
+        method: 'POST',
+        headers: jsonHeaders(token),
+        body: JSON.stringify({ ids }),
     });
     if (!res.ok) {
         throw await res.json();

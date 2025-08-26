@@ -292,3 +292,4 @@ def get_admin_or_support_user(user=Depends(get_current_user)):
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
     return user
+
