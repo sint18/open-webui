@@ -2,10 +2,13 @@ export type DecimalString = string;
 
 export interface AuditLog {
     id: string;
+    actor_id: string;
+    resource: string;
     action: string;
-    severity: 'info' | 'warning' | 'critical';
-    details?: Record<string, any>;
-    created_at: number;
+    before?: Record<string, any> | null;
+    after?: Record<string, any> | null;
+    reason?: string | null;
+    timestamp: number;
 }
 
 export interface Partner {
