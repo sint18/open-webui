@@ -39,6 +39,7 @@ def upgrade() -> None:
     sa.Column('credits', sa.BigInteger(), nullable=True),
     sa.Column('amount_mmk', sa.Numeric(), nullable=False),
     sa.Column('provider', sa.String(), nullable=False),
+    sa.Column('screenshot_path', sa.Text(), nullable=True),
     sa.Column('status', sa.Enum('pending', 'paid', 'failed', 'declined', name='payment_status_enum'), nullable=False),
     sa.Column('period_start', sa.BigInteger(), nullable=True),
     sa.Column('period_end', sa.BigInteger(), nullable=True),
