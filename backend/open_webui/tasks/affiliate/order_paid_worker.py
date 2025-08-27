@@ -208,7 +208,7 @@ def _mark_paid_commissions() -> None:
             db.query(PayoutItem.commission_id)
             .join(Payout, Payout.id == PayoutItem.payout_id)
             .filter(Payout.status == PayoutStatusEnum.paid)
-            .subquery()
+            .scalar_subquery()
         )
         commissions = (
             db.query(Commission)

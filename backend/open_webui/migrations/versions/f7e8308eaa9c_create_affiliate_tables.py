@@ -16,19 +16,17 @@ depends_on: Union[str, Sequence[str], None] = None
 attr_via_enum = sa.Enum('link', 'coupon', 'manual', name='attr_via_enum', schema='affiliate')
 commission_type_enum = sa.Enum('sale', 'lead', 'bonus', name='commission_type_enum', schema='affiliate')
 commission_status_enum = sa.Enum('pending', 'approved', 'rejected', 'paid', name='commission_status_enum', schema='affiliate')
+application_status_enum = sa.Enum('pending', 'approved', 'rejected', name='application_status_enum', schema='affiliate')
+payout_status_enum = sa.Enum('pending','approved','paid','rejected', name='payout_status_enum', schema='affiliate')
 
 def upgrade() -> None:
     op.execute('CREATE SCHEMA IF NOT EXISTS affiliate')
-
-    attr_via_enum.create(op.get_bind(), checkfirst=True)
-    commission_type_enum.create(op.get_bind(), checkfirst=True)
-    commission_status_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         'application',
         sa.Column('id', sa.String(), primary_key=True),
         sa.Column('partner_id', sa.String(), nullable=False),
-        sa.Column('status', sa.String(), nullable=False),
+        sa.Column('status', application_status_enum, nullable=False),
         sa.Column('notes', sa.Text(), nullable=True),
         sa.Column('created_at', sa.BigInteger(), nullable=False),
         sa.Column('updated_at', sa.BigInteger(), nullable=False),
@@ -65,11 +63,7 @@ def upgrade() -> None:
         sa.Column('user_agent', sa.Text(), nullable=True),
         sa.Column('created_at', sa.BigInteger(), nullable=False),
         schema='affiliate',
-        postgresql_partition_by='RANGE (created_at)'
     )
-
-    # default catch-all partition
-    op.execute('CREATE TABLE IF NOT EXISTS affiliate.click_default PARTITION OF affiliate.click DEFAULT')
 
     op.create_table(
         'attribution',
@@ -100,6 +94,7 @@ def upgrade() -> None:
         sa.Column('type', commission_type_enum, nullable=False),
         sa.Column('status', commission_status_enum, nullable=False, server_default='pending'),
         sa.Column('amount', sa.Numeric(), nullable=False),
+        sa.Column('note', sa.Text(), nullable=True),
         sa.Column('created_at', sa.BigInteger(), nullable=False),
         schema='affiliate'
     )
@@ -120,7 +115,7 @@ def upgrade() -> None:
         sa.Column('id', sa.String(), primary_key=True),
         sa.Column('partner_id', sa.String(), nullable=False),
         sa.Column('total_amount', sa.Numeric(), nullable=False),
-        sa.Column('status', sa.String(), nullable=False, server_default='pending'),
+        sa.Column('status', payout_status_enum, nullable=False, server_default='pending'),
         sa.Column('created_at', sa.BigInteger(), nullable=False),
         schema='affiliate'
     )

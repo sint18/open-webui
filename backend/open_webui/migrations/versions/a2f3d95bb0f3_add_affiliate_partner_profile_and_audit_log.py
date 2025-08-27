@@ -37,39 +37,19 @@ def upgrade():
         schema='affiliate'
     )
 
-    op.execute("CREATE TYPE affiliate.application_status_enum AS ENUM ('pending','approved','rejected')")
-    op.alter_column('application', 'status', schema='affiliate',
-                    type_=sa.Enum('pending','approved','rejected', name='application_status_enum', schema='affiliate'),
-                    existing_type=sa.String(),
-                    postgresql_using="status::text::affiliate.application_status_enum")
-
     op.add_column('coupon', sa.Column('expires_at', sa.BigInteger(), nullable=True), schema='affiliate')
     op.drop_column('coupon', 'discount_percent', schema='affiliate')
     op.create_foreign_key('fk_coupon_code_discount_code', 'coupon', 'discount_code', ['code'], ['code'], source_schema='affiliate')
 
     op.add_column('payout', sa.Column('reference', sa.String(), nullable=True, unique=True), schema='affiliate')
-    op.execute("CREATE TYPE affiliate.payout_status_enum AS ENUM ('pending','approved','paid','rejected')")
-    op.alter_column('payout', 'status', schema='affiliate',
-                    type_=sa.Enum('pending','approved','paid','rejected', name='payout_status_enum', schema='affiliate'),
-                    existing_type=sa.String(),
-                    postgresql_using="status::text::affiliate.payout_status_enum")
 
 
 def downgrade():
-    op.alter_column('payout', 'status', schema='affiliate',
-                    type_=sa.String(),
-                    postgresql_using="status::text")
-    op.execute('DROP TYPE affiliate.payout_status_enum')
     op.drop_column('payout', 'reference', schema='affiliate')
 
     op.drop_constraint('fk_coupon_code_discount_code', 'coupon', schema='affiliate', type_='foreignkey')
     op.add_column('coupon', sa.Column('discount_percent', sa.Numeric(), nullable=True), schema='affiliate')
     op.drop_column('coupon', 'expires_at', schema='affiliate')
-
-    op.alter_column('application', 'status', schema='affiliate',
-                    type_=sa.String(),
-                    postgresql_using="status::text")
-    op.execute('DROP TYPE affiliate.application_status_enum')
 
     op.drop_table('audit_log', schema='affiliate')
     op.drop_table('partner_profile', schema='affiliate')
