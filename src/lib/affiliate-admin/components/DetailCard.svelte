@@ -11,7 +11,9 @@
     {#each items as item}
       <div class="flex justify-between text-sm">
         <span class="text-gray-500 dark:text-gray-400">{item.label}</span>
-        <span class="text-gray-900 dark:text-gray-100"><slot name={item.label} {item}>{item.value}</slot></span>
+        <span class="text-gray-900 dark:text-gray-100">
+<!--          <slot name={item.label} {item}>{item.value}</slot>-->
+        </span>
       </div>
     {/each}
     <slot />

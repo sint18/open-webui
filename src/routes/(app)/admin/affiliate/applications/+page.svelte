@@ -1,28 +1,151 @@
 <script lang="ts">
-        import { getContext } from 'svelte';
-        import { toast } from 'svelte-sonner';
-        import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+  import { getContext, onMount } from 'svelte';
+  import { DataGrid, Drawer, ConfirmDialog, EmptyState, DataGridSkeleton } from '$lib/affiliate-admin/components';
+  import { applicationsTable } from '$lib/affiliate-admin/stores';
+  import { listApplications, approveApplication, rejectApplication, reviewApplicationFlags } from '$lib/affiliate-admin/api';
+  import type { Application, ApplicationApproveForm } from '$lib/affiliate-admin/types';
+  import type { ColDef } from 'ag-grid-community';
 
-        const i18n = getContext('i18n');
+  const i18n = getContext('i18n');
 
-        let showDialog = false;
+  let loading = false;
+  let applications: Application[] = [];
+  let currentApp: Application | null = null;
+  let showApprove = false;
+  let showReject = false;
+  let showFlags = false;
 
-        const handleToast = () => {
-                toast.info($i18n.t('This is a placeholder'));
-        };
+  let approveForm: ApplicationApproveForm = { link_code: '', link_url: '' };
+  let rejectNote = '';
+
+  const fetchApps = async () => {
+    loading = true;
+    try {
+      applications = await listApplications(localStorage.token, { page: $applicationsTable.page });
+    } finally {
+      loading = false;
+    }
+  };
+
+  onMount(fetchApps);
+  $: $applicationsTable.page, fetchApps();
+
+  function openApprove(app: Application) {
+    currentApp = app;
+    approveForm = { link_code: '', link_url: '' };
+    showApprove = true;
+  }
+
+  async function submitApprove() {
+    if (!currentApp) return;
+    await approveApplication(localStorage.token, currentApp.id, approveForm);
+    currentApp.status = 'approved';
+    showApprove = false;
+  }
+
+  function openReject(app: Application) {
+    currentApp = app;
+    rejectNote = '';
+    showReject = true;
+  }
+
+  async function submitReject() {
+    if (!currentApp) return;
+    await rejectApplication(localStorage.token, currentApp.id, { note: rejectNote });
+    currentApp.status = 'rejected';
+    showReject = false;
+  }
+
+  function openFlags(app: Application) {
+    currentApp = app;
+    showFlags = true;
+  }
+
+  async function confirmFlags() {
+    if (!currentApp) return;
+    await reviewApplicationFlags(localStorage.token, currentApp.id);
+    currentApp.fraud_flags = [];
+    showFlags = false;
+  }
+
+  function actionCellRenderer(params: any) {
+    const eDiv = document.createElement('div');
+    if (params.data.status === 'pending') {
+      const approveBtn = document.createElement('button');
+      approveBtn.textContent = 'Approve';
+      approveBtn.className = 'text-blue-600 hover:underline mr-2';
+      approveBtn.addEventListener('click', () => openApprove(params.data));
+      eDiv.appendChild(approveBtn);
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.textContent = 'Reject';
+      rejectBtn.className = 'text-red-600 hover:underline mr-2';
+      rejectBtn.addEventListener('click', () => openReject(params.data));
+      eDiv.appendChild(rejectBtn);
+    }
+    if (params.data.fraud_flags && params.data.fraud_flags.length) {
+      const flagBtn = document.createElement('button');
+      flagBtn.textContent = 'Review Flags';
+      flagBtn.className = 'text-yellow-600 hover:underline';
+      flagBtn.addEventListener('click', () => openFlags(params.data));
+      eDiv.appendChild(flagBtn);
+    }
+    return eDiv;
+  }
+
+  const columnDefs: ColDef[] = [
+    { headerName: 'ID', field: 'id', sortable: true },
+    { headerName: 'Partner', field: 'partner_id' },
+    { headerName: 'Status', field: 'status' },
+    { headerName: 'Created', field: 'created_at', valueFormatter: (p) => new Date(p.value).toLocaleString() },
+    { headerName: 'Flags', field: 'fraud_flags', valueGetter: (p) => (p.data.fraud_flags || []).join(', ') },
+    { headerName: 'Actions', cellRenderer: actionCellRenderer, sortable: false, filter: false }
+  ];
+  const gridOptions = { domLayout: 'autoHeight' } as const;
 </script>
 
 <div class="space-y-4 text-gray-800 dark:text-gray-200">
-        <h1 class="text-2xl font-semibold">{$i18n.t('Applications')}</h1>
-        <div class="flex gap-2">
-                <button
-                        class="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200"
-                        on:click={handleToast}
-                >{$i18n.t('Show Toast')}</button>
-                <button
-                        class="px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200"
-                        on:click={() => (showDialog = true)}
-                >{$i18n.t('Show Dialog')}</button>
-        </div>
-        <ConfirmDialog bind:show={showDialog} title={$i18n.t('Example Dialog')} />
+  <h1 class="text-2xl font-semibold">{$i18n.t('Applications')}</h1>
+
+  {#if loading}
+    <DataGridSkeleton />
+  {:else if applications.length === 0}
+    <EmptyState title={$i18n.t('No applications')} />
+  {:else}
+    <DataGrid {columnDefs} rowData={applications} {gridOptions} />
+  {/if}
 </div>
+
+<Drawer bind:show={showApprove} onClose={() => (currentApp = null)}>
+  <div class="p-4 space-y-4">
+    <h2 class="text-lg font-semibold">{$i18n.t('Approve Application')}</h2>
+    <div class="space-y-2">
+      <label class="block text-sm">Link Code</label>
+      <input class="w-full p-2 border rounded" bind:value={approveForm.link_code} />
+    </div>
+    <div class="space-y-2">
+      <label class="block text-sm">Link URL</label>
+      <input class="w-full p-2 border rounded" bind:value={approveForm.link_url} />
+    </div>
+    <div class="flex justify-end gap-2">
+      <button class="px-3 py-1 rounded bg-gray-200" on:click={() => (showApprove = false)}>{$i18n.t('Cancel')}</button>
+      <button class="px-3 py-1 rounded bg-blue-600 text-white" on:click={submitApprove}>{$i18n.t('Approve')}</button>
+    </div>
+  </div>
+</Drawer>
+
+<Drawer bind:show={showReject} onClose={() => (currentApp = null)}>
+  <div class="p-4 space-y-4">
+    <h2 class="text-lg font-semibold">{$i18n.t('Reject Application')}</h2>
+    <div class="space-y-2">
+      <label class="block text-sm">{$i18n.t('Reason')}</label>
+      <textarea class="w-full p-2 border rounded" rows="4" bind:value={rejectNote}></textarea>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button class="px-3 py-1 rounded bg-gray-200" on:click={() => (showReject = false)}>{$i18n.t('Cancel')}</button>
+      <button class="px-3 py-1 rounded bg-red-600 text-white" on:click={submitReject}>{$i18n.t('Reject')}</button>
+    </div>
+  </div>
+</Drawer>
+
+<ConfirmDialog bind:show={showFlags} title={$i18n.t('Clear Flags')} onConfirm={confirmFlags} />

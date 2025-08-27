@@ -18,6 +18,7 @@ def upgrade():
         sa.Column('status', sa.Enum('active', 'inactive', 'suspended', name='partner_status_enum', schema='affiliate'), nullable=False, server_default='active'),
         sa.Column('type', sa.Enum('individual', 'company', name='partner_type_enum', schema='affiliate'), nullable=False, server_default='individual'),
         sa.Column('terms', sa.JSON(), nullable=True),
+        sa.Column('rates', sa.JSON(), nullable=True, server_default='{"sales": 0.01, "clicks": 0.005}'),
         sa.Column('created_at', sa.BigInteger(), nullable=False),
         sa.Column('updated_at', sa.BigInteger(), nullable=False),
         sa.ForeignKeyConstraint(['partner_id'], ['user.id']),
