@@ -13,8 +13,6 @@ from open_webui.models.affiliate import (
     PartnerStatusEnum,
     Link,
     DiscountCodeBinding,
-    AuditLog,
-    AuditSeverityEnum,
 )
 from open_webui.models.audit import AuditLog
 from open_webui.models.discount import DiscountCode

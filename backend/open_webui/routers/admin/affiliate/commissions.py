@@ -9,9 +9,8 @@ from open_webui.models.affiliate import (
     CommissionStatusEnum,
     CommissionTypeEnum,
     FraudFlag,
-    AuditLog,
-    AuditSeverityEnum,
 )
+from open_webui.models.audit import AuditLog
 from open_webui.models.billing import PaymentOrder
 from open_webui.utils.auth import get_admin_or_support_user
 

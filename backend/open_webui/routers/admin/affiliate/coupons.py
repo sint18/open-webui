@@ -7,9 +7,8 @@ from pydantic import BaseModel, ConfigDict
 from open_webui.internal.db import get_db
 from open_webui.models.affiliate import (
     DiscountCodeBinding,
-    AuditLog,
-    AuditSeverityEnum,
 )
+from open_webui.models.audit import AuditLog
 from open_webui.models.discount import DiscountCode
 from open_webui.utils.auth import get_admin_or_support_user
 

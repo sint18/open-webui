@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from open_webui.config import CONFIG_DATA, save_config
 from open_webui.internal.db import get_db
-from open_webui.models.affiliate import AuditLog, AuditSeverityEnum
+from open_webui.models.audit import AuditLog
 from open_webui.utils.auth import get_admin_or_support_user
 
 router = APIRouter()

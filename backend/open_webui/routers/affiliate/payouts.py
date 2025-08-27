@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List
+from typing import List, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
