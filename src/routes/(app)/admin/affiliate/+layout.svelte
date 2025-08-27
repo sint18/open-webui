@@ -26,9 +26,12 @@
         $: segment = $page.url.pathname.split('/')[3] || '';
         $: currentLabel = routeLabels[segment];
 
+        const allowedRoles = ['admin', 'finance', 'support', 'partner-manager'];
+
         onMount(async () => {
-                if ($user?.role !== 'admin') {
-                        await goto('/');
+                if (!$user || !allowedRoles.includes($user.role)) {
+                        await goto('/403');
+                        return;
                 }
                 loaded = true;
         });
