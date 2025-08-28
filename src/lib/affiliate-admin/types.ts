@@ -30,6 +30,8 @@ export interface PartnerDetail extends Partner {
 export interface Application {
     id: string;
     partner_id: string;
+    name?: string;
+    email?: string;
     status: 'pending' | 'approved' | 'rejected';
     notes?: string;
     created_at: number;
