@@ -28,6 +28,8 @@ PAGE_ITEM_COUNT = 50
 class ApplicationSchema(BaseModel):
     id: str
     partner_id: str
+    name: str = ""
+    email: str = ""
     status: ApplicationStatusEnum
     notes: Optional[str] = None
     created_at: int
@@ -51,7 +53,10 @@ def list_applications(
     page = max(1, page)
     skip = (page - 1) * limit
     with get_db() as db:
-        query = db.query(Application).join(User, User.id == Application.partner_id)
+        query = (
+            db.query(Application, User.name, User.email)
+            .join(User, User.id == Application.partner_id)
+        )
         if status:
             query = query.filter(Application.status == status)
         if from_ts:
@@ -68,7 +73,7 @@ def list_applications(
             .all()
         )
         results: List[ApplicationSchema] = []
-        for r in records:
+        for r, name, email in records:
             flags = [
                 f.flag_type
                 for f in db.query(FraudFlag).filter(FraudFlag.partner_id == r.partner_id)
@@ -76,6 +81,8 @@ def list_applications(
             if flagged and not flags:
                 continue
             app = ApplicationSchema.model_validate(r, from_attributes=True)
+            app.name = name
+            app.email = email
             app.fraud_flags = flags
             results.append(app)
         return results
@@ -87,7 +94,10 @@ def get_application(app_id: str, admin=Depends(get_admin_or_support_user)):
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
+        user = db.get(User, record.partner_id)
         app = ApplicationSchema.model_validate(record, from_attributes=True)
+        app.name = user.name if user else ""
+        app.email = user.email if user else ""
         app.fraud_flags = [
             f.flag_type
             for f in db.query(FraudFlag).filter(FraudFlag.partner_id == record.partner_id)

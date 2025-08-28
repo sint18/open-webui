@@ -94,8 +94,9 @@
   }
 
   const columnDefs: ColDef[] = [
-    { headerName: 'ID', field: 'id', sortable: true },
-    { headerName: 'Partner', field: 'partner_id' },
+    { headerName: 'App ID', field: 'id', sortable: true },
+    { headerName: 'Partner', field: 'name' },
+    { headerName: 'Email', field: 'email' },
     { headerName: 'Status', field: 'status' },
     { headerName: 'Created', field: 'created_at', valueFormatter: (p) => new Date(p.value).toLocaleString() },
     { headerName: 'Flags', field: 'fraud_flags', valueGetter: (p) => (p.data.fraud_flags || []).join(', ') },
