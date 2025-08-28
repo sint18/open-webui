@@ -6,6 +6,7 @@
   import { listApplications, approveApplication, rejectApplication, reviewApplicationFlags } from '$lib/affiliate-admin/api';
   import type { Application, ApplicationApproveForm } from '$lib/affiliate-admin/types';
   import type { ColDef } from 'ag-grid-community';
+  import dayjs from 'dayjs';
 
   const i18n = getContext('i18n');
 
@@ -99,7 +100,7 @@
     { headerName: 'Partner', field: 'name' },
     { headerName: 'Email', field: 'email' },
     { headerName: 'Status', field: 'status' },
-    { headerName: 'Created', field: 'created_at', valueFormatter: (p) => new Date(p.value).toLocaleString() },
+    { headerName: 'Created', field: 'created_at', valueFormatter: (p) => dayjs(p.value * 1000).format('LLL') },
     { headerName: 'Flags', field: 'fraud_flags', valueGetter: (p) => (p.data.fraud_flags || []).join(', ') },
     { headerName: 'Actions', cellRenderer: actionCellRenderer, sortable: false, filter: false }
   ];

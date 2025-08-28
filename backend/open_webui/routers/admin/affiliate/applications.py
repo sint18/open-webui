@@ -123,7 +123,7 @@ def approve_application(
         record = db.get(Application, app_id)
         if not record:
             raise HTTPException(status_code=404, detail="Application not found")
-        before = ApplicationSchema.model_validate(record, from_attributes=True).model_dump()
+        before = ApplicationSchema.model_validate(record, from_attributes=True).model_dump(mode="json")
 
         if db.query(Link).filter(Link.code == form.link_code).first():
             raise HTTPException(status_code=400, detail="Link code already exists")
@@ -163,7 +163,7 @@ def approve_application(
             )
             db.add(binding)
 
-        after = ApplicationSchema.model_validate(record, from_attributes=True).model_dump()
+        after = ApplicationSchema.model_validate(record, from_attributes=True).model_dump(mode="json")
         db.add(
             AuditLog(
                 actor_id=admin.id,
