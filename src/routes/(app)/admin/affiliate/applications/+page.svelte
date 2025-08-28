@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getContext, onMount } from 'svelte';
-  import { DataGrid, Drawer, ConfirmDialog, EmptyState, DataGridSkeleton } from '$lib/affiliate-admin/components';
+  import { DataGrid, ConfirmDialog, EmptyState, DataGridSkeleton } from '$lib/affiliate-admin/components';
+  import Modal from '$lib/components/common/Modal.svelte';
   import { applicationsTable } from '$lib/affiliate-admin/stores';
   import { listApplications, approveApplication, rejectApplication, reviewApplicationFlags } from '$lib/affiliate-admin/api';
   import type { Application, ApplicationApproveForm } from '$lib/affiliate-admin/types';
@@ -103,6 +104,10 @@
     { headerName: 'Actions', cellRenderer: actionCellRenderer, sortable: false, filter: false }
   ];
   const gridOptions = { domLayout: 'autoHeight' } as const;
+
+  $: if (!showApprove && !showReject && !showFlags) {
+    currentApp = null;
+  }
 </script>
 
 <div class="space-y-4 text-gray-800 dark:text-gray-200">
@@ -117,8 +122,8 @@
   {/if}
 </div>
 
-<Drawer bind:show={showApprove} onClose={() => (currentApp = null)}>
-  <div class="p-4 space-y-4">
+<Modal bind:show={showApprove} size="sm">
+  <div class="p-4 space-y-4 text-gray-800 dark:text-gray-200">
     <h2 class="text-lg font-semibold">{$i18n.t('Approve Application')}</h2>
     <div class="space-y-2">
       <label class="block text-sm">Link Code</label>
@@ -133,10 +138,10 @@
       <button class="px-3 py-1 rounded bg-blue-600 text-white" on:click={submitApprove}>{$i18n.t('Approve')}</button>
     </div>
   </div>
-</Drawer>
+</Modal>
 
-<Drawer bind:show={showReject} onClose={() => (currentApp = null)}>
-  <div class="p-4 space-y-4">
+<Modal bind:show={showReject} size="sm">
+  <div class="p-4 space-y-4 text-gray-800 dark:text-gray-200">
     <h2 class="text-lg font-semibold">{$i18n.t('Reject Application')}</h2>
     <div class="space-y-2">
       <label class="block text-sm">{$i18n.t('Reason')}</label>
@@ -147,6 +152,6 @@
       <button class="px-3 py-1 rounded bg-red-600 text-white" on:click={submitReject}>{$i18n.t('Reject')}</button>
     </div>
   </div>
-</Drawer>
+</Modal>
 
 <ConfirmDialog bind:show={showFlags} title={$i18n.t('Clear Flags')} onConfirm={confirmFlags} />
