@@ -12,6 +12,12 @@ import type {
     Link,
     LinkCreateForm,
     LinkUpdateForm,
+    Coupon,
+    Click,
+    Attribution,
+    Payout,
+    PayoutDetail,
+    PayoutItem,
     RollupRow,
     AffiliateSettings,
     AffiliateSettingsForm,
@@ -389,6 +395,47 @@ export const deleteLink = async (
         method: 'DELETE',
         headers: jsonHeaders(token),
     });
+    return handle(res);
+};
+
+// Coupons
+export const listCoupons = async (
+    token: string,
+    params: { partner_id?: string } = {}
+): Promise<Coupon[]> => {
+    const query = new URLSearchParams();
+    if (params.partner_id) query.set('partner_id', params.partner_id);
+    const res = await fetch(`${ADMIN_AFFILIATE_API_BASE_URL}/coupons?${query.toString()}`, {
+        method: 'GET',
+        headers: jsonHeaders(token),
+    });
+    return handle(res);
+};
+
+// Clicks
+export const listClicks = async (
+    token: string,
+    partnerId: string
+): Promise<Click[]> => {
+    const res = await fetch(`${ADMIN_AFFILIATE_API_BASE_URL}/clicks?partner_id=${partnerId}`, {
+        method: 'GET',
+        headers: jsonHeaders(token),
+    });
+    return handle(res);
+};
+
+// Attributions
+export const listAttributions = async (
+    token: string,
+    partnerId: string
+): Promise<Attribution[]> => {
+    const res = await fetch(
+        `${ADMIN_AFFILIATE_API_BASE_URL}/attributions?partner_id=${partnerId}`,
+        {
+            method: 'GET',
+            headers: jsonHeaders(token),
+        }
+    );
     return handle(res);
 };
 

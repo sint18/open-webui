@@ -105,6 +105,33 @@ export interface PayoutDetail extends Payout {
     items: PayoutItem[];
 }
 
+export interface Coupon {
+    id: string;
+    partner_id: string;
+    code: string;
+    discount_percent?: number;
+    expires_at?: number;
+    active: boolean;
+    created_at: number;
+}
+
+export interface Click {
+    id: number;
+    partner_id: string;
+    link_id?: string;
+    coupon_id?: string;
+    user_agent?: string;
+    created_at: number;
+}
+
+export interface Attribution {
+    id: string;
+    click_id: number;
+    partner_id: string;
+    attr_via: string;
+    created_at: number;
+}
+
 export interface Link {
     id: string;
     partner_id: string;
