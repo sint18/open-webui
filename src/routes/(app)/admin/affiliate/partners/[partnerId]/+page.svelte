@@ -1,6 +1,5 @@
 <script lang="ts">
   import { getContext, onMount } from 'svelte';
-  import { get } from 'svelte/store';
   import { page } from '$app/stores';
   import {
     DataGrid,
@@ -95,22 +94,21 @@
   onMount(async () => {
     loading = true;
     const token = localStorage.token;
-    const partnerId = get(page).params.partnerId;
+    const partnerId = $page.params.partnerId;
+
+    if (!partnerId) throw new Error('Missing partner ID');
     try {
-      const [p, l, cpn, clk, attr, comm, pay] = await Promise.all([
+      const [p, l, cpn, comm, pay] = await Promise.all([
         getPartner(token, partnerId),
         listLinks(token, { partner_id: partnerId }),
         listCoupons(token, { partner_id: partnerId }),
-        listClicks(token, partnerId),
-        listAttributions(token, partnerId),
         listCommissions(token, { partner_id: partnerId }),
         listPayouts(token, { partner_id: partnerId })
       ]);
+
       partner = p;
       links = l;
       coupons = cpn;
-      clicks = clk;
-      attributions = attr;
       commissions = comm;
       payouts = pay;
       const details = await Promise.all(pay.map((p) => getPayout(token, p.id)));
