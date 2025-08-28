@@ -4,6 +4,7 @@
   import { searchPartners, getPartner, updatePartner, activatePartner, suspendPartner } from '$lib/affiliate-admin/api';
   import type { Partner, PartnerUpdateForm } from '$lib/affiliate-admin/types';
   import type { ColDef, GridApi, GridOptions } from 'ag-grid-community';
+  import Modal from '$lib/components/common/Modal.svelte';
 
   const i18n = getContext('i18n');
 
@@ -125,7 +126,7 @@
   {/if}
 </div>
 
-<Drawer bind:show={showEdit} onClose={() => (currentPartner = null)}>
+<Modal bind:show={showEdit} onClose={() => (currentPartner = null)}>
   <div class="p-4 space-y-4">
     <h2 class="text-lg font-semibold">{$i18n.t('Edit Partner')}</h2>
     <div class="space-y-2">
@@ -141,6 +142,6 @@
       <button class="px-3 py-1 rounded bg-blue-600 text-white" on:click={submitEdit}>{$i18n.t('Save')}</button>
     </div>
   </div>
-</Drawer>
+</Modal>
 
 <ConfirmDialog bind:show={showConfirm} title={$i18n.t('Confirm')} message={confirmMessage} onConfirm={confirmAction} />
