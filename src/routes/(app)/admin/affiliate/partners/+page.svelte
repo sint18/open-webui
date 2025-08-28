@@ -70,6 +70,13 @@
 
   function actionCellRenderer(params: any) {
     const eDiv = document.createElement('div');
+
+    const viewLink = document.createElement('a');
+    viewLink.textContent = 'View';
+    viewLink.href = `/admin/affiliate/partners/${params.data.id}`;
+    viewLink.className = 'text-blue-600 hover:underline mr-2';
+    eDiv.appendChild(viewLink);
+
     const editBtn = document.createElement('button');
     editBtn.textContent = 'Edit';
     editBtn.className = 'text-blue-600 hover:underline mr-2';
