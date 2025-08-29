@@ -24,6 +24,7 @@ export interface PartnerDetail extends Partner {
     payout_method?: string;
     payout_details?: Record<string, any>;
     rates?: Record<string, any>;
+    terms_version?: string;
     audit_logs: AuditLog[];
 }
 
@@ -59,7 +60,6 @@ export interface PartnerUpdateForm {
     payout_details?: Record<string, any>;
     rates?: Record<string, any>;
     terms_version?: string;
-    blocked_channels?: string[];
 }
 
 export interface Commission {
