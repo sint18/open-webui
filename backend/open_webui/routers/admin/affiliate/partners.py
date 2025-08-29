@@ -128,7 +128,6 @@ class PartnerUpdateForm(BaseModel):
     payout_details: Optional[dict] = None
     rates: Optional[dict] = None
     terms_version: Optional[str] = None
-    blocked_channels: Optional[List[str]] = None
 
 
 @router.put("/partners/{partner_id}", response_model=PartnerDetailSchema)
@@ -171,12 +170,6 @@ def update_partner(
             before["rates"] = profile.rates
             profile.rates = form.rates
             changes["rates"] = form.rates
-        if form.blocked_channels is not None:
-            info = user.info or {}
-            before["blocked_channels"] = info.get("blocked_channels")
-            info["blocked_channels"] = form.blocked_channels
-            user.info = info
-            changes["blocked_channels"] = form.blocked_channels
         if form.terms_version is not None:
             before["terms_version"] = profile.terms.get("version") if profile.terms else None
             profile.terms = {
