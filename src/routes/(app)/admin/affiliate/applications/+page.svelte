@@ -17,7 +17,14 @@
   let showReject = false;
   let showFlags = false;
 
-  let approveForm: ApplicationApproveForm = { link_code: '', link_url: '' };
+  let approveForm: ApplicationApproveForm = {
+    link_code: '',
+    link_url: '',
+    coupon_code: '',
+    coupon_discount_percent: undefined,
+    coupon_expires_at: undefined
+  };
+  let couponExpiresAt = '';
   let rejectNote = '';
 
   const fetchApps = async () => {
@@ -34,13 +41,26 @@
 
   function openApprove(app: Application) {
     currentApp = app;
-    approveForm = { link_code: '', link_url: '' };
+    approveForm = {
+      link_code: '',
+      link_url: '',
+      coupon_code: '',
+      coupon_discount_percent: undefined,
+      coupon_expires_at: undefined
+    };
+    couponExpiresAt = '';
     showApprove = true;
   }
 
   async function submitApprove() {
     if (!currentApp) return;
-    await approveApplication(localStorage.token, currentApp.id, approveForm);
+    const form: ApplicationApproveForm = { ...approveForm };
+    if (couponExpiresAt) {
+      form.coupon_expires_at = dayjs(couponExpiresAt).unix();
+    } else {
+      delete form.coupon_expires_at;
+    }
+    await approveApplication(localStorage.token, currentApp.id, form);
     currentApp.status = 'approved';
     showApprove = false;
   }
@@ -133,6 +153,18 @@
     <div class="space-y-2">
       <label class="block text-sm">Link URL</label>
       <input class="w-full p-2 border rounded" bind:value={approveForm.link_url} />
+    </div>
+    <div class="space-y-2">
+      <label class="block text-sm">Coupon Code</label>
+      <input class="w-full p-2 border rounded" bind:value={approveForm.coupon_code} />
+    </div>
+    <div class="space-y-2">
+      <label class="block text-sm">Coupon Discount Percent</label>
+      <input type="number" class="w-full p-2 border rounded" bind:value={approveForm.coupon_discount_percent} />
+    </div>
+    <div class="space-y-2">
+      <label class="block text-sm">Coupon Expires At</label>
+      <input type="datetime-local" class="w-full p-2 border rounded" bind:value={couponExpiresAt} />
     </div>
     <div class="flex justify-end gap-2">
       <button class="px-3 py-1 rounded bg-gray-200" on:click={() => (showApprove = false)}>{$i18n.t('Cancel')}</button>
