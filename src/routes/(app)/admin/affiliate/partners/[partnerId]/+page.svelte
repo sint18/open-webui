@@ -181,7 +181,8 @@
 
 <div class="space-y-6 text-gray-800 dark:text-gray-200">
   {#if partner}
-    <div class="space-y-2">
+      <div class="relative z-10 space-y-2">
+
       <div class="flex justify-between items-start">
         <div>
           <h1 class="text-2xl font-semibold">{partner.name}</h1>
@@ -285,7 +286,9 @@
   </section>
 </div>
 
-<Modal bind:show={showEdit} onClose={() => (showEdit = false)}>
+
+<Modal bind:show={showEdit}>
+
   <div class="p-4 space-y-4 text-gray-800 dark:text-gray-200">
     <h2 class="text-lg font-semibold">{$i18n.t('Edit Partner')}</h2>
     <div class="space-y-2">

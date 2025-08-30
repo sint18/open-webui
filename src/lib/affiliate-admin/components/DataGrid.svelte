@@ -38,5 +38,5 @@
 	export const refresh = () => api?.refreshCells();
 </script>
 
-<div bind:this={gridDiv} class={className} style="width: 100%; height: 100%;"></div>
+<div bind:this={gridDiv} class={className} style="width: 100%;"></div>
 
