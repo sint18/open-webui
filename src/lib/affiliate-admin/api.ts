@@ -1,4 +1,5 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
+import { handle, jsonHeaders } from '$lib/utils/api-helper';
 import type {
     Application,
     ApplicationApproveForm,
@@ -24,18 +25,6 @@ import type {
 } from './types';
 
 const ADMIN_AFFILIATE_API_BASE_URL = `${WEBUI_API_BASE_URL}/admin/affiliate`;
-
-const jsonHeaders = (token: string) => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-});
-
-const handle = async (res: Response) => {
-    if (!res.ok) {
-        throw await res.json();
-    }
-    return res.json();
-};
 
 // Applications
 export const listApplications = async (
