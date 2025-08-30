@@ -63,7 +63,11 @@ class UserCredit(Base):
     user_id = Column(String, primary_key=True)
     plan_id = Column(String, nullable=False)
     credit_balance = Column(BigInteger, nullable=False)
+    image_credit_balance = Column(BigInteger, nullable=False, default=0)
+    video_credit_balance = Column(BigInteger, nullable=False, default=0)
     monthly_quota = Column(BigInteger, nullable=False)
+    monthly_image_quota = Column(BigInteger, nullable=False, default=0)
+    monthly_video_quota = Column(BigInteger, nullable=False, default=0)
     current_period_end = Column(BigInteger, nullable=True)
     status = Column(SAEnum(StatusEnum, name="status_enum"), nullable=False, default=StatusEnum.active)
     updated_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
@@ -92,6 +96,8 @@ class PaymentOrder(Base):
     plan_target = Column(Text, nullable=True)
     plan_id = Column(String, nullable=True)
     credits = Column(BigInteger, nullable=True)
+    image_credits = Column(BigInteger, nullable=True)
+    video_credits = Column(BigInteger, nullable=True)
     amount_mmk = Column(Numeric, nullable=False)
     provider = Column(String, nullable=False)
     status = Column(SAEnum(PaymentStatusEnum, name="payment_status_enum"), nullable=False,
@@ -155,7 +161,11 @@ class UserCreditsModel(BaseModel):
     user_id: str
     plan_id: str
     credit_balance: int
+    image_credit_balance: int
+    video_credit_balance: int
     monthly_quota: int
+    monthly_image_quota: int
+    monthly_video_quota: int
     current_period_end: Optional[int] = None
     status: StatusEnum
     updated_at: int
@@ -165,7 +175,11 @@ class UserCreditsForm(BaseModel):
     user_id: str
     plan_id: str
     credit_balance: int  # Add explicit credit_balance field
+    image_credit_balance: int = 0
+    video_credit_balance: int = 0
     monthly_quota: int
+    monthly_image_quota: int = 0
+    monthly_video_quota: int = 0
     current_period_end: Optional[int] = None
 
 
@@ -202,6 +216,8 @@ class PaymentOrderModel(BaseModel):
     plan_target: Optional[str] = None
     plan_id: Optional[str] = None
     credits: Optional[int] = None
+    image_credits: Optional[int] = None
+    video_credits: Optional[int] = None
     amount_mmk: float
     provider: str
     status: PaymentStatusEnum
@@ -224,6 +240,8 @@ class PaymentOrderForm(BaseModel):
     plan_target: Optional[str] = None
     plan_id: Optional[str] = None
     credits: Optional[int] = None
+    image_credits: Optional[int] = None
+    video_credits: Optional[int] = None
     amount_mmk: float
     provider: str
 
@@ -234,6 +252,8 @@ class AdminPaymentOrderForm(BaseModel):
     plan_target: Optional[str] = None
     plan_id: Optional[str] = None
     credits: Optional[int] = None
+    image_credits: Optional[int] = None
+    video_credits: Optional[int] = None
     amount_mmk: float
     provider: str
     notes: Optional[str] = None
@@ -287,7 +307,11 @@ class UserCreditsTable:
                 user_id=user_id,
                 plan_id=form.plan_id,
                 credit_balance=form.credit_balance,  # Use form.credit_balance instead of monthly_quota
+                image_credit_balance=form.image_credit_balance,
+                video_credit_balance=form.video_credit_balance,
                 monthly_quota=form.monthly_quota,
+                monthly_image_quota=form.monthly_image_quota,
+                monthly_video_quota=form.monthly_video_quota,
                 current_period_end=form.current_period_end,
                 status=StatusEnum.active,
                 updated_at=now_ts,
@@ -302,26 +326,32 @@ class UserCreditsTable:
             record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             return UserCreditsModel.model_validate(record) if record else None
 
-    def update_credits(self, user_id: str, delta: int) -> Optional[UserCreditsModel]:
+    def update_credits(self, user_id: str, delta: int, image_delta: int = 0, video_delta: int = 0) -> Optional[UserCreditsModel]:
         with get_db() as db:
             record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             if record is None:
                 return None
             record.credit_balance = record.credit_balance + delta
+            record.image_credit_balance = record.image_credit_balance + image_delta
+            record.video_credit_balance = record.video_credit_balance + video_delta
             record.updated_at = int(time.time())
             db.commit()
             db.refresh(record)
             return UserCreditsModel.model_validate(record)
 
-    def update_subscription(self, user_id: str, new_plan: str, monthly_quota: int, new_end: datetime.date, new_status: Optional[StatusEnum]=None) -> Optional[UserCreditsModel]:
+    def update_subscription(self, user_id: str, new_plan: str, monthly_quota: int, new_end: datetime.date, monthly_image_quota: int = 0, monthly_video_quota: int = 0, new_status: Optional[StatusEnum]=None) -> Optional[UserCreditsModel]:
         with get_db() as db:
             record = db.query(UserCredit).filter(UserCredit.user_id == user_id).first()
             if not record:
                 return None
             record.plan_id = new_plan
             record.monthly_quota = monthly_quota
+            record.monthly_image_quota = monthly_image_quota
+            record.monthly_video_quota = monthly_video_quota
             record.current_period_end = new_end
             record.credit_balance = record.credit_balance + monthly_quota
+            record.image_credit_balance = record.image_credit_balance + monthly_image_quota
+            record.video_credit_balance = record.video_credit_balance + monthly_video_quota
             record.status = new_status if new_status else StatusEnum.active
             record.updated_at = int(time.time())
             db.commit()
@@ -395,6 +425,8 @@ class PaymentOrdersTable:
                 plan_target=form.plan_target,
                 plan_id=form.plan_id,
                 credits=form.credits,
+                image_credits=form.image_credits,
+                video_credits=form.video_credits,
                 amount_mmk=form.amount_mmk,
                 provider=form.provider,
                 status=PaymentStatusEnum.pending,
@@ -423,6 +455,8 @@ class PaymentOrdersTable:
                 plan_target=form.plan_target,
                 plan_id=form.plan_id,
                 credits=form.credits,
+                image_credits=form.image_credits,
+                video_credits=form.video_credits,
                 amount_mmk=form.amount_mmk,
                 provider=form.provider,
                 status=PaymentStatusEnum.pending,
@@ -447,6 +481,8 @@ class PaymentOrdersTable:
                 record.plan_target = form.plan_target
                 record.plan_id = form.plan_id
                 record.credits = form.credits
+                record.image_credits = form.image_credits
+                record.video_credits = form.video_credits
                 record.amount_mmk = form.amount_mmk
                 record.provider = form.provider
                 record.notes = form.notes

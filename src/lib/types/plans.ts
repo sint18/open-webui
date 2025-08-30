@@ -6,6 +6,8 @@ export interface Plan {
     description?: string;
     price: number;
     credits: number;
+    image_credits: number;
+    video_credits: number;
     plan_type: PlanType;
     features?: Record<string, unknown>;
     is_active: boolean;

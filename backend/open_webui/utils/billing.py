@@ -11,11 +11,20 @@ from fastapi import Request, HTTPException, status, Response
 from open_webui.utils.pricing import estimate_cost, affordable, calculate_cost
 from open_webui.utils.error_handler import sanitize_error
 from open_webui.models.billing import StatusEnum
-from open_webui.models.billing import UserCredits, CreditTransactions, CreditTransactionForm
+from open_webui.models.billing import (
+    UserCredits,
+    CreditTransactions,
+    CreditTransactionForm,
+    UserCredit,
+    CreditTransaction,
+)
+from open_webui.internal.db import get_db
+import time
 from open_webui.utils.auth import get_current_user, get_http_authorization_cred
 from open_webui.models.models import Models
 import logging
 import json
+import uuid
 from typing import Optional, Dict, Any, List
 
 log = logging.getLogger(__name__)
@@ -46,6 +55,30 @@ async def check_balance(user_id: str, min_credits: int = 1) -> Optional[int]:
             detail="Insufficient credits",
         )
     return my_credits.credit_balance
+
+
+async def check_image_balance(user_id: str, min_credits: int = 1) -> Optional[int]:
+    my_credits = UserCredits.get_user_credits(user_id)
+
+    if my_credits.status != StatusEnum.active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Subscription has ended. Please contact support for further assistance.",
+        )
+
+    now = datetime.now()
+    if my_credits.current_period_end and now > datetime.fromtimestamp(my_credits.current_period_end):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Subscription period has ended",
+        )
+
+    if not my_credits or my_credits.image_credit_balance < min_credits:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Insufficient credits",
+        )
+    return my_credits.image_credit_balance
 
 
 def _parse_response_body(response: Response) -> dict | None:
@@ -125,6 +158,80 @@ async def process_billing(
         )
 
 DEFAULT_FALLBACK_MODEL = 'gpt-4.1-nano'  # Default fallback model
+
+def requires_image_credits(func):
+    """Decorator to bill image generation requests based on a simple price map."""
+
+    price_map = {
+        "gemini-2.5-flash-image": 30,  # 30 credits per image
+    }
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        request: Request = kwargs.get("request") or (args[0] if args else None)
+        form_data = kwargs.get("form_data") or (args[1] if len(args) > 1 else None)
+        user = kwargs.get("user")
+
+        if not user or request is None or form_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Request, form data, and user context required",
+            )
+
+        # Determine which model is being used
+        engine = request.app.state.config.IMAGE_GENERATION_ENGINE
+        model_name = request.app.state.config.IMAGE_GENERATION_MODEL
+        if engine == "openai":
+            model_name = model_name or "dall-e-2"
+        elif engine == "gemini":
+            model_name = model_name or "imagen-3.0-generate-002"
+
+        n_images = getattr(form_data, "n", 1) or 1
+        credits_per_image = price_map.get(model_name, 1)
+        total_cost = credits_per_image * n_images
+
+        # Ensure user has enough image credits
+        await check_image_balance(user.id, total_cost)
+
+        # Execute the original function
+        result = await func(*args, **kwargs)
+
+        try:
+            with get_db() as db:
+                db.begin()
+                record = (
+                    db.query(UserCredit)
+                    .filter(UserCredit.user_id == user.id)
+                    .with_for_update()
+                    .first()
+                )
+                if not record or record.image_credit_balance < total_cost:
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                        detail="Insufficient credits",
+                    )
+                record.image_credit_balance -= total_cost
+                record.updated_at = int(time.time())
+                tx = CreditTransaction(
+                    tx_id=str(uuid.uuid4()),
+                    user_id=user.id,
+                    delta=-total_cost,
+                    usd_spend=0.0,
+                    model_name=model_name,
+                    resource_type="image_generation",
+                    meta={"n": n_images},
+                    created_at=int(time.time()),
+                )
+                db.add(tx)
+                db.commit()
+        except Exception as e:
+            log.error(f"Error recording image credit transaction: {e}")
+            raise
+
+        return result
+
+    return wrapper
 
 def requires_credits(min_credits: int = 1):
     def decorator(func):

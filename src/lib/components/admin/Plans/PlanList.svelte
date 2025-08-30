@@ -82,6 +82,8 @@
     { headerName: 'Type', field: 'plan_type', sortable: true },
     { headerName: 'Price', field: 'price', sortable: true },
     { headerName: 'Credits', field: 'credits', sortable: true },
+    { headerName: 'Image Credits', field: 'image_credits', sortable: true },
+    { headerName: 'Video Credits', field: 'video_credits', sortable: true },
     { headerName: 'Active', field: 'is_active', sortable: true },
     { headerName: 'Actions', cellRenderer: actionCellRenderer, sortable: false, filter: false }
   ];

@@ -37,6 +37,10 @@ class PlanPublicModel(PlanModel):
 class UserCreditsWithPlanModel(UserCreditsModel):
     credit_balance: int = Field(exclude=True)
     monthly_quota: int = Field(exclude=True)
+    image_credit_balance: int = Field(exclude=True)
+    video_credit_balance: int = Field(exclude=True)
+    monthly_image_quota: int = Field(exclude=True)
+    monthly_video_quota: int = Field(exclude=True)
     plan: Optional[PlanPublicModel] = None
 
 
@@ -221,6 +225,8 @@ async def create_order(
         plan_id: Annotated[Optional[str], Form()] = None,
         plan_target: Annotated[Optional[str], Form()] = None,
         credits: Annotated[Optional[int], Form()] = None,
+        image_credits: Annotated[Optional[int], Form()] = None,
+        video_credits: Annotated[Optional[int], Form()] = None,
         discount_code: Annotated[Optional[str], Form()] = None,
         screenshot: UploadFile = File(...),
         user=Depends(get_verified_user),
@@ -246,7 +252,9 @@ async def create_order(
         provider=provider,
         plan_id=plan_id,
         plan_target=plan_target,
-        credits=credits
+        credits=credits,
+        image_credits=image_credits,
+        video_credits=video_credits
     )
 
     # Check if discount code was provided and is valid
@@ -397,8 +405,10 @@ async def confirm_order(
             detail=ERROR_MESSAGES.DEFAULT()
         )
 
-    # 2. Allocate credits based on the order (if credits > 0)
-    if order.credits and order.credits > 0:
+    # 2. Allocate credits based on the order (if any credits > 0)
+    if (order.credits and order.credits > 0) or \
+       (order.image_credits and order.image_credits > 0) or \
+       (order.video_credits and order.video_credits > 0):
         try:
             # Check if user already has a credit wallet
             existing_credits = UserCredits.get_user_credits(order.user_id)
@@ -407,19 +417,34 @@ async def confirm_order(
                 # User has existing credits - add to their balance
                 updated_credits = None
                 if order.type == OrderTypeEnum.plan_payment or order.type == OrderTypeEnum.manual:
-                    updated_credits = UserCredits.update_subscription(user_id=order.user_id, new_plan=order.plan_id,
-                                                                      monthly_quota=order.credits,
-                                                                      new_end=order.period_end)
+                    updated_credits = UserCredits.update_subscription(
+                        user_id=order.user_id,
+                        new_plan=order.plan_id,
+                        monthly_quota=order.credits or 0,
+                        monthly_image_quota=order.image_credits or 0,
+                        monthly_video_quota=order.video_credits or 0,
+                        new_end=order.period_end,
+                    )
                 elif order.type == OrderTypeEnum.credit:
-                    updated_credits = UserCredits.update_credits(order.user_id, order.credits)
+                    updated_credits = UserCredits.update_credits(
+                        order.user_id,
+                        order.credits or 0,
+                        image_delta=order.image_credits or 0,
+                        video_delta=order.video_credits or 0,
+                    )
                 elif order.type == OrderTypeEnum.upgrade:
-                    updated_credits = UserCredits.update_subscription(user_id=order.user_id, new_plan=order.plan_target,
-                                                                      monthly_quota=order.credits,
-                                                                      new_end=order.period_end)
+                    updated_credits = UserCredits.update_subscription(
+                        user_id=order.user_id,
+                        new_plan=order.plan_target,
+                        monthly_quota=order.credits or 0,
+                        monthly_image_quota=order.image_credits or 0,
+                        monthly_video_quota=order.video_credits or 0,
+                        new_end=order.period_end,
+                    )
 
                 if updated_credits:
                     log.info(
-                        f"Added {order.credits} credits to existing wallet for user {order.user_id}. New balance: {updated_credits.credit_balance}")
+                        f"Added credits to existing wallet for user {order.user_id}. New balances: text={updated_credits.credit_balance}, image={updated_credits.image_credit_balance}, video={updated_credits.video_credit_balance}")
                     try:
                         from open_webui.models.groups import Groups
                         group_name = str(order.plan_id).capitalize()
@@ -441,27 +466,54 @@ async def confirm_order(
                 credit_form = UserCreditsForm(
                     user_id=order.user_id,
                     plan_id=order.plan_id,
-                    credit_balance=order.credits,
-                    monthly_quota=order.credits,
-                    current_period_end=order.period_end
+                    credit_balance=order.credits or 0,
+                    image_credit_balance=order.image_credits or 0,
+                    video_credit_balance=order.video_credits or 0,
+                    monthly_quota=order.credits or 0,
+                    monthly_image_quota=order.image_credits or 0,
+                    monthly_video_quota=order.video_credits or 0,
+                    current_period_end=order.period_end,
                 )
                 new_credits = UserCredits.insert_new_user_credits(order.user_id, credit_form)
                 if new_credits:
-                    log.info(f"Created new credit wallet with {order.credits} credits for user {order.user_id}")
+                    log.info(f"Created new credit wallet for user {order.user_id}")
                 else:
                     log.error(f"Failed to create credit wallet for user {order.user_id}")
 
             # Record the credit allocation transaction
             try:
-                CreditTransactions.insert_transaction(
-                    order.user_id,
-                    CreditTransactionForm(
-                        tx_id=f"payment_{order.order_id}",
-                        delta=order.credits,  # Positive delta for credit addition
-                        usd_spend=0.0,  # This is a purchase, not usage
-                        model_name="plan_purchase"
+                if order.credits:
+                    CreditTransactions.insert_transaction(
+                        order.user_id,
+                        CreditTransactionForm(
+                            tx_id=f"payment_{order.order_id}_text",
+                            delta=order.credits,
+                            usd_spend=0.0,
+                            model_name="plan_purchase"
+                        )
                     )
-                )
+                if order.image_credits:
+                    CreditTransactions.insert_transaction(
+                        order.user_id,
+                        CreditTransactionForm(
+                            tx_id=f"payment_{order.order_id}_image",
+                            delta=order.image_credits,
+                            usd_spend=0.0,
+                            model_name="plan_purchase",
+                            resource_type="image"
+                        )
+                    )
+                if order.video_credits:
+                    CreditTransactions.insert_transaction(
+                        order.user_id,
+                        CreditTransactionForm(
+                            tx_id=f"payment_{order.order_id}_video",
+                            delta=order.video_credits,
+                            usd_spend=0.0,
+                            model_name="plan_purchase",
+                            resource_type="video"
+                        )
+                    )
                 log.info(f"Recorded credit allocation transaction for order {order_id}")
             except Exception as tx_error:
                 log.error(f"Failed to record credit transaction for order {order_id}: {tx_error}")
@@ -472,7 +524,7 @@ async def confirm_order(
             # Log error but don't fail the payment confirmation
             # Consider adding a flag to track credit allocation failures
     else:
-        log.info(f"No credits to allocate for order {order_id} (credits: {order.credits})")
+        log.info(f"No credits to allocate for order {order_id} (credits: {order.credits}, image_credits: {order.image_credits}, video_credits: {order.video_credits})")
 
     # 3. Track subscription completion analytics
     log.info(f"Subscription completed for user {order.user_id}, order {order_id}, plan {order.plan_id}, credits {order.credits}")

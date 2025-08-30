@@ -2,14 +2,18 @@ import { writable, derived } from 'svelte/store';
 import { getUserCredits } from '$lib/apis/billing';
 
 export interface UserCredits {
-	user_id: string;
-	plan_id: string;
-	credit_balance: number;
-	monthly_quota: number;
-	current_period_end?: number;
-	status: 'active' | 'grace' | 'expired';
-	updated_at: number;
-	plan?: {
+        user_id: string;
+        plan_id: string;
+        credit_balance: number;
+        image_credit_balance: number;
+        video_credit_balance: number;
+        monthly_quota: number;
+        monthly_image_quota: number;
+        monthly_video_quota: number;
+        current_period_end?: number;
+        status: 'active' | 'grace' | 'expired';
+        updated_at: number;
+        plan?: {
 		id: string;
 		name: string;
 		plan_type: string;
@@ -39,8 +43,8 @@ const TOAST_COOLDOWN = 60 * 60 * 1000; // 1 hour
 
 // Derived stores for computed values
 export const creditPercentage = derived(userCredits, ($credits) => {
-	if (!$credits || $credits.monthly_quota <= 0) return 0;
-	return Math.max(0, Math.min(100, ($credits.credit_balance / $credits.monthly_quota) * 100));
+        if (!$credits || $credits.monthly_quota <= 0) return 0;
+        return Math.max(0, Math.min(100, ($credits.credit_balance / $credits.monthly_quota) * 100));
 });
 
 export const isCreditsLow = derived(creditPercentage, ($percentage) => $percentage < 20);

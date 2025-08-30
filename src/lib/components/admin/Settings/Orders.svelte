@@ -15,19 +15,21 @@
 	const i18n: any = getContext('i18n');
 
 	// Type definitions
-	interface PaymentOrder {
-		order_id: string;
-		user_id: string;
-		user_name?: string;
-		user_email?: string;
-		amount_mmk: number;
-		credits?: number;
-		status: string;
-		created_at: number;
-		screenshot_path?: string;
-		plan_id?: string;
-		provider?: string;
-	}
+        interface PaymentOrder {
+                order_id: string;
+                user_id: string;
+                user_name?: string;
+                user_email?: string;
+                amount_mmk: number;
+                credits?: number;
+                image_credits?: number;
+                video_credits?: number;
+                status: string;
+                created_at: number;
+                screenshot_path?: string;
+                plan_id?: string;
+                provider?: string;
+        }
 
 	// Data and state
 	let orders: PaymentOrder[] = [];

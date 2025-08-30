@@ -183,12 +183,16 @@ export const declinePaymentOrder = async (token: string, orderId: string) => {
 
 // Admin: Create credit wallet for a user
 export const createUserCredits = async (
-	token: string,
-	userId: string,
-	planId: string,
-	creditBalance: number,
-	monthlyQuota: number,
-	currentPeriodEnd?: number
+        token: string,
+        userId: string,
+        planId: string,
+        creditBalance: number,
+        imageCreditBalance: number,
+        videoCreditBalance: number,
+        monthlyQuota: number,
+        monthlyImageQuota: number,
+        monthlyVideoQuota: number,
+        currentPeriodEnd?: number
 ) => {
 	const response = await fetch(`${WEBUI_API_BASE_URL}/billing/credits`, {
 		method: 'POST',
@@ -197,13 +201,17 @@ export const createUserCredits = async (
 			Authorization: `Bearer ${token}`
 		},
 		body: JSON.stringify({
-			user_id: userId,
-			plan_id: planId,
-			credit_balance: creditBalance,
-			monthly_quota: monthlyQuota,
-			current_period_end: currentPeriodEnd
-		})
-	});
+                        user_id: userId,
+                        plan_id: planId,
+                        credit_balance: creditBalance,
+                        image_credit_balance: imageCreditBalance,
+                        video_credit_balance: videoCreditBalance,
+                        monthly_quota: monthlyQuota,
+                        monthly_image_quota: monthlyImageQuota,
+                        monthly_video_quota: monthlyVideoQuota,
+                        current_period_end: currentPeriodEnd
+                })
+        });
 
 	if (!response.ok) {
 		throw new Error('Failed to create user credits');
