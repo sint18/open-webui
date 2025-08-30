@@ -24,6 +24,7 @@ from open_webui.utils.images.input_builders import build_model_input
 from open_webui.utils.images.image_tasks import enqueue_prediction_job
 from open_webui.models.users import Users
 from open_webui.models.billing import CreditTransactions, CreditTransactionForm, UserCredits
+from open_webui.utils.billing import requires_image_credits
 from open_webui.model_configs import MODEL_CONFIGS, AspectRatio, Resolution, StyleType, Background, OutputFormat, \
     ContentModeration
 from open_webui.telegram_bot import send_telegram_message
@@ -469,6 +470,7 @@ def load_url_image_data(url, headers=None):
 
 
 @router.post("/generations")
+@requires_image_credits
 async def image_generations(
         request: Request,
         form_data: GenerateImageForm,

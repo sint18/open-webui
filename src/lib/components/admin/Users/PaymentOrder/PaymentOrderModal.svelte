@@ -11,33 +11,39 @@
 	let users = [];
 	let selectedUserId = '';
 	let orderType = 'manual';
-	let planId = 'free';
-	let credits = 0;
-	let amount = 0;
-	let provider = 'manual';
-	let notes = '';
+        let planId = 'free';
+        let credits = 0;
+        let imageCredits = 0;
+        let videoCredits = 0;
+        let amount = 0;
+        let provider = 'manual';
+        let notes = '';
 
 	const dispatch = createEventDispatcher();
 
 	const initializeForm = (order) => {
 		if (order) {
-			selectedUserId = order.user_id;
-			orderType = order.type;
-			planId = order.plan_id;
-			credits = order.credits;
-			amount = order.amount_mmk;
-			provider = order.provider;
-			notes = order.notes;
-		} else {
-			selectedUserId = '';
-			orderType = 'manual';
-			planId = 'free';
-			credits = 0;
-			amount = 0;
-			provider = 'manual';
-			notes = '';
-		}
-	};
+                        selectedUserId = order.user_id;
+                        orderType = order.type;
+                        planId = order.plan_id;
+                        credits = order.credits;
+                        imageCredits = order.image_credits;
+                        videoCredits = order.video_credits;
+                        amount = order.amount_mmk;
+                        provider = order.provider;
+                        notes = order.notes;
+                } else {
+                        selectedUserId = '';
+                        orderType = 'manual';
+                        planId = 'free';
+                        credits = 0;
+                        imageCredits = 0;
+                        videoCredits = 0;
+                        amount = 0;
+                        provider = 'manual';
+                        notes = '';
+                }
+        };
 
 	$: initializeForm(order);
 
@@ -53,27 +59,31 @@
 	const handleSubmit = async () => {
 		try {
 			if (order) {
-				await updatePaymentOrder(localStorage.token, order.order_id, {
-					user_id: selectedUserId,
-					type: orderType,
-					plan_id: planId,
-					credits: credits,
-					amount_mmk: amount,
-					provider: provider,
-					notes: notes
-				});
-				toast.success('Payment order updated successfully');
-			} else {
-				await createManualPaymentOrder(localStorage.token, {
-					user_id: selectedUserId,
-					type: orderType,
-					plan_id: planId,
-					credits: credits,
-					amount_mmk: amount,
-					provider: provider,
-					notes: notes
-				});
-				toast.success('Payment order created successfully');
+                                await updatePaymentOrder(localStorage.token, order.order_id, {
+                                        user_id: selectedUserId,
+                                        type: orderType,
+                                        plan_id: planId,
+                                        credits: credits,
+                                        image_credits: imageCredits,
+                                        video_credits: videoCredits,
+                                        amount_mmk: amount,
+                                        provider: provider,
+                                        notes: notes
+                                });
+                                toast.success('Payment order updated successfully');
+                        } else {
+                                await createManualPaymentOrder(localStorage.token, {
+                                        user_id: selectedUserId,
+                                        type: orderType,
+                                        plan_id: planId,
+                                        credits: credits,
+                                        image_credits: imageCredits,
+                                        video_credits: videoCredits,
+                                        amount_mmk: amount,
+                                        provider: provider,
+                                        notes: notes
+                                });
+                                toast.success('Payment order created successfully');
 			}
 			dispatch('save');
 			close();
@@ -162,17 +172,41 @@
 				</select>
 			</div>
 
-			<div>
-				<label for="credits" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-					Credits
-				</label>
-				<input
-					type="number"
-					id="credits"
-					bind:value={credits}
-					class="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-				/>
-			</div>
+                        <div>
+                                <label for="credits" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Credits
+                                </label>
+                                <input
+                                        type="number"
+                                        id="credits"
+                                        bind:value={credits}
+                                        class="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                />
+                        </div>
+
+                        <div>
+                                <label for="imageCredits" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Image Credits
+                                </label>
+                                <input
+                                        type="number"
+                                        id="imageCredits"
+                                        bind:value={imageCredits}
+                                        class="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                />
+                        </div>
+
+                        <div>
+                                <label for="videoCredits" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Video Credits
+                                </label>
+                                <input
+                                        type="number"
+                                        id="videoCredits"
+                                        bind:value={videoCredits}
+                                        class="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                />
+                        </div>
 
 			<div>
 				<label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">

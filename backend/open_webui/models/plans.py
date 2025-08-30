@@ -50,6 +50,8 @@ class PlanModel(BaseModel):
     description: Optional[str] = None
     price: float
     credits: int
+    image_credits: int
+    video_credits: int
     plan_type: PlanTypeEnum
     features: Optional[Dict[str, Any]] = None
     is_active: bool
@@ -62,6 +64,8 @@ class PlanForm(BaseModel):
     description: Optional[str] = None
     price: float
     credits: int
+    image_credits: int = 0
+    video_credits: int = 0
     plan_type: PlanTypeEnum
     features: Optional[Dict[str, Any]] = None
     is_active: bool = True
