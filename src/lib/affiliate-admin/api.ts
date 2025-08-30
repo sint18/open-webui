@@ -177,7 +177,7 @@ export const listCommissions = async (
         end?: number;
         flagged?: boolean;
     } = {}
-): Promise<Commission[]> => {
+): Promise<{footer: string, items: Commission[]}> => {
     const query = new URLSearchParams();
     if (params.status) query.set('status', params.status);
     if (params.partner_id) query.set('partner_id', params.partner_id);
