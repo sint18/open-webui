@@ -13,3 +13,6 @@ export enum TTS_RESPONSE_SPLIT {
 	PARAGRAPHS = 'paragraphs',
 	NONE = 'none'
 }
+
+export type { Plan, PlanType } from './plans';
+export type { QuotaPolicy, Window } from './quota-policy';
