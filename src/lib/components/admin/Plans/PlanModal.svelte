@@ -31,10 +31,10 @@
 
   $: if (plan) {
     form = { ...plan };
-    featuresText = JSON.stringify(form.features ?? {}, null, 2);
+    featuresText = JSON.stringify(plan.features ?? {}, null, 2);
   } else {
     form = { ...defaultForm };
-    featuresText = JSON.stringify(form.features ?? {}, null, 2);
+    featuresText = JSON.stringify(defaultForm.features ?? {}, null, 2);
   }
 
   async function save() {
