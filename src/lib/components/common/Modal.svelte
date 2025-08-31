@@ -56,18 +56,21 @@ const sizeToWidth = (size: string): string => {
 		mounted = true;
 	});
 
-	$: if (show && modalElement) {
-		document.body.appendChild(modalElement);
-		focusTrap = FocusTrap.createFocusTrap(modalElement);
-		focusTrap.activate();
-		window.addEventListener('keydown', handleKeyDown);
-		document.body.style.overflow = 'hidden';
-	} else if (modalElement) {
-		focusTrap.deactivate();
-		window.removeEventListener('keydown', handleKeyDown);
-		document.body.removeChild(modalElement);
-		document.body.style.overflow = 'unset';
-	}
+        $: if (show && modalElement) {
+                document.body.appendChild(modalElement);
+                focusTrap = FocusTrap.createFocusTrap(modalElement, {
+                        allowOutsideClick: true,
+                        fallbackFocus: modalElement
+                });
+                focusTrap.activate();
+                window.addEventListener('keydown', handleKeyDown);
+                document.body.style.overflow = 'hidden';
+        } else if (modalElement) {
+                focusTrap.deactivate();
+                window.removeEventListener('keydown', handleKeyDown);
+                document.body.removeChild(modalElement);
+                document.body.style.overflow = 'unset';
+        }
 
 	onDestroy(() => {
 		show = false;
