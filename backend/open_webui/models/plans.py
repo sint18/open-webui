@@ -12,10 +12,10 @@ from sqlalchemy import (
     Integer,
     Float,
     Boolean,
-    Enum as SAEnum
+    Enum as SAEnum, JSON
 )
 
-from open_webui.internal.db import Base, JSONField, get_db
+from open_webui.internal.db import Base, get_db
 
 
 class PlanTypeEnum(enum.Enum):
@@ -36,7 +36,7 @@ class Plan(Base):
     image_credits = Column(Integer, nullable=False, default=0)
     video_credits = Column(Integer, nullable=False, default=0)
     plan_type = Column(SAEnum(PlanTypeEnum, name="plan_type_enum"), nullable = False, default = PlanTypeEnum.subscription)
-    features = Column(JSONField, nullable=True)
+    features = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(BigInteger, default=lambda: int(time.time()))
     updated_at = Column(BigInteger, default=lambda: int(time.time()), onupdate=lambda: int(time.time()))
@@ -53,7 +53,7 @@ class PlanModel(BaseModel):
     image_credits: int
     video_credits: int
     plan_type: PlanTypeEnum
-    features: Optional[Dict[str, Any]] = None
+    features: dict | None = None
     is_active: bool
     created_at: int
     updated_at: int
@@ -67,7 +67,7 @@ class PlanForm(BaseModel):
     image_credits: int = 0
     video_credits: int = 0
     plan_type: PlanTypeEnum
-    features: Optional[Dict[str, Any]] = None
+    features: dict | None = None
     is_active: bool = True
 
 

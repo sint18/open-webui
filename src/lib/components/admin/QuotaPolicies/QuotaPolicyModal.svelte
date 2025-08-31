@@ -257,7 +257,7 @@
         class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         value={new Date(form.effective_from * 1000).toISOString().slice(0, 16)}
         on:change={(e) => {
-          const value = (e.target as HTMLInputElement).value;
+          const value = e.target.value;
           form.effective_from = value ? dayjs(value).unix() : form.effective_from;
         }} />
     </div>
@@ -269,7 +269,7 @@
         class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         value={form.expires_at ? new Date(form.expires_at * 1000).toISOString().slice(0, 16) : ''}
         on:change={(e) => {
-          const value = (e.target as HTMLInputElement).value;
+          const value = e.target.value;
           form.expires_at = value ? dayjs(value).unix() : undefined;
         }} />
     </div>

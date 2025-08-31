@@ -2,7 +2,7 @@ import { WEBUI_API_BASE_URL } from '$lib/constants';
 import { handle, jsonHeaders } from '$lib/utils/api-helper';
 
 export const createQuotaPolicy = async (token: string, policy: object) => {
-    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policy`, {
+    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policies`, {
         method: 'POST',
         headers: jsonHeaders(token),
         body: JSON.stringify(policy),
@@ -11,7 +11,7 @@ export const createQuotaPolicy = async (token: string, policy: object) => {
 };
 
 export const getQuotaPolicyById = async (token: string, policyId: string) => {
-    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policy/${policyId}`, {
+    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policies/${policyId}`, {
         method: 'GET',
         headers: jsonHeaders(token),
     });
@@ -28,7 +28,7 @@ export const getQuotaPolicies = async (
     if (planId) params.append('plan_id', planId);
     const query = params.toString();
     const res = await fetch(
-        `${WEBUI_API_BASE_URL}/quota_policy${query ? `?${query}` : ''}`,
+        `${WEBUI_API_BASE_URL}/quota_policies${query ? `?${query}` : ''}`,
         {
             method: 'GET',
             headers: jsonHeaders(token),
@@ -42,7 +42,7 @@ export const updateQuotaPolicy = async (
     policyId: string,
     policy: object,
 ) => {
-    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policy/${policyId}`, {
+    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policies/${policyId}`, {
         method: 'PUT',
         headers: jsonHeaders(token),
         body: JSON.stringify(policy),
@@ -51,7 +51,7 @@ export const updateQuotaPolicy = async (
 };
 
 export const deleteQuotaPolicy = async (token: string, policyId: string) => {
-    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policy/${policyId}`, {
+    const res = await fetch(`${WEBUI_API_BASE_URL}/quota_policies/${policyId}`, {
         method: 'DELETE',
         headers: jsonHeaders(token),
     });
