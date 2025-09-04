@@ -47,30 +47,34 @@
     selectedModels = ['*'];
   }
 
-  $: if (policy) {
-    form = { ...policy };
-    userInput = policy.user_id ?? '';
-    const [type, value] = (policy.resource_pattern || '').split(':');
-    resourceType = (type as any) || 'model';
-    if (resourceType === 'model') {
-      modelValue = value || '*';
-    } else if (resourceType === 'upload') {
-      uploadValue = value || '';
-    } else if (resourceType === 'image') {
-      imageValue = value || '';
+  function setForm(p: QuotaPolicy | null) {
+    if (p) {
+      form = { ...p };
+      userInput = p.user_id ?? '';
+      const [type, value] = (p.resource_pattern || '').split(':');
+      resourceType = (type as any) || 'model';
+      if (resourceType === 'model') {
+        modelValue = value || '*';
+      } else if (resourceType === 'upload') {
+        uploadValue = value || '';
+      } else if (resourceType === 'image') {
+        imageValue = value || '';
+      }
+      bulkMode = false;
+      selectedModels = [];
+    } else {
+      form = { ...defaultForm };
+      userInput = '';
+      resourceType = 'model';
+      modelValue = '*';
+      uploadValue = '';
+      imageValue = '';
+      bulkMode = false;
+      selectedModels = [];
     }
-    bulkMode = false;
-    selectedModels = [];
-  } else {
-    form = { ...defaultForm };
-    userInput = '';
-    resourceType = 'model';
-    modelValue = '*';
-    uploadValue = '';
-    imageValue = '';
-    bulkMode = false;
-    selectedModels = [];
   }
+
+  $: setForm(policy);
 
   async function save() {
     try {
