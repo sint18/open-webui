@@ -50,6 +50,18 @@ IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 router = APIRouter()
 
 
+class PredictionModelInfo(BaseModel):
+    id: str
+    schema: Dict[str, Any] | None = None
+    file_fields: List[str] = []
+    single_file_fields: List[str] = []
+    price_per_image_usd: float | None = None
+
+
+class PredictionJobResponse(BaseModel):
+    job_id: str
+    status: str
+
 @router.get("/config")
 async def get_config(request: Request, user=Depends(get_admin_user)):
     return {
@@ -684,7 +696,25 @@ async def image_generations(
         raise HTTPException(status_code=400, detail=ERROR_MESSAGES.DEFAULT)
 
 
-@router.post("/predictions")
+@router.get("/predictions/models", response_model=list[PredictionModelInfo])
+def get_prediction_models():
+    """Return available prediction models with their schemas."""
+    models: List[PredictionModelInfo] = []
+    for slug, cfg in MODEL_CONFIGS.items():
+        schema = cfg.get("schema")
+        models.append(
+            PredictionModelInfo(
+                id=slug,
+                schema=schema.model_json_schema() if schema else None,
+                file_fields=cfg.get("file_fields", []),
+                single_file_fields=cfg.get("single_file_fields", []),
+                price_per_image_usd=cfg.get("price_per_image_usd"),
+            )
+        )
+    return models
+
+
+@router.post("/predictions", response_model=PredictionJobResponse)
 async def create_prediction(
         # ————————————————————————————— Scalars as Form(...) —————————————————————————————
         model: str = Form(..., description="Replicate model slug"),
@@ -835,7 +865,7 @@ async def create_prediction(
     )
     log.info(f"Enqueued image job {job.id} for model {model_slug}")
     enqueue_prediction_job(job.id, built_input, user)
-    return {"job_id": job.id, "status": job.status.value}
+    return PredictionJobResponse(job_id=job.id, status=job.status.value)
 
 
 def format_sse(data: str, event: str = None) -> str:
