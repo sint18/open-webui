@@ -1,7 +1,7 @@
 import enum
 import time
 import uuid
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List, Dict, Any, Literal, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import (
@@ -14,9 +14,12 @@ from sqlalchemy import (
     Boolean,
     Enum as SAEnum, JSON
 )
+from sqlalchemy.orm import relationship, Mapped
 
 from open_webui.internal.db import Base, get_db
 
+if TYPE_CHECKING:
+    from open_webui.models.billing import UserCredits, PaymentOrder
 
 class PlanTypeEnum(enum.Enum):
     subscription = "subscription"

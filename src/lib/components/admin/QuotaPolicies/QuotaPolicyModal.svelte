@@ -10,6 +10,8 @@
   import Selector from '$lib/components/common/Selector.svelte';
   import Search from '$lib/components/icons/Search.svelte';
   import dayjs from 'dayjs';
+  import ModelSelector from '$lib/components/chat/ModelSelector.svelte';
+  import Combobox from '$lib/components/common/Combobox.svelte';
 
   export let show = false;
   export let policy: QuotaPolicy | null = null;
@@ -28,12 +30,14 @@
     expires_at: undefined
   };
 
+  type ResourceType = 'model' | 'upload' | 'image';
+
   let form: QuotaPolicy = { ...defaultForm };
   let userInput = '';
   let bulkMode = false;
   let selectedModels: string[] = [];
 
-  let resourceType: 'model' | 'upload' | 'image' = 'model';
+  let resourceType: ResourceType = 'model';
   let modelValue = '*';
   let uploadValue = '';
   let imageValue = '';
@@ -212,7 +216,8 @@
       {:else}
         <div class="space-y-2">
           <label class="block text-sm text-gray-700 dark:text-gray-300">Model</label>
-          <Selector bind:value={modelValue} items={modelItems} placeholder="Select a model" searchPlaceholder="Search models" />
+<!--          <Selector bind:value={modelValue} items={modelItems} placeholder="Select a model" searchPlaceholder="Search models" />-->
+          <Selector bind:selectedModels={selectedModels} showSetDefault={false}></Selector>
         </div>
       {/if}
     {:else if resourceType === 'upload'}

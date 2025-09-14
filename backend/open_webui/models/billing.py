@@ -1,7 +1,7 @@
 import logging
 import time
 import uuid
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import enum
 import datetime
 
@@ -19,7 +19,12 @@ from sqlalchemy import (
     JSON,
     ForeignKey
 )
+from sqlalchemy.orm import relationship, foreign, Mapped
 from fastapi import HTTPException, status
+
+if TYPE_CHECKING:
+    from open_webui.models.plans import Plan
+    from open_webui.models.users import User
 
 ####################
 # Logger setup
@@ -60,8 +65,8 @@ class PaymentStatusEnum(enum.Enum):
 class UserCredit(Base):
     __tablename__ = "user_credit"
 
-    user_id = Column(String, primary_key=True)
-    plan_id = Column(String, nullable=False)
+    user_id = Column(String, ForeignKey("user.id"), primary_key=True)
+    plan_id = Column(String, ForeignKey("plan.id"), nullable=False)
     credit_balance = Column(BigInteger, nullable=False)
     image_credit_balance = Column(BigInteger, nullable=False, default=0)
     video_credit_balance = Column(BigInteger, nullable=False, default=0)
@@ -71,6 +76,10 @@ class UserCredit(Base):
     current_period_end = Column(BigInteger, nullable=True)
     status = Column(SAEnum(StatusEnum, name="status_enum"), nullable=False, default=StatusEnum.active)
     updated_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
+
+    # Relationships used by admin forms
+    user: Mapped["User"] = relationship()
+    plan: Mapped["Plan"] = relationship()
 
 
 class CreditTransaction(Base):
@@ -90,11 +99,11 @@ class CreditTransaction(Base):
 class PaymentOrder(Base):
     __tablename__ = "payment_order"
 
-    order_id = Column(String, primary_key=True)
-    user_id = Column(String, nullable=False)
+    order_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("user.id"), nullable=False)
     type = Column(SAEnum(OrderTypeEnum, name="order_type_enum"), nullable=False)
     plan_target = Column(Text, nullable=True)
-    plan_id = Column(String, nullable=True)
+    plan_id = Column(String, ForeignKey("plan.id"), nullable=True)
     credits = Column(BigInteger, nullable=True)
     image_credits = Column(BigInteger, nullable=True)
     video_credits = Column(BigInteger, nullable=True)
@@ -109,6 +118,10 @@ class PaymentOrder(Base):
     created_at = Column(BigInteger, nullable=False, default=lambda: int(time.time()))
     paid_at = Column(BigInteger, nullable=True)
     notes = Column(Text, nullable=True)
+
+    # Relationships for admin convenience
+    user: Mapped["User"] = relationship()
+    plan: Mapped["Plan"] = relationship()
 
 
 class PaymentOrderAudit(Base):

@@ -1,4 +1,5 @@
 import time
+import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, Literal, List
 import logging
@@ -15,6 +16,7 @@ from sqlalchemy import (
 )
 
 from open_webui.internal.db import Base, get_db
+from sqlalchemy.orm import relationship
 from open_webui.models.users import Users
 from open_webui.models.billing import UserCredits
 
@@ -25,7 +27,7 @@ log = logging.getLogger(__name__)
 class QuotaPolicy(Base):
     __tablename__ = "quota_policy"
 
-    id = Column(String, primary_key=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("user.id"), nullable=True)
     plan_id = Column(String, ForeignKey("plan.id"), nullable=True)
     resource_pattern = Column(String, nullable=False)  # e.g., model:o3 or model:*
@@ -33,6 +35,10 @@ class QuotaPolicy(Base):
     window = Column(String, nullable=False, default="day")
     effective_from = Column(BigInteger, default=lambda: int(time.time()))
     expires_at = Column(BigInteger)
+
+    # Relationships for admin views
+    user = relationship("User")
+    plan = relationship("Plan")
 
 
 class QuotaPolicyModel(BaseModel):

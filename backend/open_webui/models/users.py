@@ -1,17 +1,18 @@
 import time
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, List
+
+from sqlalchemy.orm import relationship, Mapped
 
 from open_webui.internal.db import Base, JSONField, get_db
-
-
 from open_webui.models.chats import Chats
 from open_webui.models.groups import Groups
-
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import BigInteger, Column, String, Text
 from sqlalchemy import or_
 
+if TYPE_CHECKING:
+    from open_webui.models.billing import PaymentOrder
 
 ####################
 # User DB Schema

@@ -46,6 +46,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response, StreamingResponse
 
+from admin.registry import build_admin
 from open_webui.utils import logger
 from open_webui.utils.audit import AuditLevel, AuditLoggingMiddleware
 from open_webui.utils.logger import start_logger
@@ -1195,6 +1196,8 @@ app.include_router(
     prefix="/api/v1/admin/affiliate",
     tags=["admin"],
 )
+
+build_admin().mount_to(app)
 
 try:
     audit_level = AuditLevel(AUDIT_LOG_LEVEL)
