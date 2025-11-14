@@ -1,0 +1,87 @@
+services:
+  labyai:
+    image: 'ghcr.io/sint18/open-webui:latest'
+    networks: [shared-network]
+    volumes:
+      - 'labyai-data:/app/backend/data'
+    environment:
+      - SERVICE_FQDN_OPENWEBUI_8080
+      - ANONYMIZED_TELEMETRY
+      - DATABASE_URL
+      - DO_NOT_TRACK
+      - OPENAI_API_BASE_URL
+      - OPENAI_API_KEY
+      - SCARF_NO_ANALYTICS
+      - WEBUI_NAME
+      - ENV
+      - ENABLE_FORWARD_USER_INFO_HEADERS
+      - LITELLM_URL
+      - LITELLM_MASTER_KEY
+      - ENABLE_OAUTH_SIGNUP
+      - OAUTH_MERGE_ACCOUNTS_BY_EMAIL
+      - OAUTH_UPDATE_PICTURE_ON_LOGIN
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - OPENID_PROVIDER_URL
+      - FREE_SIGNUP_CREDITS
+      - BRAVE_SEARCH_API_KEY
+      - TELEGRAM_ENABLED
+      - TELEGRAM_BOT_TOKEN
+    healthcheck:
+      test: ['CMD','curl','-f','http://127.0.0.1:8080']
+      interval: 5s
+      timeout: 30s
+      retries: 10
+    labels:
+      # ---- Serve the real app on chat.labyai.app ----
+      - traefik.http.routers.chat.rule=Host(`chat.labyai.app`)
+      - traefik.http.routers.chat.entryPoints=https
+
+      # ---- 301 everything from beta.labyai.app ----
+      - traefik.http.routers.beta-redirect.rule=Host(`beta.labyai.app`)
+      - traefik.http.routers.beta-redirect.entryPoints=https
+      - traefik.http.routers.beta-redirect.middlewares=beta-to-chat
+      - traefik.http.middlewares.beta-to-chat.redirectregex.regex=^(https?://)?beta\.labyai\.app(.*)
+      - traefik.http.middlewares.beta-to-chat.redirectregex.replacement=https://chat.labyai.app${2}
+      - traefik.http.middlewares.beta-to-chat.redirectregex.permanent=true
+
+  builder:
+    image: ghcr.io/sint18/labyai-builder:latest
+    networks: [shared-network]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/labyai/sessions:/var/lib/labyai/sessions
+    environment:
+      - PREVIEW_DOMAIN=chat.labyai.app
+      - PREVIEW_SCHEME=https
+      - ENTRYPOINT_NAME=https
+      - ROUTING_MODE=path
+      - PATH_PREFIX=/p
+      - DOCKER_NETWORK=shared-network
+      - RUNNER_IMAGE=ghcr.io/sint18/streamlit-runner:latest
+      - DEFAULT_TTL_MIN=45
+      - CPU_LIMIT=1
+      - MEM_LIMIT=1g
+      - CACHE_VOLUME=wheels-cache
+      - SESSIONS_ROOT=/var/lib/labyai/sessions
+      # Optional hardening:
+      # - BUILDER_API_KEY=changeme
+      # - ALLOW_ORIGINS=https://chat.labyai.app
+    read_only: true
+    tmpfs:
+      - /tmp:size=200m,noexec,nosuid
+    healthcheck:
+      test: ['CMD','curl','-f','http://127.0.0.1:8000/health']
+      interval: 5s
+      timeout: 30s
+      retries: 10
+    # (no public Traefik labels for builder)
+
+volumes:
+  labyai-data:
+    external: true
+  wheels-cache: {}
+
+networks:
+  shared-network:
+    external: true

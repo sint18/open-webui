@@ -1,0 +1,22 @@
+services:
+  tika:
+    image: 'apache/tika:latest-full'
+    container_name: tika
+    networks:
+      - shared-network
+    environment:
+      JAVA_TOOL_OPTIONS: '-Xms256m -Xmx1024m -Djava.awt.headless=true'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - '-fsS'
+        - 'http://localhost:9998/tika'
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+networks:
+  shared-network:
+    external: true
